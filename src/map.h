@@ -9,6 +9,8 @@
 #include "glbasimac/glbi_engine.hpp"
 #include <string>
 #include <memory>
+#include <map> // Added to include std::map
+#include <vector> // Added to include std::vector (used for private member blocks)
 
 // Forward declaration of the GLBI_Engine class
 namespace glbasimac {
@@ -28,6 +30,12 @@ public:
 
     // Place a block at given grid coordinates
     void placeBlock(GLuint textureID, int x, int y);
+
+    // Place multiple blocks based on a map of coordinates to texture IDs
+    void placeBlocks(const std::map<std::pair<int, int>, GLuint>& blocksToPlace);
+
+    // Place a texture on all blocks in a rectangular area
+    void placeBlockArea(GLuint textureID, int x1, int y1, int x2, int y2);
 
     // Draw all blocks
     void drawBlocks(float startX, float endX, float startY, float endY, int gridSize);

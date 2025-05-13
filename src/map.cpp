@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <algorithm>   // For std::replace
 #include <string>
+#include <map>
 
 // For cross-platform directory checking
 #ifdef _WIN32
@@ -123,6 +124,27 @@ void Map::placeBlock(GLuint textureID, int x, int y) {
     newBlock.x = x;
     newBlock.y = y;
     blocks.push_back(newBlock);
+}
+
+void Map::placeBlocks(const std::map<std::pair<int, int>, GLuint>& blocksToPlace) {
+    for (const auto& pair : blocksToPlace) {
+        const std::pair<int, int>& coords = pair.first;
+        GLuint textureID = pair.second;
+        placeBlock(textureID, coords.first, coords.second);
+    }
+}
+
+void Map::placeBlockArea(GLuint textureID, int x1, int y1, int x2, int y2) {
+    int startX = std::min(x1, x2);
+    int endX = std::max(x1, x2);
+    int startY = std::min(y1, y2);
+    int endY = std::max(y1, y2);
+
+    for (int iy = startY; iy <= endY; ++iy) {
+        for (int ix = startX; ix <= endX; ++ix) {
+            placeBlock(textureID, ix, iy);
+        }
+    }
 }
 
 void Map::drawBlocks(float startX, float endX, float startY, float endY, int gridSize) {

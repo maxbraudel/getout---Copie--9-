@@ -69,9 +69,17 @@ int main() {
 	
 	// Place a sand block at position (0,0) - top left corner
 	gameMap.placeBlock(gameMap.sandTexture, 0, 0);
-	gameMap.placeBlock(gameMap.sandTexture, 1, 0);
-	gameMap.placeBlock(gameMap.sandTexture, 2, 0);
-	gameMap.placeBlock(gameMap.sandTexture, 3, 0);
+
+	// Example usage of placeBlocks
+	std::map<std::pair<int, int>, GLuint> blocksToPlace;
+	blocksToPlace[{1, 0}] = gameMap.sandTexture;
+	blocksToPlace[{0, 1}] = gameMap.sandTexture;
+	blocksToPlace[{1, 1}] = gameMap.sandTexture;
+	blocksToPlace[{5, 5}] = gameMap.sandTexture;
+	blocksToPlace[{GRID_SIZE -1, GRID_SIZE -1}] = gameMap.sandTexture; // Bottom-right corner
+
+	gameMap.placeBlockArea(gameMap.sandTexture, 0, 0, GRID_SIZE -1, GRID_SIZE -1); // Place a block area from (2,2) to (4,4)
+	gameMap.placeBlocks(blocksToPlace);
 
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
