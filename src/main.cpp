@@ -18,6 +18,9 @@ static float gridLineWidth = 1.0f;
 static int windowWidth = 1024;
 static int windowHeight = 1024;
 
+// Add this boolean variable to control grid line visibility
+static bool showGridLines = false;
+
 /* OpenGL Engine */
 GLBI_Engine myEngine;
 
@@ -115,27 +118,29 @@ int main() {
         float endY = 1.0f - offsetY;
         
         // Draw grid
-        myEngine.setFlatColor(1.0f, 1.0f, 1.0f); // White color for grid lines
-		
-		// Draw the grid lines
-		glLineWidth(gridLineWidth);
-		
-		// Draw vertical lines
-		glBegin(GL_LINES);
-		for (int i = 0; i <= GRID_SIZE; i++) {
-			float ratio = (float)i / GRID_SIZE;
-			float x = startX + ratio * (endX - startX);
-			glVertex2f(x, startY);
-			glVertex2f(x, endY);
-		}
-				// Draw horizontal lines
-		for (int i = 0; i <= GRID_SIZE; i++) {
-			float ratio = (float)i / GRID_SIZE;
-			float y = startY + ratio * (endY - startY);
-			glVertex2f(startX, y);
-			glVertex2f(endX, y);
-		}
-		glEnd();
+        if (showGridLines) {
+            myEngine.setFlatColor(1.0f, 1.0f, 1.0f); // White color for grid lines
+            
+            // Draw the grid lines
+            glLineWidth(gridLineWidth);
+            
+            // Draw vertical lines
+            glBegin(GL_LINES);
+            for (int i = 0; i <= GRID_SIZE; i++) {
+                float ratio = (float)i / GRID_SIZE;
+                float x = startX + ratio * (endX - startX);
+                glVertex2f(x, startY);
+                glVertex2f(x, endY);
+            }
+                    // Draw horizontal lines
+            for (int i = 0; i <= GRID_SIZE; i++) {
+                float ratio = (float)i / GRID_SIZE;
+                float y = startY + ratio * (endY - startY);
+                glVertex2f(startX, y);
+                glVertex2f(endX, y);
+            }
+            glEnd();
+        }
 		
 		// Draw the blocks (textured squares) on the grid
 		gameMap.drawBlocks(startX, endX, startY, endY, GRID_SIZE);
