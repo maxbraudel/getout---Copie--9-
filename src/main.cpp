@@ -13,7 +13,7 @@ static const double FRAMERATE_IN_SECONDS = 1. / 60.; // Changed to 60 FPS
 static float aspectRatio = 1.0f;
 
 /* Grid properties */
-static const int GRID_SIZE = 20;
+static const int GRID_SIZE = 18;
 static float gridLineWidth = 1.0f;
 static int windowWidth = 1024;
 static int windowHeight = 1024;
@@ -73,17 +73,20 @@ int main() {
 	// Place a sand block at position (0,0) - top left corner
 
 	// Example usage of placeBlocks
-	std::map<std::pair<int, int>, GLuint> blocksToPlace;
-	blocksToPlace[{1, 0}] = gameMap.getTexture(TextureType::SAND);
-	blocksToPlace[{0, 1}] = gameMap.getTexture(TextureType::SAND);
-	blocksToPlace[{1, 1}] = gameMap.getTexture(TextureType::SAND);
-	blocksToPlace[{5, 5}] = gameMap.getTexture(TextureType::SAND);
-	// blocksToPlace[{GRID_SIZE -1, GRID_SIZE -1}] = gameMap.getTexture(TextureType::SAND); // Bottom-right corner
+	std::map<std::pair<int, int>, TextureName> blocksToPlace; // Changed GLuint to TextureName
+	blocksToPlace[{1, 0}] = TextureName::SAND;
+	blocksToPlace[{0, 1}] = TextureName::SAND;
+	blocksToPlace[{1, 1}] = TextureName::SAND;
+	blocksToPlace[{5, 5}] = TextureName::SAND;
+	// blocksToPlace[{GRID_SIZE -1, GRID_SIZE -1}] = TextureName::SAND; // Bottom-right corner
 
-	gameMap.placeBlockArea(gameMap.getTexture(TextureType::WATER), 0, 0, GRID_SIZE -1, GRID_SIZE -1); // Place a block area from (2,2) to (4,4)
-	gameMap.placeBlocks(blocksToPlace);
+	// Place an area of animated water
+	
+	gameMap.placeBlockArea(TextureName::WATER_ANIMATED, 0, 0,GRID_SIZE -1, GRID_SIZE -1); // Right Column
 
-	gameMap.placeBlock(gameMap.getTexture(TextureType::SAND), 0, 0);
+	gameMap.placeBlocks(blocksToPlace); // Apply the map of blocks
+
+	gameMap.placeBlock(TextureName::SAND, 0, 0); // Overwrite top-left with sand again
 
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
@@ -143,7 +146,13 @@ int main() {
         }
 		
 		// Draw the blocks (textured squares) on the grid
-		gameMap.drawBlocks(startX, endX, startY, endY, GRID_SIZE);
+		// Get time for animations
+        double currentTime = glfwGetTime();
+        static double lastTime = currentTime;
+        double deltaTime = currentTime - lastTime;
+        lastTime = currentTime;
+
+		gameMap.drawBlocks(startX, endX, startY, endY, GRID_SIZE, deltaTime);
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);

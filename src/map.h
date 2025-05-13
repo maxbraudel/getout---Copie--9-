@@ -21,9 +21,29 @@ namespace glbasimac {
 // To add a new texture:
 // 1. Add its type here (e.g., DIRT, STONE)
 // 2. Add its file path in Map::init() in map.cpp
-enum class TextureType {
+enum class TextureName {
     SAND,
-    WATER
+    WATER,
+    WATER_ANIMATED // Added new animated texture
+};
+
+// Enum for texture animation type
+enum class TextureAnimationType {
+    STATIC,
+    ANIMATED
+};
+
+// Struct to hold all details for a texture
+struct TextureInfo {
+    std::string path;
+    TextureAnimationType animType = TextureAnimationType::STATIC;
+    float animationSpeed = 0.0f; // FPS for animated textures
+    GLuint textureID = 0;
+    int frameCount = 1;          // Total frames in the sprite sheet
+    float currentFrame = 0.0f;   // Current frame index for animation
+    int frameHeight = 16;        // Height of a single frame, assuming 16px
+    int textureWidth = 0;
+    int textureHeight = 0;
 };
 
 class Map {
@@ -34,33 +54,33 @@ public:
     // Initialize the map and load all configured textures
     bool init(glbasimac::GLBI_Engine& engine);
 
-    // Place a block at given grid coordinates using a pre-loaded texture ID
-    void placeBlock(GLuint textureID, int x, int y);
+    // Place a block at given grid coordinates using its TextureName
+    void placeBlock(TextureName name, int x, int y);
 
-    // Place multiple blocks based on a map of coordinates to texture IDs
-    void placeBlocks(const std::map<std::pair<int, int>, GLuint>& blocksToPlace);
+    // Place multiple blocks based on a map of coordinates to TextureNames
+    void placeBlocks(const std::map<std::pair<int, int>, TextureName>& blocksToPlace);
 
-    // Place a texture on all blocks in a rectangular area
-    void placeBlockArea(GLuint textureID, int x1, int y1, int x2, int y2);
+    // Place a texture on all blocks in a rectangular area using its TextureName
+    void placeBlockArea(TextureName name, int x1, int y1, int x2, int y2);
 
-    // Draw all blocks
-    void drawBlocks(float startX, float endX, float startY, float endY, int gridSize);
+    // Draw all blocks, deltaTime for animations
+    void drawBlocks(float startX, float endX, float startY, float endY, int gridSize, double deltaTime);
 
     // Public method to get a loaded texture ID by its type
-    GLuint getTexture(TextureType type) const;
+    GLuint getTexture(TextureName type) const;
     
 private:
     // Internal helper to load a single texture from file
-    bool loadTexture(const std::string& path, GLuint& textureID);
+    bool loadTexture(const std::string& path, GLuint& textureID, int& width, int& height);
 
     struct Block {
-        GLuint textureID;
+        TextureName name; // Store TextureName instead of GLuint
         int x;
         int y;
     };
 
     std::vector<Block> blocks;
-    std::map<TextureType, GLuint> textureIDs; // Stores loaded texture IDs mapped by TextureType
+    std::map<TextureName, TextureInfo> textureDetails; // Stores detailed info for each texture
     glbasimac::GLBI_Engine* enginePtr;
 };
 
