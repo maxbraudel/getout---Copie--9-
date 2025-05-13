@@ -22,14 +22,17 @@
 // Global instance of the Map class
 Map gameMap;
 
-Map::Map() : enginePtr(nullptr), sandTexture(0) {
+Map::Map() : enginePtr(nullptr) { // sandTexture removed from initializer list
 }
 
 Map::~Map() {
-    // Clean up textures
-    if (sandTexture > 0) {
-        glDeleteTextures(1, &sandTexture);
+    // Clean up all loaded textures
+    for (auto const& [key, val] : textureIDs) {
+        if (val > 0) {
+            glDeleteTextures(1, &val);
+        }
     }
+    textureIDs.clear();
 }
 
 bool Map::init(glbasimac::GLBI_Engine& engine) {
@@ -41,27 +44,40 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
         std::cout << "Current working directory: " << cwd << std::endl;
     }
     
-    // Use absolute path directly for the sand texture
-    std::string textureFile = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\sand.png";
-    
-    std::cout << "Using absolute texture path: " << textureFile << std::endl;
-    
-    // Check if the file exists
-    std::ifstream testFile(textureFile.c_str());
-    if (testFile.good()) {
-        std::cout << "✓ Texture file found at: " << textureFile << std::endl;
-        testFile.close();
-    } else {
-        std::cerr << "✗ Texture file NOT found at absolute path!" << std::endl;
-        return false;    }
-    
-    // Load the texture directly using the absolute path
-    if (!loadTexture(textureFile, sandTexture)) {
-        std::cerr << "Failed to load sand texture!" << std::endl;
-        return false;
+    // Define texture paths
+    // To add a new texture: Add its TextureType to the enum in map.h
+    // and then add its file path mapping here.
+    std::map<TextureType, std::string> texturePaths = {
+        {TextureType::SAND, "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\sand.png"},
+        {TextureType::WATER, "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water.png"},
+
+    };
+
+    for (const auto& pair : texturePaths) {
+        TextureType type = pair.first;
+        const std::string& path = pair.second;
+        GLuint textureID = 0;
+
+        std::cout << "Attempting to load texture for type " << static_cast<int>(type) << " from: " << path << std::endl;
+        std::ifstream testFile(path.c_str());
+        if (!testFile.good()) {
+            std::cerr << "✗ Texture file NOT found at: " << path << std::endl;
+            // Decide if one missing texture should halt all initialization
+            // For now, we'll print an error and continue, but the textureID will be 0.
+            // return false; // Uncomment to make it a fatal error
+        } else {
+            testFile.close();
+            std::cout << "✓ Texture file found at: " << path << std::endl;
+        }
+        
+        if (!loadTexture(path, textureID)) {
+            std::cerr << "Failed to load texture: " << path << std::endl;
+            // return false; // Uncomment to make it a fatal error
+        }
+        textureIDs[type] = textureID; // Store the loaded (or 0 if failed) texture ID
     }
     
-    std::cout << "Map initialized successfully" << std::endl;
+    std::cout << "Map initialized. Loaded " << textureIDs.size() << " texture configurations." << std::endl;
     return true;
 }
 
@@ -115,6 +131,18 @@ bool Map::loadTexture(const std::string& path, GLuint& textureID) {
         std::cerr << "Reason: " << stbi_failure_reason() << std::endl;
         return false;
     }
+}
+
+GLuint Map::getTexture(TextureType type) const {
+    auto it = textureIDs.find(type);
+    if (it != textureIDs.end()) {
+        return it->second;
+    }
+    // Return a default/error value or throw an exception if texture not found
+    std::cerr << "Texture type " << static_cast<int>(type) << " not found!" << std::endl;
+    // You might want to throw an exception here to make it a more critical error
+    // throw std::runtime_error("Texture type not found: " + std::to_string(static_cast<int>(type)));
+    return 0; // Or some default texture ID if you have one
 }
 
 void Map::placeBlock(GLuint textureID, int x, int y) {
@@ -180,8 +208,8 @@ void Map::drawBlocks(float startX, float endX, float startY, float endY, int gri
         float x = startX + block.x * cellWidth;
         float y = startY + (gridSize - block.y - 1) * cellHeight; // Flip y-coordinate for OpenGL
         
-        std::cout << "Drawing block at grid (" << block.x << "," << block.y << ")" << std::endl;
-        std::cout << "Translated to coords (" << x << "," << y << ")" << std::endl;
+        // std::cout << "Drawing block at grid (" << block.x << "," << block.y << ")" << std::endl;
+        // std::cout << "Translated to coords (" << x << "," << y << ")" << std::endl;
         
         // Bind the texture
         glBindTexture(GL_TEXTURE_2D, block.textureID);
