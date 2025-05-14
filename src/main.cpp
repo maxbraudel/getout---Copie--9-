@@ -6,6 +6,7 @@
 #include <vector>
 #include "map.h"
 #include "terrainGeneration.h"
+#include "elementsOnMap.h" // Added include for element management
 #include <ctime> // For time(0) to seed random number generator
 
 
@@ -81,6 +82,13 @@ int main() {
 		return -1;
 	}
 	
+	// Initialize the elements manager
+	if (!elementsManager.init(myEngine)) {
+		std::cerr << "Failed to initialize elements manager!" << std::endl;
+		glfwTerminate();
+		return -1;
+	}
+	
 	// Place a sand block at position (0,0) - top left corner
 
 	// Example usage of placeBlocks
@@ -103,7 +111,11 @@ int main() {
 
 	std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 1.0f);
 	gameMap.placeBlocks(generatedMap);
-// ...
+
+	// Place decorative elements on the map
+	elementsManager.placeElement("bush1", ElementTextureName::BUSH, 1.0f, 10.0f, 10.0f); // Centered in cell (0,0)
+
+	elementsManager.placeElement("bush2", ElementTextureName::BUSH, 0.75f, 5.2f, 3.8f); // Another bush with different scale
 
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
@@ -161,15 +173,22 @@ int main() {
             }
             glEnd();
         }
-		
-		// Draw the blocks (textured squares) on the grid
+				// Draw the blocks (textured squares) on the grid
 		// Get time for animations
         double currentTime = glfwGetTime();
         static double lastTime = currentTime;
         double deltaTime = currentTime - lastTime;
         lastTime = currentTime;
 
+		// Draw the map blocks
 		gameMap.drawBlocks(startX, endX, startY, endY, GRID_SIZE, deltaTime);
+		
+		// Reset to default state before drawing elements
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		
+		// Draw elements on top of the map tiles (freely placed decorations)
+		elementsManager.drawElements(startX, endX, startY, endY, GRID_SIZE);
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
