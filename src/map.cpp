@@ -54,7 +54,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     //         "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water.png", 
     //         TextureAnimationType::STATIC
     //     }},
-    //     {TextureName::WATER_ANIMATED, {
+    //     {TextureName::WATER_0, {
     //         "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\waterAnimated.png", 
     //         TextureAnimationType::ANIMATED, 
     //         10.0f // animationSpeed FPS
@@ -64,22 +64,68 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     // C++11 compatible way to initialize the map
     std::map<TextureName, TextureInfo> textureConfigs;
 
+    TextureInfo grassInfo;
+    grassInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass.png";
+    grassInfo.animType = TextureAnimationType::STATIC;
+    textureConfigs[TextureName::GRASS] = grassInfo;
+
     TextureInfo sandInfo;
     sandInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\sand.png";
     sandInfo.animType = TextureAnimationType::STATIC;
     textureConfigs[TextureName::SAND] = sandInfo;
 
-    TextureInfo waterInfo;
-    waterInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water.png";
+    TextureInfo waterInfo; // For non-animated water, if you still have it
+    waterInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water.png"; // Assuming you might have a static water.png
     waterInfo.animType = TextureAnimationType::STATIC;
-    textureConfigs[TextureName::WATER] = waterInfo;
+    // textureConfigs[TextureName::WATER] = waterInfo; // Uncomment if you have a WATER enum and texture
 
-    TextureInfo waterAnimatedInfo;
-    waterAnimatedInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\waterAnimated.png";
-    waterAnimatedInfo.animType = TextureAnimationType::ANIMATED;
-    waterAnimatedInfo.animationSpeed = 0.01f;
-    textureConfigs[TextureName::WATER_ANIMATED] = waterAnimatedInfo;
+    TextureInfo water0Info;
+    water0Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water0.png";
+    water0Info.animType = TextureAnimationType::ANIMATED;
+    water0Info.animationSpeed = 5.0f; // Example speed, adjust as needed
+    water0Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
+    water0Info.animationStartRandomFrame = true; // Enable random start frame
+    textureConfigs[TextureName::WATER_0] = water0Info;
 
+    TextureInfo water1Info;
+    water1Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water1.png";
+    water1Info.animType = TextureAnimationType::ANIMATED;
+    water1Info.animationSpeed = 5.0f; // Example speed, adjust as needed
+    water1Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
+    water1Info.animationStartRandomFrame = true; // Enable random start frame
+    textureConfigs[TextureName::WATER_1] = water1Info;
+
+    TextureInfo water2Info;
+    water2Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water2.png";
+    water2Info.animType = TextureAnimationType::ANIMATED;
+    water2Info.animationSpeed = 5.0f; // Example speed, adjust as needed
+    water2Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
+    water2Info.animationStartRandomFrame = true; // Enable random start frame
+    textureConfigs[TextureName::WATER_2] = water2Info;
+
+    TextureInfo water3Info;
+    water3Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water3.png";
+    water3Info.animType = TextureAnimationType::ANIMATED;
+    water3Info.animationSpeed = 5.0f; // Example speed, adjust as needed
+    water3Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
+    water3Info.animationStartRandomFrame = true; // Enable random start frame
+    textureConfigs[TextureName::WATER_3] = water3Info;
+
+    TextureInfo water4Info;
+    water4Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water4.png";
+    water4Info.animType = TextureAnimationType::ANIMATED;
+    water4Info.animationSpeed = 5.0f; // Example speed, adjust as needed
+    water4Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
+    water4Info.animationStartRandomFrame = true; // Enable random start frame
+    textureConfigs[TextureName::WATER_4] = water4Info;
+
+    TextureInfo water5Info;
+    water5Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water5.png";
+    water5Info.animType = TextureAnimationType::ANIMATED;
+    water5Info.animationSpeed = 5.0f; // Example speed, adjust as needed
+    water5Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
+    water5Info.animationStartRandomFrame = true; // Enable random start frame
+    textureConfigs[TextureName::WATER_5] = water5Info;
 
     for (auto it = textureConfigs.begin(); it != textureConfigs.end(); ++it) { // Changed to iterator loop
         TextureName name = it->first;
@@ -177,6 +223,25 @@ void Map::placeBlock(TextureName name, int x, int y) {
     newBlock.name = name;
     newBlock.x = x;
     newBlock.y = y;
+
+    // Initialize currentFrame for the block
+    auto it = textureDetails.find(name);
+    if (it != textureDetails.end()) {
+        const TextureInfo& texInfo = it->second;
+        if (texInfo.animType == TextureAnimationType::ANIMATED && texInfo.animationStartRandomFrame && texInfo.frameCount > 0) {
+            // Generate a random starting frame for this block instance
+            newBlock.currentFrame = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / texInfo.frameCount));
+            // Ensure the random frame is within [0, frameCount)
+            if (newBlock.currentFrame >= texInfo.frameCount) {
+                newBlock.currentFrame = static_cast<float>(texInfo.frameCount - 1);
+            }
+        } else {
+            newBlock.currentFrame = 0.0f; // Default start frame if not random or not animated
+        }
+    } else {
+        newBlock.currentFrame = 0.0f; // Default if texture info not found (should not happen)
+    }
+
     blocks.push_back(newBlock);
 }
 
@@ -217,10 +282,11 @@ void Map::drawBlocks(float startX, float endX, float startY, float endY, int gri
             continue;
         }
         
-        TextureInfo& texInfo = it->second; // Use reference to update currentFrame for animated textures
+        const TextureInfo& texInfo = it->second; // New: Read-only for shared info
+        Block& currentBlock = block; // Get reference to the current block instance
 
-        float x = startX + block.x * cellWidth;
-        float y = startY + (gridSize - block.y - 1) * cellHeight;
+        float x = startX + currentBlock.x * cellWidth;
+        float y = startY + (gridSize - currentBlock.y - 1) * cellHeight; // Adjusted for Y-down grid to Y-up OpenGL
         
         glBindTexture(GL_TEXTURE_2D, texInfo.textureID);
         
@@ -228,13 +294,15 @@ void Map::drawBlocks(float startX, float endX, float startY, float endY, int gri
         float texCoordYEnd = 1.0f;
 
         if (texInfo.animType == TextureAnimationType::ANIMATED && texInfo.frameCount > 0) {
-            texInfo.currentFrame += static_cast<float>(deltaTime) * texInfo.animationSpeed;
-            if (texInfo.currentFrame >= texInfo.frameCount) {
-                texInfo.currentFrame = fmod(texInfo.currentFrame, static_cast<float>(texInfo.frameCount));
+            // Use and update the block's individual currentFrame
+            currentBlock.currentFrame += static_cast<float>(deltaTime) * texInfo.animationSpeed;
+            if (currentBlock.currentFrame >= texInfo.frameCount) {
+                currentBlock.currentFrame = fmod(currentBlock.currentFrame, static_cast<float>(texInfo.frameCount));
             }
             
             float frameTexHeight = 1.0f / texInfo.frameCount;
-            texCoordYStart = (static_cast<int>(texInfo.currentFrame)) * frameTexHeight;
+            // Use the block's currentFrame for texture coordinates
+            texCoordYStart = (static_cast<int>(currentBlock.currentFrame)) * frameTexHeight;
             texCoordYEnd = texCoordYStart + frameTexHeight;
         }
 

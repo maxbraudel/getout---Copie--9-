@@ -22,9 +22,15 @@ namespace glbasimac {
 // 1. Add its type here (e.g., DIRT, STONE)
 // 2. Add its file path in Map::init() in map.cpp
 enum class TextureName {
+    GRASS,
     SAND,
     WATER,
-    WATER_ANIMATED // Added new animated texture
+    WATER_0,
+    WATER_1,
+    WATER_2,
+    WATER_3,
+    WATER_4,
+    WATER_5
 };
 
 // Enum for texture animation type
@@ -37,10 +43,11 @@ enum class TextureAnimationType {
 struct TextureInfo {
     std::string path;
     TextureAnimationType animType = TextureAnimationType::STATIC;
+    bool animationStartRandomFrame = false; // Added for random start frame
     float animationSpeed = 0.0f; // FPS for animated textures
     GLuint textureID = 0;
     int frameCount = 1;          // Total frames in the sprite sheet
-    float currentFrame = 0.0f;   // Current frame index for animation
+    float currentFrame = 0.0f;   // Default starting frame, will be overridden by Block.currentFrame for individual blocks
     int frameHeight = 16;        // Height of a single frame, assuming 16px
     int textureWidth = 0;
     int textureHeight = 0;
@@ -77,6 +84,7 @@ private:
         TextureName name; // Store TextureName instead of GLuint
         int x;
         int y;
+        float currentFrame = 0.0f; // Added for individual animation state
     };
 
     std::vector<Block> blocks;

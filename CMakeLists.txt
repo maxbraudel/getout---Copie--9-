@@ -34,7 +34,7 @@ include_directories(third_party/glbasimac/)
 set(CMAKE_COLOR_MAKEFILE ON)
 
 # Main executable
-add_executable(${PROJECT_NAME} src/main.cpp src/map.cpp)
+add_executable(${PROJECT_NAME} src/main.cpp src/map.cpp src/terrainGeneration.cpp)
 target_link_libraries(${PROJECT_NAME} ${ALL_LIBRARIES})
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 11
