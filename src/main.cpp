@@ -17,13 +17,13 @@ static float aspectRatio = 1.0f;
 
 /* Grid properties */
 static const int GRID_SIZE = 100;
-static float islandFeatureSize = 4.0f; // Controls the size of islands. Smaller values = smaller, more numerous islands. Larger values = larger, fewer islands.
+static float islandFeatureSize = 5.0f; // Controls the size of islands. Smaller values = smaller, more numerous islands. Larger values = larger, fewer islands.
 static float gridLineWidth = 1.0f;
 static int windowWidth = 1024;
 static int windowHeight = 1024;
 
 // Add this boolean variable to control grid line visibility
-static bool showGridLines = false;
+static bool showGridLines = true;
 
 /* OpenGL Engine */
 GLBI_Engine myEngine;
@@ -92,16 +92,16 @@ int main() {
 
 	// Place an area of animated water
 	
-	/* gameMap.placeBlockArea(TextureName::WATER_0, 0, 0,GRID_SIZE -1, GRID_SIZE -1); // Right Column
+	gameMap.placeBlockArea(TextureName::WATER_0, 0, 0,GRID_SIZE -1, GRID_SIZE -1); // Right Column
 
 	gameMap.placeBlockArea(TextureName::SAND, 4, 4,GRID_SIZE -5, GRID_SIZE -5); // Right Column
 
 	gameMap.placeBlocks(blocksToPlace); // Apply the map of blocks
 
-	gameMap.placeBlock(TextureName::SAND, 0, 0); // Overwrite top-left with sand again */
+	gameMap.placeBlock(TextureName::SAND, 0, 0); // Overwrite top-left with sand again
 
 	std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, 0.55f, 1.0f);
-gameMap.placeBlocks(generatedMap);
+	gameMap.placeBlocks(generatedMap);
 // ...
 
 	/* Loop until the user closes the window */

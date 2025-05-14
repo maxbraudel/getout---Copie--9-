@@ -64,10 +64,41 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     // C++11 compatible way to initialize the map
     std::map<TextureName, TextureInfo> textureConfigs;
 
-    TextureInfo grassInfo;
-    grassInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass.png";
-    grassInfo.animType = TextureAnimationType::STATIC;
-    textureConfigs[TextureName::GRASS] = grassInfo;
+    TextureInfo grass0Info;
+    grass0Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass0.png";
+    grass0Info.animType = TextureAnimationType::STATIC;
+    grass0Info.randomizedRotation = false; // Enable randomized rotation for WATER_4
+    textureConfigs[TextureName::GRASS_0] = grass0Info;
+
+    TextureInfo grass1Info;
+    grass1Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass1.png";
+    grass1Info.animType = TextureAnimationType::STATIC;
+    grass1Info.randomizedRotation = false; // Enable randomized rotation for WATER_4
+    textureConfigs[TextureName::GRASS_1] = grass1Info;
+
+    TextureInfo grass2Info;
+    grass2Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass2.png";
+    grass2Info.animType = TextureAnimationType::STATIC;
+    grass2Info.randomizedRotation = false; // Enable randomized rotation for WATER_4
+    textureConfigs[TextureName::GRASS_2] = grass2Info;
+
+    TextureInfo grass3Info;
+    grass3Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass3.png";
+    grass3Info.animType = TextureAnimationType::STATIC;
+    grass3Info.randomizedRotation = false; // Enable randomized rotation for WATER_4
+    textureConfigs[TextureName::GRASS_3] = grass3Info;
+
+    TextureInfo grass4Info;
+    grass4Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass4.png";
+    grass4Info.animType = TextureAnimationType::STATIC;
+    grass4Info.randomizedRotation = false; // Enable randomized rotation for WATER_4
+    textureConfigs[TextureName::GRASS_4] = grass4Info;
+
+    TextureInfo grass5Info;
+    grass5Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass5.png";
+    grass5Info.animType = TextureAnimationType::STATIC;
+    grass5Info.randomizedRotation = false; // Enable randomized rotation for WATER_4
+    textureConfigs[TextureName::GRASS_5] = grass5Info;
 
     TextureInfo sandInfo;
     sandInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\sand.png";
@@ -82,7 +113,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     TextureInfo water0Info;
     water0Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water0.png";
     water0Info.animType = TextureAnimationType::ANIMATED;
-    water0Info.animationSpeed = 5.0f; // Example speed, adjust as needed
+    water0Info.animationSpeed = 20.0f; // Example speed, adjust as needed
     water0Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
     water0Info.animationStartRandomFrame = true; // Enable random start frame
     textureConfigs[TextureName::WATER_0] = water0Info;
@@ -90,7 +121,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     TextureInfo water1Info;
     water1Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water1.png";
     water1Info.animType = TextureAnimationType::ANIMATED;
-    water1Info.animationSpeed = 5.0f; // Example speed, adjust as needed
+    water1Info.animationSpeed = 20.0f; // Example speed, adjust as needed
     water1Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
     water1Info.animationStartRandomFrame = true; // Enable random start frame
     textureConfigs[TextureName::WATER_1] = water1Info;
@@ -98,15 +129,16 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     TextureInfo water2Info;
     water2Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water2.png";
     water2Info.animType = TextureAnimationType::ANIMATED;
-    water2Info.animationSpeed = 5.0f; // Example speed, adjust as needed
+    water2Info.animationSpeed = 20.0f; // Example speed, adjust as needed
     water2Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
     water2Info.animationStartRandomFrame = true; // Enable random start frame
+    water2Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
     textureConfigs[TextureName::WATER_2] = water2Info;
 
     TextureInfo water3Info;
     water3Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water3.png";
     water3Info.animType = TextureAnimationType::ANIMATED;
-    water3Info.animationSpeed = 5.0f; // Example speed, adjust as needed
+    water3Info.animationSpeed = 20.0f; // Example speed, adjust as needed
     water3Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
     water3Info.animationStartRandomFrame = true; // Enable random start frame
     textureConfigs[TextureName::WATER_3] = water3Info;
@@ -114,18 +146,14 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     TextureInfo water4Info;
     water4Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water4.png";
     water4Info.animType = TextureAnimationType::ANIMATED;
-    water4Info.animationSpeed = 5.0f; // Example speed, adjust as needed
+    water4Info.animationSpeed = 20.0f; // Example speed, adjust as needed
     water4Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
     water4Info.animationStartRandomFrame = true; // Enable random start frame
+    water4Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
     textureConfigs[TextureName::WATER_4] = water4Info;
 
-    TextureInfo water5Info;
-    water5Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water5.png";
-    water5Info.animType = TextureAnimationType::ANIMATED;
-    water5Info.animationSpeed = 5.0f; // Example speed, adjust as needed
-    water5Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
-    water5Info.animationStartRandomFrame = true; // Enable random start frame
-    textureConfigs[TextureName::WATER_5] = water5Info;
+
+
 
     for (auto it = textureConfigs.begin(); it != textureConfigs.end(); ++it) { // Changed to iterator loop
         TextureName name = it->first;
@@ -238,8 +266,17 @@ void Map::placeBlock(TextureName name, int x, int y) {
         } else {
             newBlock.currentFrame = 0.0f; // Default start frame if not random or not animated
         }
+
+        // Initialize rotationAngle
+        if (texInfo.randomizedRotation) {
+            int randomRotation = rand() % 4; // 0, 1, 2, or 3
+            newBlock.rotationAngle = randomRotation * 90; // 0, 90, 180, or 270
+        } else {
+            newBlock.rotationAngle = 0;
+        }
     } else {
         newBlock.currentFrame = 0.0f; // Default if texture info not found (should not happen)
+        newBlock.rotationAngle = 0;
     }
 
     blocks.push_back(newBlock);
@@ -306,11 +343,40 @@ void Map::drawBlocks(float startX, float endX, float startY, float endY, int gri
             texCoordYEnd = texCoordYStart + frameTexHeight;
         }
 
+        // Define texture coordinates based on rotation
+        float tc[8]; // Array to hold 8 texture coordinates (x1,y1, x2,y2, x3,y3, x4,y4)
+
+        // Default: 0 degrees rotation (Bottom-left, Bottom-right, Top-right, Top-left)
+        tc[0] = 0.0f; tc[1] = texCoordYStart; 
+        tc[2] = 1.0f; tc[3] = texCoordYStart; 
+        tc[4] = 1.0f; tc[5] = texCoordYEnd;   
+        tc[6] = 0.0f; tc[7] = texCoordYEnd;   
+
+        if (currentBlock.rotationAngle == 90) {
+            // Rotated 90 deg: (Top-left, Bottom-left, Bottom-right, Top-right)
+            tc[0] = 0.0f; tc[1] = texCoordYEnd;   
+            tc[2] = 0.0f; tc[3] = texCoordYStart; 
+            tc[4] = 1.0f; tc[5] = texCoordYStart; 
+            tc[6] = 1.0f; tc[7] = texCoordYEnd;   
+        } else if (currentBlock.rotationAngle == 180) {
+            // Rotated 180 deg: (Top-right, Top-left, Bottom-left, Bottom-right)
+            tc[0] = 1.0f; tc[1] = texCoordYEnd;   
+            tc[2] = 0.0f; tc[3] = texCoordYEnd;   
+            tc[4] = 0.0f; tc[5] = texCoordYStart; 
+            tc[6] = 1.0f; tc[7] = texCoordYStart; 
+        } else if (currentBlock.rotationAngle == 270) {
+            // Rotated 270 deg: (Bottom-right, Top-right, Top-left, Bottom-left)
+            tc[0] = 1.0f; tc[1] = texCoordYStart; 
+            tc[2] = 1.0f; tc[3] = texCoordYEnd;   
+            tc[4] = 0.0f; tc[5] = texCoordYEnd;   
+            tc[6] = 0.0f; tc[7] = texCoordYStart; 
+        }
+
         glBegin(GL_QUADS);
-        glTexCoord2f(0.0f, texCoordYStart); glVertex2f(x, y);                            
-        glTexCoord2f(1.0f, texCoordYStart); glVertex2f(x + cellWidth, y);                
-        glTexCoord2f(1.0f, texCoordYEnd); glVertex2f(x + cellWidth, y + cellHeight);    
-        glTexCoord2f(0.0f, texCoordYEnd); glVertex2f(x, y + cellHeight);                
+        glTexCoord2f(tc[0], tc[1]); glVertex2f(x, y);                            
+        glTexCoord2f(tc[2], tc[3]); glVertex2f(x + cellWidth, y);                
+        glTexCoord2f(tc[4], tc[5]); glVertex2f(x + cellWidth, y + cellHeight);    
+        glTexCoord2f(tc[6], tc[7]); glVertex2f(x, y + cellHeight);                
         glEnd();
     }
     

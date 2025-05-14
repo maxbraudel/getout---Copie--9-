@@ -22,15 +22,18 @@ namespace glbasimac {
 // 1. Add its type here (e.g., DIRT, STONE)
 // 2. Add its file path in Map::init() in map.cpp
 enum class TextureName {
-    GRASS,
+    GRASS_0,
+    GRASS_1,
+    GRASS_2,
+    GRASS_3,
+    GRASS_4,
+    GRASS_5,
     SAND,
-    WATER,
     WATER_0,
     WATER_1,
     WATER_2,
     WATER_3,
-    WATER_4,
-    WATER_5
+    WATER_4
 };
 
 // Enum for texture animation type
@@ -51,6 +54,7 @@ struct TextureInfo {
     int frameHeight = 16;        // Height of a single frame, assuming 16px
     int textureWidth = 0;
     int textureHeight = 0;
+    bool randomizedRotation = false; // Added for randomized rotation
 };
 
 class Map {
@@ -85,6 +89,7 @@ private:
         int x;
         int y;
         float currentFrame = 0.0f; // Added for individual animation state
+        int rotationAngle = 0; // Added for block-specific rotation (0, 90, 180, 270)
     };
 
     std::vector<Block> blocks;

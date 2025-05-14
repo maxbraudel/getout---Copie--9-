@@ -96,7 +96,7 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
             } else if (noiseValue < grassThreshold) {
                 grid[y_coord][x_coord] = TextureName::SAND;
             } else {
-                grid[y_coord][x_coord] = TextureName::GRASS;
+                grid[y_coord][x_coord] = TextureName::GRASS_3;
             }
         }
     }
@@ -140,7 +140,7 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
     for (int y_coord = 0; y_coord < gridHeight; ++y_coord) {
         for (int x_coord = 0; x_coord < gridWidth; ++x_coord) {
             // Only modify if it was initially classified as a water block
-            if (grid[y_coord][x_coord] != TextureName::SAND && grid[y_coord][x_coord] != TextureName::GRASS) {
+            if (grid[y_coord][x_coord] != TextureName::SAND && grid[y_coord][x_coord] != TextureName::GRASS_2) {
                 int dist = distanceToSand[y_coord][x_coord];
                 
                 if (dist == 1) {
