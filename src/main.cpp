@@ -113,7 +113,7 @@ int main() {
 	gameMap.placeBlocks(generatedMap);
 
 	// Place decorative elements on the map
-	elementsManager.placeElement("bush1", ElementTextureName::BUSH, 1.0f, 10.0f, 10.0f); // Centered in cell (0,0)
+	elementsManager.placeElement("bush1", ElementTextureName::BUSH, 10.0f, 10.0f, 10.0f); // Centered in cell (0,0)
 
 	elementsManager.placeElement("bush2", ElementTextureName::BUSH, 0.75f, 5.2f, 3.8f); // Another bush with different scale
 
