@@ -76,10 +76,14 @@ float getInterpolatedNoise(float normX, float normY) {
 
 std::map<std::pair<int, int>, TextureName> generateTerrain(
     int gridWidth, int gridHeight, 
-    float featureSizeFactor, 
+    float islandFeatureSize, // Renamed from scale
+    float seaFeatureSize,    // Added this line
     float waterThreshold, float grassThreshold) {
 
-    initializeBaseNoiseIfNeeded(gridWidth, gridHeight, featureSizeFactor);
+    // Adjust feature size for noise generation based on seaFeatureSize
+    // A larger seaFeatureSize means smaller features in the noise map, leading to larger continuous areas (sea)
+    float noiseFeatureSize = islandFeatureSize / seaFeatureSize; 
+    initializeBaseNoiseIfNeeded(gridWidth, gridHeight, noiseFeatureSize);
 
     std::vector<std::vector<TextureName>> grid(gridHeight, std::vector<TextureName>(gridWidth));
 

@@ -10,7 +10,8 @@
 std::map<std::pair<int, int>, TextureName> generateTerrain(
     int gridWidth, 
     int gridHeight, 
-    float scale, 
+    float islandFeatureSize, // Renamed from scale for clarity
+    float seaFeatureSize,    // Added: Controls the size of sea areas
     float waterThreshold,
     float grassThreshold // Added: Values above this (and waterThreshold) become grass
 );
