@@ -66,10 +66,29 @@ public:
                       bool isAnimated = false, float animationSpeed = 10.0f);
     
     // Remove an element by its instance name
-    bool removeElement(const std::string& instanceName);
+    bool rechangeElementCoordinates(const std::string& instanceName);    // Move an existing element to a new position
+    bool changeElementCoordinates(const std::string& instanceName, float newX, float newY, float newRotation = -1.0f);
     
-    // Move an existing element to a new position
-    bool moveElement(const std::string& instanceName, float newX, float newY, float newRotation = -1.0f);
+    // Move an element relative to its current position
+    bool moveElement(const std::string& instanceName, float deltaX, float deltaY);
+    
+    // Change element scale
+    bool changeElementScale(const std::string& instanceName, float newScale);
+    
+    // Change element rotation
+    bool changeElementRotation(const std::string& instanceName, float newRotation);
+    
+    // Change sprite sheet frame
+    bool changeElementSpriteFrame(const std::string& instanceName, int newFrame);
+    
+    // Change sprite sheet phase (row)
+    bool changeElementSpritePhase(const std::string& instanceName, int newPhase);
+    
+    // Toggle element animation on/off
+    bool changeElementAnimationStatus(const std::string& instanceName, bool isAnimated);
+    
+    // Change animation speed
+    bool changeElementAnimationSpeed(const std::string& instanceName, float newSpeed);
       // Draw all placed elements
     void drawElements(float startX, float endX, float startY, float endY, int gridSize, double deltaTime = 0.0);
     

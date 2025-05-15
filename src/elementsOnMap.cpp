@@ -163,7 +163,7 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
     // Check if an element with this name already exists
     auto mapIt = elementIndexMap.find(instanceName);
     if (mapIt != elementIndexMap.end()) {
-        std::cerr << "Element with name '" << instanceName << "' already exists. Use moveElement to change position." << std::endl;
+        std::cerr << "Element with name '" << instanceName << "' already exists. Use changeElementCoordinates to change position." << std::endl;
         return;
     }
 
@@ -220,7 +220,7 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
     std::cout << std::endl;
 }
 
-bool ElementsOnMap::removeElement(const std::string& instanceName) {
+bool ElementsOnMap::rechangeElementCoordinates(const std::string& instanceName) {
     // Find in index map first (O(1) lookup)
     auto mapIt = elementIndexMap.find(instanceName);
     if (mapIt == elementIndexMap.end()) {
@@ -250,7 +250,7 @@ bool ElementsOnMap::removeElement(const std::string& instanceName) {
     return false;
 }
 
-bool ElementsOnMap::moveElement(const std::string& instanceName, float newX, float newY, float newRotation) {
+bool ElementsOnMap::changeElementCoordinates(const std::string& instanceName, float newX, float newY, float newRotation) {
     // Find in index map first (O(1) lookup)
     auto mapIt = elementIndexMap.find(instanceName);
     if (mapIt == elementIndexMap.end()) {
@@ -271,9 +271,182 @@ bool ElementsOnMap::moveElement(const std::string& instanceName, float newX, flo
         
         std::cout << "Moved element: " << instanceName << " to (" << newX << ", " << newY << ")" << std::endl;
         return true;
+    }      std::cerr << "Element index out of range for moving: " << instanceName << std::endl;
+    return false;
+}
+
+bool ElementsOnMap::moveElement(const std::string& instanceName, float deltaX, float deltaY) {
+    // Find in index map first (O(1) lookup)
+    auto mapIt = elementIndexMap.find(instanceName);
+    if (mapIt == elementIndexMap.end()) {
+        std::cerr << "Element not found for relative movement: " << instanceName << std::endl;
+        return false;
     }
     
-    std::cerr << "Element index out of range for moving: " << instanceName << std::endl;
+    size_t index = mapIt->second;
+    if (index < elements.size()) {
+        // Get current position
+        float currentX = elements[index].x;
+        float currentY = elements[index].y;
+        
+        // Update position by adding the deltas
+        elements[index].x = currentX + deltaX;
+        elements[index].y = currentY + deltaY;
+        
+        std::cout << "Moved element: " << instanceName 
+                  << " from (" << currentX << ", " << currentY << ")"
+                  << " to (" << elements[index].x << ", " << elements[index].y << ")"
+                  << " (delta: " << deltaX << ", " << deltaY << ")" << std::endl;
+        return true;
+    }
+    
+    std::cerr << "Element index out of range for relative movement: " << instanceName << std::endl;
+    return false;
+}
+
+bool ElementsOnMap::changeElementScale(const std::string& instanceName, float newScale) {
+    auto mapIt = elementIndexMap.find(instanceName);
+    if (mapIt == elementIndexMap.end()) {
+        std::cerr << "Element not found for scaling: " << instanceName << std::endl;
+        return false;
+    }
+    
+    size_t index = mapIt->second;
+    if (index < elements.size()) {
+        elements[index].scale = newScale;
+        std::cout << "Changed element scale: " << instanceName << " to " << newScale << std::endl;
+        return true;
+    }
+    
+    std::cerr << "Element index out of range for scaling: " << instanceName << std::endl;
+    return false;
+}
+
+bool ElementsOnMap::changeElementRotation(const std::string& instanceName, float newRotation) {
+    auto mapIt = elementIndexMap.find(instanceName);
+    if (mapIt == elementIndexMap.end()) {
+        std::cerr << "Element not found for rotation: " << instanceName << std::endl;
+        return false;
+    }
+    
+    size_t index = mapIt->second;
+    if (index < elements.size()) {
+        elements[index].rotation = newRotation;
+        std::cout << "Changed element rotation: " << instanceName << " to " << newRotation << " degrees" << std::endl;
+        return true;
+    }
+    
+    std::cerr << "Element index out of range for rotation: " << instanceName << std::endl;
+    return false;
+}
+
+bool ElementsOnMap::changeElementSpriteFrame(const std::string& instanceName, int newFrame) {
+    auto mapIt = elementIndexMap.find(instanceName);
+    if (mapIt == elementIndexMap.end()) {
+        std::cerr << "Element not found for changing sprite frame: " << instanceName << std::endl;
+        return false;
+    }
+    
+    size_t index = mapIt->second;
+    if (index < elements.size()) {
+        // Ensure frame is within valid range
+        if (elements[index].numFramesInPhase > 0) {
+            elements[index].spriteSheetFrame = newFrame % elements[index].numFramesInPhase;
+            std::cout << "Changed element sprite frame: " << instanceName << " to " << elements[index].spriteSheetFrame << std::endl;
+            return true;
+        } else {
+            std::cerr << "Element doesn't support sprite frames: " << instanceName << std::endl;
+            return false;
+        }
+    }
+    
+    std::cerr << "Element index out of range for changing sprite frame: " << instanceName << std::endl;
+    return false;
+}
+
+bool ElementsOnMap::changeElementSpritePhase(const std::string& instanceName, int newPhase) {
+    auto mapIt = elementIndexMap.find(instanceName);
+    if (mapIt == elementIndexMap.end()) {
+        std::cerr << "Element not found for changing sprite phase: " << instanceName << std::endl;
+        return false;
+    }
+    
+    size_t index = mapIt->second;
+    if (index < elements.size()) {
+        // Look up texture info to check if it's a spritesheet
+        for (const auto& texInfo : elementTexturesToLoad) {
+            if (texInfo.name == elements[index].textureName) {
+                if (texInfo.type == ElementTextureType::SPRITESHEET && 
+                    textureDimensions.find(elements[index].textureName) != textureDimensions.end()) {
+                    
+                    auto dims = textureDimensions[elements[index].textureName];
+                    int totalHeight = dims.second;
+                    int numPhases = totalHeight / texInfo.spriteHeight;
+                    
+                    // Check if phase is valid
+                    if (newPhase >= 0 && newPhase < numPhases) {
+                        elements[index].spriteSheetPhase = newPhase;
+                        std::cout << "Changed element sprite phase: " << instanceName << " to " << newPhase << std::endl;
+                        return true;
+                    } else {
+                        std::cerr << "Invalid sprite phase " << newPhase << " for element: " << instanceName 
+                                << " (valid range: 0-" << (numPhases - 1) << ")" << std::endl;
+                        return false;
+                    }
+                } else {
+                    std::cerr << "Element doesn't support sprite phases: " << instanceName << std::endl;
+                    return false;
+                }
+            }
+        }
+        
+        std::cerr << "Couldn't find texture info for element: " << instanceName << std::endl;
+        return false;
+    }
+    
+    std::cerr << "Element index out of range for changing sprite phase: " << instanceName << std::endl;
+    return false;
+}
+
+bool ElementsOnMap::changeElementAnimationStatus(const std::string& instanceName, bool isAnimated) {
+    auto mapIt = elementIndexMap.find(instanceName);
+    if (mapIt == elementIndexMap.end()) {
+        std::cerr << "Element not found for changing animation status: " << instanceName << std::endl;
+        return false;
+    }
+    
+    size_t index = mapIt->second;
+    if (index < elements.size()) {
+        elements[index].isAnimated = isAnimated;
+        std::cout << "Changed element animation status: " << instanceName 
+                << " to " << (isAnimated ? "animated" : "static") << std::endl;
+        return true;
+    }
+    
+    std::cerr << "Element index out of range for changing animation status: " << instanceName << std::endl;
+    return false;
+}
+
+bool ElementsOnMap::changeElementAnimationSpeed(const std::string& instanceName, float newSpeed) {
+    auto mapIt = elementIndexMap.find(instanceName);
+    if (mapIt == elementIndexMap.end()) {
+        std::cerr << "Element not found for changing animation speed: " << instanceName << std::endl;
+        return false;
+    }
+    
+    size_t index = mapIt->second;
+    if (index < elements.size()) {
+        if (newSpeed >= 0.0f) {
+            elements[index].animationSpeed = newSpeed;
+            std::cout << "Changed element animation speed: " << instanceName << " to " << newSpeed << " FPS" << std::endl;
+            return true;
+        } else {
+            std::cerr << "Invalid animation speed (must be non-negative): " << newSpeed << std::endl;
+            return false;
+        }
+    }
+    
+    std::cerr << "Element index out of range for changing animation speed: " << instanceName << std::endl;
     return false;
 }
 
