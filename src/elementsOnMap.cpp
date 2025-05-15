@@ -25,7 +25,9 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     bushTexture.name = ElementTextureName::BUSH;
     bushTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\decorations\\bush.png";
     bushTexture.type = ElementTextureType::STATIC;
-    bushTexture.anchorPoint = AnchorPoint::BOTTOM_LEFT_CORNER; // Bush grows from ground up, so anchor at bottom
+    bushTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Bush grows from ground up, so anchor at bottom
+    bushTexture.anchorOffsetX = 0.8f; // No offset
+    bushTexture.anchorOffsetY = 0.0f; // No offset
     textures.push_back(bushTexture);
     
     // Sprite sheet texture for character
