@@ -14,6 +14,13 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     std::vector<ElementTextureInfo> textures;
     
     // Static texture for bush
+    ElementTextureInfo testTexture;
+    testTexture.name = ElementTextureName::TEST;
+    testTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass.png";
+    testTexture.type = ElementTextureType::STATIC;
+    textures.push_back(testTexture);
+
+    // Static texture for bush
     ElementTextureInfo bushTexture;
     bushTexture.name = ElementTextureName::BUSH;
     bushTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\decorations\\bush.png";
@@ -159,7 +166,8 @@ GLuint ElementsOnMap::loadTexture(const std::string& path) {
 void ElementsOnMap::placeElement(const std::string& instanceName, ElementTextureName textureName, 
                                float scale, float x, float y, float rotation,
                                int spriteSheetPhase, int spriteSheetFrame,
-                               bool isAnimated, float animationSpeed) {
+                               bool isAnimated, float animationSpeed,
+                               AnchorPoint anchorPoint, float anchorOffsetX, float anchorOffsetY) {
     // Check if an element with this name already exists
     auto mapIt = elementIndexMap.find(instanceName);
     if (mapIt != elementIndexMap.end()) {
@@ -175,9 +183,7 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
         
         std::cerr << "To modify the existing element, use functions like changeElementCoordinates() instead." << std::endl;
         return;
-    }
-
-    // Create a PlacedElement explicitly instead of using initializer list (C++11 compatibility)
+    }    // Create a PlacedElement explicitly instead of using initializer list (C++11 compatibility)
     PlacedElement element;
     element.instanceName = instanceName;
     element.textureName = textureName;
@@ -185,6 +191,11 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
     element.x = x;
     element.y = y;
     element.rotation = rotation;
+    
+    // Set anchor point properties
+    element.anchorPoint = anchorPoint;
+    element.anchorOffsetX = anchorOffsetX;
+    element.anchorOffsetY = anchorOffsetY;
     
     // Set spritesheet animation properties
     element.spriteSheetPhase = spriteSheetPhase;
@@ -600,10 +611,41 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
                       << ", phase=" << element.spriteSheetPhase << std::endl;
             */
         }
-        
-        // Calculate element quad dimensions
+          // Calculate element quad dimensions
         float halfWidth_ndc = (cellWidth * element.scale) / 2.0f;
         float halfHeight_ndc = (cellHeight * element.scale) / 2.0f;
+        
+        // Calculate anchor point offset based on the selected anchor point
+        float anchorX = 0.0f;
+        float anchorY = 0.0f;
+        
+        switch(element.anchorPoint) {
+            case AnchorPoint::CENTER:
+                // Default center anchor - no offset needed
+                break;
+            case AnchorPoint::TOP_LEFT_CORNER:
+                anchorX = -halfWidth_ndc;
+                anchorY = halfHeight_ndc;
+                break;
+            case AnchorPoint::TOP_RIGHT_CORNER:
+                anchorX = halfWidth_ndc;
+                anchorY = halfHeight_ndc;
+                break;
+            case AnchorPoint::BOTTOM_LEFT_CORNER:
+                anchorX = -halfWidth_ndc;
+                anchorY = -halfHeight_ndc;
+                break;
+            case AnchorPoint::BOTTOM_RIGHT_CORNER:
+                anchorX = halfWidth_ndc;
+                anchorY = -halfHeight_ndc;
+                break;
+        }
+        
+        // Apply additional anchor offsets (in NDC space)
+        float additionalOffsetX = (element.anchorOffsetX / gridSize) * (endX - startX);
+        float additionalOffsetY = (element.anchorOffsetY / gridSize) * (endY - startY);
+        anchorX += additionalOffsetX;
+        anchorY += additionalOffsetY;
         
         // Bind texture
         glEnable(GL_TEXTURE_2D);
@@ -615,13 +657,19 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         // Save matrix state
         glMatrixMode(GL_MODELVIEW);
         glPushMatrix();
-          // Translate to element center
+        
+        // Translate to element position
         glTranslatef(gridX, gridY, 0.0f);
         
         // Rotate if needed
         if (element.rotation != 0.0f) {
             glRotatef(element.rotation, 0.0f, 0.0f, 1.0f);
-        }        // Draw textured quad centered at origin using calculated UV coordinates
+        }
+        
+        // Apply anchor point offset (this effectively changes where the element is positioned)
+        glTranslatef(-anchorX, -anchorY, 0.0f);
+        
+        // Draw textured quad centered at origin using calculated UV coordinates
         // Use a consistent vertex order that matches map rendering
         // Map renders in clockwise order starting from top-left
         glBegin(GL_QUADS);
@@ -635,6 +683,27 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         // Unbind texture
         glBindTexture(GL_TEXTURE_2D, 0);
         glDisable(GL_TEXTURE_2D);
+        
+        // Draw anchor point indicator if visualization is enabled
+        if (showAnchorPoints) {
+            // Draw a small crosshair to indicate the anchor point
+            glColor4f(1.0f, 0.0f, 0.0f, 1.0f);  // Red color
+            glLineWidth(3.0f);
+            
+            // Draw horizontal line
+            glBegin(GL_LINES);
+            glVertex2f(-0.02f, 0.0f);
+            glVertex2f(0.02f, 0.0f);
+            glEnd();
+            
+            // Draw vertical line
+            glBegin(GL_LINES);
+            glVertex2f(0.0f, -0.02f);
+            glVertex2f(0.0f, 0.02f);
+            glEnd();
+            
+            glLineWidth(1.0f);  // Reset line width
+        }
         
         // Restore matrix state
         glPopMatrix();

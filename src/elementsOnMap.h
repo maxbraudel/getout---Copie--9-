@@ -11,7 +11,8 @@
 // Define an enum for element texture types
 enum class ElementTextureName {
     BUSH,
-    CHARACTER1
+    CHARACTER1,
+    TEST
     // Add more element texture types as needed
 };
 
@@ -19,6 +20,15 @@ enum class ElementTextureName {
 enum class ElementTextureType {
     STATIC,
     SPRITESHEET
+};
+
+// Define an enum for anchor point positioning
+enum class AnchorPoint {
+    CENTER,              // Default - anchor at center of texture
+    TOP_LEFT_CORNER,     // Anchor at top left
+    TOP_RIGHT_CORNER,    // Anchor at top right
+    BOTTOM_LEFT_CORNER,  // Anchor at bottom left
+    BOTTOM_RIGHT_CORNER  // Anchor at bottom right
 };
 
 // Struct to hold texture information
@@ -42,6 +52,11 @@ struct PlacedElement {
     float y;
     float rotation = 0.0f; // Optional: rotation angle in degrees
     
+    // Anchor point properties
+    AnchorPoint anchorPoint = AnchorPoint::CENTER; // Default to center
+    float anchorOffsetX = 0.0f;                    // Additional X offset from anchor point
+    float anchorOffsetY = 0.0f;                    // Additional Y offset from anchor point
+    
     // Spritesheet animation properties
     int spriteSheetPhase = 0;     // Which animation row to use in the spritesheet (0-indexed)
     int spriteSheetFrame = 0;     // Current frame in the animation (0-indexed)
@@ -62,12 +77,13 @@ public:
     
     // Debug functions
     void listElements() const;
-    
-    // Place an element at the specified coordinates
+      // Place an element at the specified coordinates
     void placeElement(const std::string& instanceName, ElementTextureName textureName, 
                       float scale, float x, float y, float rotation = 0.0f,
                       int spriteSheetPhase = 0, int spriteSheetFrame = 0,
-                      bool isAnimated = false, float animationSpeed = 10.0f);
+                      bool isAnimated = false, float animationSpeed = 10.0f,
+                      AnchorPoint anchorPoint = AnchorPoint::CENTER,
+                      float anchorOffsetX = 0.0f, float anchorOffsetY = 0.0f);
     
     // Remove an element by its instance name
     bool rechangeElementCoordinates(const std::string& instanceName);    // Move an existing element to a new position
@@ -106,6 +122,17 @@ public:
         }
         return std::make_pair(0, 0); // Return zeros if texture not found
     }
+    
+    // Toggle debug visualization of anchor points
+    void toggleAnchorPointVisualization() {
+        showAnchorPoints = !showAnchorPoints;
+        std::cout << "Anchor point visualization " << (showAnchorPoints ? "enabled" : "disabled") << std::endl;
+    }
+    
+    // Check if anchor points are being visualized
+    bool isShowingAnchorPoints() const {
+        return showAnchorPoints;
+    }
 
 private:
     // Modified texture loading that doesn't rely on activateTexturing
@@ -117,6 +144,9 @@ private:
     
     // Store width and height for aspect ratio calculation
     std::map<ElementTextureName, std::pair<int, int>> textureDimensions;
+
+    // Debug visualization flag
+    bool showAnchorPoints = false;
 };
 
 // Global instance

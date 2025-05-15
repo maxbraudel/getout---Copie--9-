@@ -46,7 +46,7 @@ void onWindowResize(GLFWwindow* window, int width, int height) {
 
 // Constants for gameplay
 const float PLAYER_BASE_SPEED = 4.0f;   // Base speed of player movement (grid units per second)
-const float PLAYER_SPRINT_SPEED = 20.0f; // Sprint speed when shift is held (grid units per second)
+const float PLAYER_SPRINT_SPEED = 6.0f; // Sprint speed when shift is held (grid units per second)
 
 // Global variables for input handling
 bool keyPressedStates[GLFW_KEY_LAST + 1] = { false };
@@ -165,11 +165,15 @@ int main() {
 
 	gameMap.placeBlock(TextureName::SAND, 0, 0); // Overwrite top-left with sand again
 	std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.7f);
-	gameMap.placeBlocks(generatedMap);
-	// Place decorative elements on the map with unique names
-	elementsManager.placeElement("bush1", ElementTextureName::BUSH, 5.0f, 20.0f, 20.0f); 
-    elementsManager.placeElement("bush2", ElementTextureName::BUSH, 5.0f, 21.0f, 21.0f); 
-    elementsManager.placeElement("bush3", ElementTextureName::BUSH, 5.0f, 25.0f, 25.0f); 
+	gameMap.placeBlocks(generatedMap);	// Place decorative elements on the map with unique names and different anchor points
+	elementsManager.placeElement("test1", ElementTextureName::TEST, 1.0f, 10.0f, 10.0f,
+	                           0.0f, 0, 0, false, 10.0f, AnchorPoint::TOP_RIGHT_CORNER); 
+	                           
+    elementsManager.placeElement("bush2", ElementTextureName::BUSH, 5.0f, 21.0f, 21.0f,
+                               0.0f, 0, 0, false, 10.0f, AnchorPoint::BOTTOM_LEFT_CORNER); 
+                               
+    elementsManager.placeElement("bush3", ElementTextureName::BUSH, 5.0f, 25.0f, 25.0f,
+                               0.0f, 0, 0, false, 10.0f, AnchorPoint::BOTTOM_RIGHT_CORNER);
     
     // Demonstrate moving an element
     elementsManager.changeElementCoordinates("bush2", 30.0f, 30.0f);  // Move bush2 to a new position
@@ -344,6 +348,13 @@ int main() {
             std::cout << "Grid lines " << (showGridLines ? "enabled" : "disabled") << std::endl;
         }
         lastFrameGridKeyState = keyPressedStates[GLFW_KEY_F2];
+        
+        // Toggle anchor point visualization with F5
+        static bool lastFrameAnchorPointKeyState = false;
+        if (keyPressedStates[GLFW_KEY_F5] && !lastFrameAnchorPointKeyState) {
+            elementsManager.toggleAnchorPointVisualization();
+        }
+        lastFrameAnchorPointKeyState = keyPressedStates[GLFW_KEY_F5];
         
         // Print elements list when F4 is pressed
         static bool lastFrameDebugElementsState = false;

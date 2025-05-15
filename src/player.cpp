@@ -17,18 +17,20 @@ void createPlayer(float x, float y) {
         elementsManager.changeElementCoordinates("player1", x, y);
         return;
     }
-    
-    // Create a single player character with animation
+      // Create a single player character with animation
+    // Using bottom center as anchor point so player appears to be standing on the ground
     elementsManager.placeElement(
         "player1",                   // Unique instance name
         ElementTextureName::CHARACTER1, // Using the character sprite sheet
-        3.0f,                        // Scale (adjust as needed)
+        2.0f,                        // Scale (adjust as needed)
         x, y,                        // Position on grid
         0.0f,                        // No rotation
         0,                           // Animation row 0 (typically downward-facing)
         0,                           // Starting at first frame
-        true,                        // Enable animation
-        10.0f                        // Animation speed in FPS
+        false,                        // Enable animation
+        11.0f,                       // Animation speed in FPS
+        AnchorPoint::BOTTOM_LEFT_CORNER, // Anchor at bottom of character sprite
+        0.5f, 0.0f                   // Offset X to center horizontally (X: 0.5 = halfway from left to right)
     );
     
     std::cout << "Player created at position (" << x << "," << y << ")" << std::endl;
