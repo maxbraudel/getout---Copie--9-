@@ -143,6 +143,12 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
+    // Sort elements by Y-coordinate (descending) to draw from back to front
+    // Elements with larger Y (visually higher on screen) are drawn first (behind)
+    std::sort(elements.begin(), elements.end(), [](const PlacedElement& a, const PlacedElement& b) {
+        return a.y > b.y;
+    });
+    
     // Calculate the grid cell dimensions in NDC coordinates
     float cellWidth = (endX - startX) / gridSize;
     float cellHeight = (endY - startY) / gridSize;
