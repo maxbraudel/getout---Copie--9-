@@ -165,13 +165,14 @@ int main() {
 
 	gameMap.placeBlock(TextureName::SAND, 0, 0); // Overwrite top-left with sand again
 	std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.7f);
-	gameMap.placeBlocks(generatedMap);	// Place decorative elements on the map with unique names and different anchor points
-	elementsManager.placeElement("test1", ElementTextureName::TEST, 1.0f, 10.0f, 10.0f,
-	                           0.0f, 0, 0, false, 10.0f, AnchorPoint::TOP_RIGHT_CORNER); 
+	gameMap.placeBlocks(generatedMap);	// Place decorative elements on the map with unique names using texture-defined anchor points
+	elementsManager.placeElement("test1", ElementTextureName::BUSH, 10.0f, 0.0f, 0.0f,
+	                           0.0f, 0, 0, false, 10.0f); // Using default anchor point from texture
 	                           
     elementsManager.placeElement("bush2", ElementTextureName::BUSH, 5.0f, 21.0f, 21.0f,
-                               0.0f, 0, 0, false, 10.0f, AnchorPoint::BOTTOM_LEFT_CORNER); 
+                               0.0f, 0, 0, false, 10.0f); // Using default anchor point from texture
                                
+    // This one overrides the texture's default anchor point
     elementsManager.placeElement("bush3", ElementTextureName::BUSH, 5.0f, 25.0f, 25.0f,
                                0.0f, 0, 0, false, 10.0f, AnchorPoint::BOTTOM_RIGHT_CORNER);
     

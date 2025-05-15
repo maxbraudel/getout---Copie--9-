@@ -19,6 +19,7 @@ void createPlayer(float x, float y) {
     }
     
     // Create a single player character with animation
+    // Using the CHARACTER1 texture's default anchor point (BOTTOM_CENTER)
     elementsManager.placeElement(
         "player1",                   // Unique instance name
         ElementTextureName::CHARACTER1, // Using the character sprite sheet
@@ -29,6 +30,7 @@ void createPlayer(float x, float y) {
         0,                           // Starting at first frame
         true,                        // Enable animation
         10.0f                        // Animation speed in FPS
+        // No explicit anchor point - use the texture's default BOTTOM_CENTER
     );
     
     std::cout << "Player created at position (" << x << "," << y << ")" << std::endl;

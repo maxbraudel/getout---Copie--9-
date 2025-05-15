@@ -28,7 +28,9 @@ enum class AnchorPoint {
     TOP_LEFT_CORNER,     // Anchor at top left
     TOP_RIGHT_CORNER,    // Anchor at top right
     BOTTOM_LEFT_CORNER,  // Anchor at bottom left
-    BOTTOM_RIGHT_CORNER  // Anchor at bottom right
+    BOTTOM_RIGHT_CORNER, // Anchor at bottom right
+    BOTTOM_CENTER,       // Anchor at bottom center (useful for characters)
+    USE_TEXTURE_DEFAULT  // Special value to use the default anchor point from texture configuration
 };
 
 // Struct to hold texture information
@@ -41,6 +43,9 @@ struct ElementTextureInfo {
     int totalWidth = 0;   // Total width of the texture (for calculating UV coordinates)
     int totalHeight = 0;  // Total height of the texture (for calculating UV coordinates)
     GLuint textureID = 0; // OpenGL texture handle
+    AnchorPoint anchorPoint = AnchorPoint::CENTER; // Default anchor point for this texture
+    float anchorOffsetX = 0.0f;                    // Default X offset from anchor point
+    float anchorOffsetY = 0.0f;                    // Default Y offset from anchor point
 };
 
 // Struct to hold placed element information
@@ -82,7 +87,7 @@ public:
                       float scale, float x, float y, float rotation = 0.0f,
                       int spriteSheetPhase = 0, int spriteSheetFrame = 0,
                       bool isAnimated = false, float animationSpeed = 10.0f,
-                      AnchorPoint anchorPoint = AnchorPoint::CENTER,
+                      AnchorPoint anchorPoint = AnchorPoint::USE_TEXTURE_DEFAULT,
                       float anchorOffsetX = 0.0f, float anchorOffsetY = 0.0f);
     
     // Remove an element by its instance name

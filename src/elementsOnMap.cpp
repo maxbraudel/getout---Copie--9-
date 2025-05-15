@@ -12,12 +12,12 @@ ElementsOnMap elementsManager;
 // Define textures to load - using C++11 compatible initialization syntax
 static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     std::vector<ElementTextureInfo> textures;
-    
-    // Static texture for bush
+      // Static texture for test/grass
     ElementTextureInfo testTexture;
     testTexture.name = ElementTextureName::TEST;
     testTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass.png";
     testTexture.type = ElementTextureType::STATIC;
+    testTexture.anchorPoint = AnchorPoint::CENTER; // Default center anchor
     textures.push_back(testTexture);
 
     // Static texture for bush
@@ -25,6 +25,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     bushTexture.name = ElementTextureName::BUSH;
     bushTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\decorations\\bush.png";
     bushTexture.type = ElementTextureType::STATIC;
+    bushTexture.anchorPoint = AnchorPoint::BOTTOM_LEFT_CORNER; // Bush grows from ground up, so anchor at bottom
     textures.push_back(bushTexture);
     
     // Sprite sheet texture for character
@@ -34,6 +35,8 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     characterTexture.type = ElementTextureType::SPRITESHEET;
     characterTexture.spriteWidth = 32;  // Assuming 32px width for each sprite frame
     characterTexture.spriteHeight = 48; // Assuming 32px height for each sprite frame
+    characterTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Player stands on ground
+    // We need to add the BOTTOM_CENTER enum value
     textures.push_back(characterTexture);
     
     // Add more texture definitions here as needed
@@ -192,10 +195,31 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
     element.y = y;
     element.rotation = rotation;
     
-    // Set anchor point properties
-    element.anchorPoint = anchorPoint;
-    element.anchorOffsetX = anchorOffsetX;
-    element.anchorOffsetY = anchorOffsetY;
+    // Handle anchor point - check if we need to use the texture's default
+    if (anchorPoint == AnchorPoint::USE_TEXTURE_DEFAULT) {
+        // Look up the texture's default anchor point
+        bool found = false;
+        for (const auto& texInfo : elementTexturesToLoad) {
+            if (texInfo.name == textureName) {
+                element.anchorPoint = texInfo.anchorPoint;
+                element.anchorOffsetX = texInfo.anchorOffsetX + anchorOffsetX; // Add custom offset to default
+                element.anchorOffsetY = texInfo.anchorOffsetY + anchorOffsetY; // Add custom offset to default
+                found = true;
+                break;
+            }
+        }
+        // If texture not found, use CENTER as fallback
+        if (!found) {
+            element.anchorPoint = AnchorPoint::CENTER;
+            element.anchorOffsetX = anchorOffsetX;
+            element.anchorOffsetY = anchorOffsetY;
+        }
+    } else {
+        // Use the explicitly specified anchor point
+        element.anchorPoint = anchorPoint;
+        element.anchorOffsetX = anchorOffsetX;
+        element.anchorOffsetY = anchorOffsetY;
+    }
     
     // Set spritesheet animation properties
     element.spriteSheetPhase = spriteSheetPhase;
@@ -618,8 +642,7 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         // Calculate anchor point offset based on the selected anchor point
         float anchorX = 0.0f;
         float anchorY = 0.0f;
-        
-        switch(element.anchorPoint) {
+          switch(element.anchorPoint) {
             case AnchorPoint::CENTER:
                 // Default center anchor - no offset needed
                 break;
@@ -638,6 +661,10 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
             case AnchorPoint::BOTTOM_RIGHT_CORNER:
                 anchorX = halfWidth_ndc;
                 anchorY = -halfHeight_ndc;
+                break;
+            case AnchorPoint::BOTTOM_CENTER:
+                anchorX = 0.0f; // Centered horizontally
+                anchorY = -halfHeight_ndc; // Bottom aligned
                 break;
         }
         

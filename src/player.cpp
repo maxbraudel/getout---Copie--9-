@@ -16,9 +16,8 @@ void createPlayer(float x, float y) {
         std::cout << "Moving existing player to position (" << x << "," << y << ")" << std::endl;
         elementsManager.changeElementCoordinates("player1", x, y);
         return;
-    }
-      // Create a single player character with animation
-    // Using bottom center as anchor point so player appears to be standing on the ground
+    }    // Create a single player character with animation
+    // Using the CHARACTER1 texture's default anchor point (BOTTOM_CENTER)
     elementsManager.placeElement(
         "player1",                   // Unique instance name
         ElementTextureName::CHARACTER1, // Using the character sprite sheet
@@ -27,10 +26,9 @@ void createPlayer(float x, float y) {
         0.0f,                        // No rotation
         0,                           // Animation row 0 (typically downward-facing)
         0,                           // Starting at first frame
-        false,                        // Enable animation
-        11.0f,                       // Animation speed in FPS
-        AnchorPoint::BOTTOM_LEFT_CORNER, // Anchor at bottom of character sprite
-        0.5f, 0.0f                   // Offset X to center horizontally (X: 0.5 = halfway from left to right)
+        false,                       // Start without animation until movement
+        11.0f                        // Animation speed in FPS
+        // No explicit anchor point - use the texture's default BOTTOM_CENTER
     );
     
     std::cout << "Player created at position (" << x << "," << y << ")" << std::endl;
