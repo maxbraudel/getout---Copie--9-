@@ -48,6 +48,9 @@ public:
     // Remove an element by its instance name
     bool removeElement(const std::string& instanceName);
     
+    // Move an existing element to a new position
+    bool moveElement(const std::string& instanceName, float newX, float newY, float newRotation = -1.0f);
+    
     // Draw all placed elements
     void drawElements(float startX, float endX, float startY, float endY, int gridSize);
 
@@ -57,6 +60,7 @@ private:
 
     std::vector<PlacedElement> elements;
     std::map<ElementTextureName, GLuint> textureIDs; // Direct OpenGL texture handles
+    std::map<std::string, size_t> elementIndexMap; // Maps element name to index in elements vector
     
     // Store width and height for aspect ratio calculation
     std::map<ElementTextureName, std::pair<int, int>> textureDimensions;

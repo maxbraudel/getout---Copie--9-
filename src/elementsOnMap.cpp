@@ -17,7 +17,7 @@ static const std::vector<ElementTextureInfo> elementTexturesToLoad = {
 };
 
 ElementsOnMap::ElementsOnMap() {
-    // Constructor
+    // Constructor - elementIndexMap initialized implicitly
 }
 
 ElementsOnMap::~ElementsOnMap() {
@@ -96,6 +96,13 @@ GLuint ElementsOnMap::loadTexture(const std::string& path) {
 
 void ElementsOnMap::placeElement(const std::string& instanceName, ElementTextureName textureName, 
                                float scale, float x, float y, float rotation) {
+    // Check if an element with this name already exists
+    auto mapIt = elementIndexMap.find(instanceName);
+    if (mapIt != elementIndexMap.end()) {
+        std::cerr << "Element with name '" << instanceName << "' already exists. Use moveElement to change position." << std::endl;
+        return;
+    }
+
     // Create a PlacedElement explicitly instead of using initializer list (C++11 compatibility)
     PlacedElement element;
     element.instanceName = instanceName;
@@ -105,25 +112,70 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
     element.y = y;
     element.rotation = rotation;
     
+    // Add element to vector and update the index map
+    size_t newIndex = elements.size();
     elements.push_back(element);
+    elementIndexMap[instanceName] = newIndex;
+    
     std::cout << "Placed element: " << instanceName << " (Texture: " 
               << static_cast<int>(textureName) << ") at (" << x << ", " << y 
               << ") with scale " << scale << std::endl;
 }
 
 bool ElementsOnMap::removeElement(const std::string& instanceName) {
-    auto it = std::find_if(elements.begin(), elements.end(), 
-                         [&instanceName](const PlacedElement& e) { 
-                             return e.instanceName == instanceName; 
-                         });
-                         
-    if (it != elements.end()) {
-        elements.erase(it);
+    // Find in index map first (O(1) lookup)
+    auto mapIt = elementIndexMap.find(instanceName);
+    if (mapIt == elementIndexMap.end()) {
+        std::cerr << "Element not found: " << instanceName << std::endl;
+        return false;
+    }
+    
+    size_t index = mapIt->second;
+    // Erase the element from the vector
+    if (index < elements.size()) {
+        // When removing an element, we need to update the indices in our map
+        elements.erase(elements.begin() + index);
+        elementIndexMap.erase(mapIt); // Remove the element we just deleted
+        
+        // Update indices for all elements that were after the removed element
+        for (auto& pair : elementIndexMap) {
+            if (pair.second > index) {
+                pair.second--; // Decrement index because the vector now has one less element
+            }
+        }
+        
         std::cout << "Removed element: " << instanceName << std::endl;
         return true;
     }
     
-    std::cerr << "Element not found: " << instanceName << std::endl;
+    std::cerr << "Element index out of range: " << instanceName << std::endl;
+    return false;
+}
+
+bool ElementsOnMap::moveElement(const std::string& instanceName, float newX, float newY, float newRotation) {
+    // Find in index map first (O(1) lookup)
+    auto mapIt = elementIndexMap.find(instanceName);
+    if (mapIt == elementIndexMap.end()) {
+        std::cerr << "Element not found for moving: " << instanceName << std::endl;
+        return false;
+    }
+    
+    size_t index = mapIt->second;
+    if (index < elements.size()) {
+        // Update position
+        elements[index].x = newX;
+        elements[index].y = newY;
+        
+        // Update rotation if provided (a value of -1.0f means keep the existing rotation)
+        if (newRotation >= 0.0f) {
+            elements[index].rotation = newRotation;
+        }
+        
+        std::cout << "Moved element: " << instanceName << " to (" << newX << ", " << newY << ")" << std::endl;
+        return true;
+    }
+    
+    std::cerr << "Element index out of range for moving: " << instanceName << std::endl;
     return false;
 }
 

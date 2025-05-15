@@ -116,6 +116,9 @@ int main() {
 	elementsManager.placeElement("bush1", ElementTextureName::BUSH, 5.0f, 20.0f, 20.0f); // Centered in cell (0,0)
 
     elementsManager.placeElement("bush2", ElementTextureName::BUSH, 5.0f, 21.0f, 21.0f); // Centered in cell (0,0)
+    
+    // Demonstrate moving an element (will be used with user input later)
+    elementsManager.moveElement("bush2", 30.0f, 30.0f);  // Move bush2 to a new position
 
 	// elementsManager.placeElement("bush2", ElementTextureName::BUSH, 0.75f, 5.2f, 3.8f); // Another bush with different scale
 
