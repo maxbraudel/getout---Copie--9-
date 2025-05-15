@@ -100,7 +100,7 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
             } else if (noiseValue < grassThreshold) {
                 grid[y_coord][x_coord] = TextureName::SAND;
             } else {
-                grid[y_coord][x_coord] = TextureName::GRASS_3;
+                grid[y_coord][x_coord] = TextureName::GRASS_0;
             }
         }
     }
@@ -144,7 +144,7 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
     for (int y_coord = 0; y_coord < gridHeight; ++y_coord) {
         for (int x_coord = 0; x_coord < gridWidth; ++x_coord) {
             // Only modify if it was initially classified as a water block
-            if (grid[y_coord][x_coord] != TextureName::SAND && grid[y_coord][x_coord] != TextureName::GRASS_2) {
+            if (grid[y_coord][x_coord] != TextureName::SAND && grid[y_coord][x_coord] != TextureName::GRASS_0) {
                 int dist = distanceToSand[y_coord][x_coord];
                 
                 if (dist == 1) {
@@ -160,6 +160,25 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
                 }
                 // If dist is 0, it's sand, so this block is skipped by the outer if.
                 // If it was WATER_0 and dist is still max_int (e.g. isolated pond), it becomes WATER_5.
+            }
+        }
+    }
+
+    // 3b. Assign final grass textures based on distance to sand
+    for (int y_coord = 0; y_coord < gridHeight; ++y_coord) {
+        for (int x_coord = 0; x_coord < gridWidth; ++x_coord) {
+            // Only modify if it was initially classified as GRASS_0 
+            // (and not changed by water texturing, which it wouldn't be)
+            if (grid[y_coord][x_coord] == TextureName::GRASS_0) {
+                int dist = distanceToSand[y_coord][x_coord];
+
+                if (dist == 1) { // Adjacent to sand
+                    grid[y_coord][x_coord] = TextureName::GRASS_0;
+                } else if (dist == 2) { // One grass block away from sand
+                    grid[y_coord][x_coord] = TextureName::GRASS_1;
+                } else if (dist >= 3) { // Two or more grass blocks away from sand (or isolated)
+                    grid[y_coord][x_coord] = TextureName::GRASS_2;
+                }
             }
         }
     }

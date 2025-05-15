@@ -67,38 +67,20 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     TextureInfo grass0Info;
     grass0Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass0.png";
     grass0Info.animType = TextureAnimationType::STATIC;
-    grass0Info.randomizedRotation = false; // Enable randomized rotation for WATER_4
+    grass0Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
     textureConfigs[TextureName::GRASS_0] = grass0Info;
 
     TextureInfo grass1Info;
     grass1Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass1.png";
     grass1Info.animType = TextureAnimationType::STATIC;
-    grass1Info.randomizedRotation = false; // Enable randomized rotation for WATER_4
+    grass1Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
     textureConfigs[TextureName::GRASS_1] = grass1Info;
 
     TextureInfo grass2Info;
     grass2Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass2.png";
     grass2Info.animType = TextureAnimationType::STATIC;
-    grass2Info.randomizedRotation = false; // Enable randomized rotation for WATER_4
+    grass2Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
     textureConfigs[TextureName::GRASS_2] = grass2Info;
-
-    TextureInfo grass3Info;
-    grass3Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass3.png";
-    grass3Info.animType = TextureAnimationType::STATIC;
-    grass3Info.randomizedRotation = false; // Enable randomized rotation for WATER_4
-    textureConfigs[TextureName::GRASS_3] = grass3Info;
-
-    TextureInfo grass4Info;
-    grass4Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass4.png";
-    grass4Info.animType = TextureAnimationType::STATIC;
-    grass4Info.randomizedRotation = false; // Enable randomized rotation for WATER_4
-    textureConfigs[TextureName::GRASS_4] = grass4Info;
-
-    TextureInfo grass5Info;
-    grass5Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass5.png";
-    grass5Info.animType = TextureAnimationType::STATIC;
-    grass5Info.randomizedRotation = false; // Enable randomized rotation for WATER_4
-    textureConfigs[TextureName::GRASS_5] = grass5Info;
 
     TextureInfo sandInfo;
     sandInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\sand.png";

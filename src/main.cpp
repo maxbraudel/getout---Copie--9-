@@ -17,7 +17,7 @@ static const double FRAMERATE_IN_SECONDS = 1. / 60.; // Changed to 60 FPS
 static float aspectRatio = 1.0f;
 
 /* Grid properties */
-static const int GRID_SIZE = 60;
+static const int GRID_SIZE = 70;
 static float islandFeatureSize = 0.1f; // Controls the size of islands. Smaller values = smaller, more numerous islands. Larger values = larger, fewer islands.
 static float seaFeatureSize = 0.016f; // Controls the size of sea areas. Larger values = larger sea areas.
 static float gridLineWidth = 1.0f;
@@ -109,13 +109,15 @@ int main() {
 
 	gameMap.placeBlock(TextureName::SAND, 0, 0); // Overwrite top-left with sand again
 
-	std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 1.0f);
+	std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.7f);
 	gameMap.placeBlocks(generatedMap);
 
 	// Place decorative elements on the map
-	elementsManager.placeElement("bush1", ElementTextureName::BUSH, 10.0f, 10.0f, 10.0f); // Centered in cell (0,0)
+	elementsManager.placeElement("bush1", ElementTextureName::BUSH, 5.0f, 20.0f, 20.0f); // Centered in cell (0,0)
 
-	elementsManager.placeElement("bush2", ElementTextureName::BUSH, 0.75f, 5.2f, 3.8f); // Another bush with different scale
+    elementsManager.placeElement("bush2", ElementTextureName::BUSH, 5.0f, 21.0f, 21.0f); // Centered in cell (0,0)
+
+	// elementsManager.placeElement("bush2", ElementTextureName::BUSH, 0.75f, 5.2f, 3.8f); // Another bush with different scale
 
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
