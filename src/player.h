@@ -11,4 +11,16 @@ void changePlayerDirection(int direction);
 // Function to move the player relative to its current position
 void movePlayer(float deltaX, float deltaY);
 
+// Function to get the player's current position
+bool getPlayerPosition(float& x, float& y);
+
+// Function to teleport the player to a specific position
+void teleportPlayer(float x, float y);
+
+// Function to set the player's animation state
+void setPlayerAnimationState(bool isAnimating);
+
+// Function to toggle player debug mode - shows grid position
+void togglePlayerDebugMode();
+
 #endif // PLAYER_H

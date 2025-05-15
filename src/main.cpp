@@ -9,6 +9,7 @@
 #include "elementsOnMap.h" // Added include for element management
 #include "player.h" // Added include for player management
 #include <ctime> // For time(0) to seed random number generator
+#include <cmath> // For sqrt function
 
 
 using namespace glbasimac;
@@ -43,6 +44,49 @@ void onWindowResize(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
+// Constants for gameplay
+const float PLAYER_BASE_SPEED = 4.0f;   // Base speed of player movement (grid units per second)
+const float PLAYER_SPRINT_SPEED = 20.0f; // Sprint speed when shift is held (grid units per second)
+
+// Global variables for input handling
+bool keyPressedStates[GLFW_KEY_LAST + 1] = { false };
+
+// Keyboard callback function
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    // Update key state arrays
+    if (action == GLFW_PRESS) {
+        keyPressedStates[key] = true;
+        
+        // Handle immediate keyboard actions
+        if (key == GLFW_KEY_ESCAPE) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE); // Exit on ESC press
+        } 
+        // Reset player position
+        else if (key == GLFW_KEY_R) {
+            teleportPlayer(10.0f, 10.0f);
+            std::cout << "Player position reset to (10, 10)" << std::endl;
+        }
+        // Toggle player animation
+        else if (key == GLFW_KEY_T) {
+            static bool isAnimating = true;
+            isAnimating = !isAnimating;
+            elementsManager.changeElementAnimationStatus("player1", isAnimating);
+            std::cout << "Player animation " << (isAnimating ? "enabled" : "disabled") << std::endl;
+        }
+        // Toggle player debug info
+        else if (key == GLFW_KEY_F3) {
+            togglePlayerDebugMode();
+        }
+        // List all elements when F4 is pressed
+        else if (key == GLFW_KEY_F4) {
+            std::cout << "\n--- Current Elements List ---" << std::endl;
+            elementsManager.listElements();
+        }
+    } else if (action == GLFW_RELEASE) {
+        keyPressedStates[key] = false;
+    }
+}
+
 int main() {
     // Seed the random number generator ONCE at the start of the program
     // You can change time(0) to a specific unsigned int for a fixed, repeatable map.
@@ -64,6 +108,9 @@ int main() {
     }    // Make the window's context current
     glfwMakeContextCurrent(window);    // Set the window resize callback
     glfwSetWindowSizeCallback(window, onWindowResize);
+    
+    // Set the keyboard callback
+    glfwSetKeyCallback(window, keyCallback);
     
     // Get initial window size
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
@@ -89,8 +136,14 @@ int main() {
 		return -1;
 	}
 	
+	std::cout << "\n--- Elements before player creation ---" << std::endl;
+	elementsManager.listElements();
+	
 	// Create a single player character at position (10, 10)
 	createPlayer(10.0f, 10.0f);
+	
+	std::cout << "\n--- Elements after player creation ---" << std::endl;
+	elementsManager.listElements();
 	
 	// Place a sand block at position (0,0) - top left corner
 
@@ -111,25 +164,99 @@ int main() {
 	gameMap.placeBlocks(blocksToPlace); // Apply the map of blocks
 
 	gameMap.placeBlock(TextureName::SAND, 0, 0); // Overwrite top-left with sand again
-
 	std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.7f);
 	gameMap.placeBlocks(generatedMap);
-
-	// Place decorative elements on the map
-	elementsManager.placeElement("bush1", ElementTextureName::BUSH, 5.0f, 20.0f, 20.0f); // Centered in cell (0,0)
-
-    elementsManager.placeElement("bush2", ElementTextureName::BUSH, 5.0f, 21.0f, 21.0f); // Centered in cell (0,0)
+	// Place decorative elements on the map with unique names
+	elementsManager.placeElement("bush1", ElementTextureName::BUSH, 5.0f, 20.0f, 20.0f); 
+    elementsManager.placeElement("bush2", ElementTextureName::BUSH, 5.0f, 21.0f, 21.0f); 
+    elementsManager.placeElement("bush3", ElementTextureName::BUSH, 5.0f, 25.0f, 25.0f); 
     
-    // Demonstrate moving an element (will be used with user input later)
+    // Demonstrate moving an element
     elementsManager.changeElementCoordinates("bush2", 30.0f, 30.0f);  // Move bush2 to a new position
-
-	// elementsManager.placeElement("bush2", ElementTextureName::BUSH, 0.75f, 5.2f, 3.8f); // Another bush with different scale
-
+	
+	// Print elements again to verify state
+	std::cout << "\n--- Elements before game loop ---" << std::endl;
+	elementsManager.listElements();
+	
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
 	{
 		/* Get time (in second) at loop beginning */
-		double startTime = glfwGetTime();		/* Render here */
+		double startTime = glfwGetTime();
+		
+		// Get time for animations
+        double currentTime = glfwGetTime();
+        static double lastTime = currentTime;
+        double deltaTime = currentTime - lastTime;
+        lastTime = currentTime;
+		
+		// Process keyboard input for player movement
+		float playerMoveX = 0.0f;
+		float playerMoveY = 0.0f;
+		
+			// First check if the player exists before processing movements
+		float playerX, playerY;
+		bool playerExists = elementsManager.getElementPosition("player1", playerX, playerY);
+		
+		if (!playerExists) {
+			std::cerr << "WARNING: Player doesn't exist in movement processing! Listing elements:" << std::endl;
+			elementsManager.listElements();
+			std::cerr << "Creating new player since the original one is missing..." << std::endl;
+			createPlayer(10.0f, 10.0f);
+			playerExists = true;
+		}
+		
+		// Apply speed based on whether shift is held
+		float currentSpeed = PLAYER_BASE_SPEED;
+		if (keyPressedStates[GLFW_KEY_LEFT_SHIFT] || keyPressedStates[GLFW_KEY_RIGHT_SHIFT]) {
+			currentSpeed = PLAYER_SPRINT_SPEED; // Use sprint speed when shift is held
+		}
+		
+		// Check arrow keys for player movement
+		if (keyPressedStates[GLFW_KEY_UP] || keyPressedStates[GLFW_KEY_W]) {
+			playerMoveY += currentSpeed * (float)deltaTime;
+		}
+		if (keyPressedStates[GLFW_KEY_DOWN] || keyPressedStates[GLFW_KEY_S]) {
+			playerMoveY -= currentSpeed * (float)deltaTime;
+		}
+		if (keyPressedStates[GLFW_KEY_LEFT] || keyPressedStates[GLFW_KEY_A]) {
+			playerMoveX -= currentSpeed * (float)deltaTime;
+		}
+		if (keyPressedStates[GLFW_KEY_RIGHT] || keyPressedStates[GLFW_KEY_D]) {
+			playerMoveX += currentSpeed * (float)deltaTime;
+		}
+		
+		// Normalize diagonal movement to prevent faster diagonal speed
+		if (playerMoveX != 0.0f && playerMoveY != 0.0f) {
+			// Scale by 1/sqrt(2) to maintain consistent speed in all directions
+			float normalizeFactor = 0.7071f; // 1/sqrt(2)
+			playerMoveX *= normalizeFactor;
+			playerMoveY *= normalizeFactor;
+		}
+		
+		// Track if player is moving
+		static bool wasMoving = false;
+		bool isMoving = (playerMoveX != 0.0f || playerMoveY != 0.0f);
+		
+		// Move the player if any movement key is pressed
+		if (isMoving) {
+			movePlayer(playerMoveX, playerMoveY);
+			
+			// If player just started moving, enable animation
+			if (!wasMoving) {
+				elementsManager.changeElementAnimationStatus("player1", true);
+			}
+		} 
+		// If player just stopped moving, disable animation and set to standing frame
+		else if (wasMoving) {
+			elementsManager.changeElementAnimationStatus("player1", false);
+			elementsManager.changeElementSpriteFrame("player1", 0); // Set to standing frame
+		}
+		
+		// Update movement state
+		wasMoving = isMoving;
+		
+		/* Render here */
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
 		glClear(GL_COLOR_BUFFER_BIT);        // Calculate grid size to maintain aspect ratio and fit within window
         float gridSize;
@@ -179,15 +306,8 @@ int main() {
                 glVertex2f(startX, y);
                 glVertex2f(endX, y);
             }
-            glEnd();
-        }
+            glEnd();        }
 				// Draw the blocks (textured squares) on the grid
-		// Get time for animations
-        double currentTime = glfwGetTime();
-        static double lastTime = currentTime;
-        double deltaTime = currentTime - lastTime;
-        lastTime = currentTime;
-
 		// Draw the map blocks
 		gameMap.drawBlocks(startX, endX, startY, endY, GRID_SIZE, deltaTime);
 		
@@ -196,6 +316,42 @@ int main() {
 		glLoadIdentity();
 				// Draw elements on top of the map tiles (freely placed decorations)
 		elementsManager.drawElements(startX, endX, startY, endY, GRID_SIZE, deltaTime);
+		// Check escape key to close the window
+        if (keyPressedStates[GLFW_KEY_ESCAPE]) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+        
+        // Toggle grid lines with G key
+        static bool gKeyPressed = false;
+        if (keyPressedStates[GLFW_KEY_G] && !gKeyPressed) {
+            showGridLines = !showGridLines;
+            gKeyPressed = true;
+        } else if (!keyPressedStates[GLFW_KEY_G]) {
+            gKeyPressed = false;
+        }
+        
+        // Handle special key presses (one-time actions on key press)
+        static bool lastFrameDebugKeyState = false;
+        if (keyPressedStates[GLFW_KEY_F3] && !lastFrameDebugKeyState) {
+            // Toggle debug mode (not currently implemented)
+            // Add debug functionality here if needed
+        }
+        lastFrameDebugKeyState = keyPressedStates[GLFW_KEY_F3];
+      // Toggle grid lines with F2
+        static bool lastFrameGridKeyState = false;
+        if (keyPressedStates[GLFW_KEY_F2] && !lastFrameGridKeyState) {
+            showGridLines = !showGridLines;
+            std::cout << "Grid lines " << (showGridLines ? "enabled" : "disabled") << std::endl;
+        }
+        lastFrameGridKeyState = keyPressedStates[GLFW_KEY_F2];
+        
+        // Print elements list when F4 is pressed
+        static bool lastFrameDebugElementsState = false;
+        if (keyPressedStates[GLFW_KEY_F4] && !lastFrameDebugElementsState) {
+            std::cout << "\n--- Current Elements List ---" << std::endl;
+            elementsManager.listElements();
+        }
+        lastFrameDebugElementsState = keyPressedStates[GLFW_KEY_F4];
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);

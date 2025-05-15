@@ -59,7 +59,11 @@ public:
 
     // Initialize the manager and load textures
     bool init(glbasimac::GLBI_Engine& engine);
-      // Place an element at the specified coordinates
+    
+    // Debug functions
+    void listElements() const;
+    
+    // Place an element at the specified coordinates
     void placeElement(const std::string& instanceName, ElementTextureName textureName, 
                       float scale, float x, float y, float rotation = 0.0f,
                       int spriteSheetPhase = 0, int spriteSheetFrame = 0,
@@ -68,9 +72,11 @@ public:
     // Remove an element by its instance name
     bool rechangeElementCoordinates(const std::string& instanceName);    // Move an existing element to a new position
     bool changeElementCoordinates(const std::string& instanceName, float newX, float newY, float newRotation = -1.0f);
-    
-    // Move an element relative to its current position
+      // Move an element relative to its current position
     bool moveElement(const std::string& instanceName, float deltaX, float deltaY);
+    
+    // Get element position
+    bool getElementPosition(const std::string& instanceName, float& x, float& y);
     
     // Change element scale
     bool changeElementScale(const std::string& instanceName, float newScale);
