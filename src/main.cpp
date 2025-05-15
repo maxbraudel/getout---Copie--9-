@@ -7,6 +7,7 @@
 #include "map.h"
 #include "terrainGeneration.h"
 #include "elementsOnMap.h" // Added include for element management
+#include "player.h" // Added include for player management
 #include <ctime> // For time(0) to seed random number generator
 
 
@@ -81,13 +82,15 @@ int main() {
 		glfwTerminate();
 		return -1;
 	}
-	
 	// Initialize the elements manager
 	if (!elementsManager.init(myEngine)) {
 		std::cerr << "Failed to initialize elements manager!" << std::endl;
 		glfwTerminate();
 		return -1;
 	}
+	
+	// Create a single player character at position (10, 10)
+	createPlayer(10.0f, 10.0f);
 	
 	// Place a sand block at position (0,0) - top left corner
 
@@ -191,9 +194,8 @@ int main() {
 		// Reset to default state before drawing elements
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
-		
-		// Draw elements on top of the map tiles (freely placed decorations)
-		elementsManager.drawElements(startX, endX, startY, endY, GRID_SIZE);
+				// Draw elements on top of the map tiles (freely placed decorations)
+		elementsManager.drawElements(startX, endX, startY, endY, GRID_SIZE, deltaTime);
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);

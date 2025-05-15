@@ -9,12 +9,33 @@
 // Global instance
 ElementsOnMap elementsManager;
 
-// Define textures to load 
-static const std::vector<ElementTextureInfo> elementTexturesToLoad = {
-    // Temporarily using an existing grass texture as a placeholder for the bush
-    {ElementTextureName::BUSH, "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\decorations\\bush.png"}
+// Define textures to load - using C++11 compatible initialization syntax
+static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
+    std::vector<ElementTextureInfo> textures;
+    
+    // Static texture for bush
+    ElementTextureInfo bushTexture;
+    bushTexture.name = ElementTextureName::BUSH;
+    bushTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\decorations\\bush.png";
+    bushTexture.type = ElementTextureType::STATIC;
+    textures.push_back(bushTexture);
+    
+    // Sprite sheet texture for character
+    ElementTextureInfo characterTexture;
+    characterTexture.name = ElementTextureName::CHARACTER1;
+    characterTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\entities\\player.png";
+    characterTexture.type = ElementTextureType::SPRITESHEET;
+    characterTexture.spriteWidth = 32;  // Assuming 32px width for each sprite frame
+    characterTexture.spriteHeight = 48; // Assuming 32px height for each sprite frame
+    textures.push_back(characterTexture);
+    
     // Add more texture definitions here as needed
-};
+    
+    return textures;
+}
+
+// Create textures vector using the function
+static const std::vector<ElementTextureInfo> elementTexturesToLoad = createElementTexturesToLoad();
 
 ElementsOnMap::ElementsOnMap() {
     // Constructor - elementIndexMap initialized implicitly
@@ -29,16 +50,52 @@ ElementsOnMap::~ElementsOnMap() {
     }
     textureIDs.clear();
     textureDimensions.clear();
+    
+    // Elements vector will be cleared automatically
 }
 
 bool ElementsOnMap::init(glbasimac::GLBI_Engine& engine) {
     bool allLoaded = true;
     
-    for (const auto& texInfo : elementTexturesToLoad) {
+    for (auto texInfo : elementTexturesToLoad) { // Copy to modify
+        // Create a mutable copy of the texture info
+        ElementTextureInfo textureDetails = texInfo;
+        
+        // Load the texture and get dimensions
+        int width, height;
         GLuint textureID = loadTexture(texInfo.path);
+        
         if (textureID > 0) {
+            // Store the texture ID and dimensions in our local copy
+            textureDetails.textureID = textureID;
+            
+            // Get the dimensions from our texture dimensions map
+            auto dimIt = textureDimensions.find(texInfo.name);
+            if (dimIt != textureDimensions.end()) {
+                textureDetails.totalWidth = dimIt->second.first;
+                textureDetails.totalHeight = dimIt->second.second;
+                  std::cout << "Loaded element texture: " << texInfo.path 
+                          << " (ID: " << textureID 
+                          << ", Dimensions: " << textureDetails.totalWidth 
+                          << "x" << textureDetails.totalHeight << ")" << std::endl;
+                
+                // For sprite sheets, calculate number of frames per row
+                if (textureDetails.type == ElementTextureType::SPRITESHEET && 
+                    textureDetails.spriteWidth > 0 && 
+                    textureDetails.spriteHeight > 0) {
+                    
+                    int framesPerRow = textureDetails.totalWidth / textureDetails.spriteWidth;
+                    int numRows = textureDetails.totalHeight / textureDetails.spriteHeight;
+                    
+                    std::cout << "Sprite sheet details for " << static_cast<int>(texInfo.name) << ": " 
+                              << framesPerRow << " frames per row, " 
+                              << numRows << " rows, "
+                              << "spriteWidth=" << textureDetails.spriteWidth << ", "
+                              << "spriteHeight=" << textureDetails.spriteHeight << std::endl;
+                }
+            }
+              // Store in the textureIDs map for backward compatibility
             textureIDs[texInfo.name] = textureID;
-            std::cout << "Loaded element texture: " << texInfo.path << " (ID: " << textureID << ")" << std::endl;
         } else {
             std::cerr << "Failed to load element texture: " << texInfo.path << std::endl;
             allLoaded = false;
@@ -49,6 +106,10 @@ bool ElementsOnMap::init(glbasimac::GLBI_Engine& engine) {
 }
 
 GLuint ElementsOnMap::loadTexture(const std::string& path) {
+    // Match the same stbi_flip setting used in map.cpp to ensure consistency
+    // In map.cpp, it's set to true, so we'll do the same here
+    stbi_set_flip_vertically_on_load(true); // Match map.cpp setting
+    
     // Load image using stb_image
     int width, height, channels;
     unsigned char* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
@@ -72,7 +133,8 @@ GLuint ElementsOnMap::loadTexture(const std::string& path) {
     // Upload the texture data
     GLenum format = (channels == 4) ? GL_RGBA : GL_RGB;
     glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-      // Store dimensions for later use (aspect ratio calculation)
+    
+    // Store dimensions for later use (aspect ratio calculation)
     ElementTextureName currentTextureName = ElementTextureName::BUSH; // Default
     
     // Find which texture we're currently loading
@@ -95,7 +157,9 @@ GLuint ElementsOnMap::loadTexture(const std::string& path) {
 }
 
 void ElementsOnMap::placeElement(const std::string& instanceName, ElementTextureName textureName, 
-                               float scale, float x, float y, float rotation) {
+                               float scale, float x, float y, float rotation,
+                               int spriteSheetPhase, int spriteSheetFrame,
+                               bool isAnimated, float animationSpeed) {
     // Check if an element with this name already exists
     auto mapIt = elementIndexMap.find(instanceName);
     if (mapIt != elementIndexMap.end()) {
@@ -112,6 +176,31 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
     element.y = y;
     element.rotation = rotation;
     
+    // Set spritesheet animation properties
+    element.spriteSheetPhase = spriteSheetPhase;
+    element.spriteSheetFrame = spriteSheetFrame;
+    element.isAnimated = isAnimated;
+    element.animationSpeed = animationSpeed;
+    element.currentFrameTime = 0.0f;
+    
+    // Calculate the number of frames in the current phase
+    // First, find the texture info
+    bool isSpritesheet = false;
+    for (const auto& texInfo : elementTexturesToLoad) {
+        if (texInfo.name == textureName) {
+            if (texInfo.type == ElementTextureType::SPRITESHEET && 
+                texInfo.spriteWidth > 0 && 
+                textureDimensions.find(textureName) != textureDimensions.end()) {
+                
+                auto texDim = textureDimensions[textureName];
+                int totalWidth = texDim.first;
+                element.numFramesInPhase = totalWidth / texInfo.spriteWidth;
+                isSpritesheet = true;
+            }
+            break;
+        }
+    }
+    
     // Add element to vector and update the index map
     size_t newIndex = elements.size();
     elements.push_back(element);
@@ -119,7 +208,16 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
     
     std::cout << "Placed element: " << instanceName << " (Texture: " 
               << static_cast<int>(textureName) << ") at (" << x << ", " << y 
-              << ") with scale " << scale << std::endl;
+              << ") with scale " << scale;
+              
+    if (isSpritesheet) {
+        std::cout << ", phase: " << spriteSheetPhase 
+                  << ", frame: " << spriteSheetFrame
+                  << ", animated: " << (isAnimated ? "yes" : "no")
+                  << ", frames in phase: " << element.numFramesInPhase;
+    }
+    
+    std::cout << std::endl;
 }
 
 bool ElementsOnMap::removeElement(const std::string& instanceName) {
@@ -179,7 +277,7 @@ bool ElementsOnMap::moveElement(const std::string& instanceName, float newX, flo
     return false;
 }
 
-void ElementsOnMap::drawElements(float startX, float endX, float startY, float endY, int gridSize) {
+void ElementsOnMap::drawElements(float startX, float endX, float startY, float endY, int gridSize, double deltaTime) {
     if (elements.empty() || gridSize <= 0) {
         return;
     }
@@ -210,7 +308,7 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
     // In a perfect square grid, they would be exactly equal.
     
     // Direct OpenGL drawing (bypassing GLBI_Engine's texture limitations)
-    for (const auto& element : elements) {
+    for (auto& element : elements) { // Changed to non-const to update animation state
         // Get the texture ID
         auto it = textureIDs.find(element.textureName);
         if (it == textureIDs.end()) {
@@ -219,28 +317,89 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         }
         
         GLuint textureID = it->second;
-          // Calculate the element's position based on its grid coordinates
-        // We need to properly map the element's float coordinates to the visible grid
-        float gridX = startX + (element.x / gridSize) * (endX - startX);
-        float gridY = startY + (element.y / gridSize) * (endY - startY);
         
-        // Get element dimensions
-        float aspectRatio = 1.0f; // Default 1:1 aspect ratio
+        // Get the texture info to check if it's a spritesheet
+        bool isSpritesheet = false;
+        int spriteWidth = 0;
+        int spriteHeight = 0;
+        int textureWidth = 0;
+        int textureHeight = 0;
         
-        // Look up texture dimensions if available (though not used for quad shape in this approach)
-        if (textureDimensions.find(element.textureName) != textureDimensions.end()) {
-            auto dims = textureDimensions[element.textureName];
-            if (dims.first > 0 && dims.second > 0) {
-                aspectRatio = static_cast<float>(dims.first) / dims.second;
+        // Look up element texture info
+        for (const auto& texInfo : elementTexturesToLoad) {
+            if (texInfo.name == element.textureName) {
+                isSpritesheet = (texInfo.type == ElementTextureType::SPRITESHEET);
+                spriteWidth = texInfo.spriteWidth;
+                spriteHeight = texInfo.spriteHeight;
+                break;
             }
         }
         
-        // Calculate element quad dimensions to be like map blocks.
-        // The quad will have the same NDC shape as (element.scale) grid cells.
-        // Since a grid cell (defined by cellWidth x cellHeight in NDC) already appears square on screen,
-        // this element quad will also appear as a scaled square on screen.
-        // The element's texture is mapped fully to this quad, potentially stretching/squashing it
-        // if the texture's aspect ratio is not 1:1, similar to block textures.
+        // Get total texture dimensions
+        if (textureDimensions.find(element.textureName) != textureDimensions.end()) {
+            auto dims = textureDimensions[element.textureName];
+            textureWidth = dims.first;
+            textureHeight = dims.second;
+        }
+          // Update animation frame if this is an animated spritesheet element
+        if (isSpritesheet && element.isAnimated && element.numFramesInPhase > 0) {
+            // Calculate frame time based on animation speed
+            element.currentFrameTime += static_cast<float>(deltaTime);
+            float frameTime = 1.0f / element.animationSpeed; // Time per frame in seconds
+            
+            if (element.currentFrameTime >= frameTime) {
+                // Advance to next frame
+                int advanceFrames = static_cast<int>(element.currentFrameTime / frameTime);
+                element.spriteSheetFrame = (element.spriteSheetFrame + advanceFrames) % element.numFramesInPhase;
+                element.currentFrameTime = fmod(element.currentFrameTime, frameTime); // Keep remainder
+                  // Debug animation info disabled for normal gameplay
+                // Uncomment if you need to debug animation frames
+                /*
+                std::cout << "Animating " << element.instanceName 
+                          << ": phase=" << element.spriteSheetPhase
+                          << ", frame=" << element.spriteSheetFrame 
+                          << ", numFrames=" << element.numFramesInPhase
+                          << ", deltaTime=" << deltaTime << std::endl;
+                */
+            }
+        }
+        
+        // Calculate the element's position based on its grid coordinates
+        float gridX = startX + (element.x / gridSize) * (endX - startX);
+        float gridY = startY + (element.y / gridSize) * (endY - startY);
+        
+        // Calculate UV coordinates based on whether this is a spritesheet
+        float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
+        
+        if (isSpritesheet && spriteWidth > 0 && spriteHeight > 0 && textureWidth > 0 && textureHeight > 0) {
+            // Calculate UV coordinates for the current frame in the sprite sheet
+            float frameWidthRatio = static_cast<float>(spriteWidth) / textureWidth;
+            float frameHeightRatio = static_cast<float>(spriteHeight) / textureHeight;
+              // Calculate horizontal position (frame index)
+            u0 = element.spriteSheetFrame * frameWidthRatio;
+            u1 = u0 + frameWidthRatio;
+            
+            // Calculate vertical position (animation phase/row)
+            // With stbi_set_flip_vertically_on_load(true), the image is already flipped
+            // so we need to adjust our sprite sheet row calculation accordingly
+            int numRows = textureHeight / spriteHeight;
+            if (numRows <= 0) numRows = 1; // Ensure we don't divide by zero
+            
+            // Since stbi_set_flip_vertically_on_load(true) flips the image,
+            // in OpenGL coordinates, row 0 is at the bottom
+            v0 = element.spriteSheetPhase * frameHeightRatio;
+            v1 = v0 + frameHeightRatio;  // Move up one row height
+              // Debug output disabled for normal gameplay
+            // Uncomment if you need to debug UV coordinates
+            /*
+            std::cout << "Element " << element.instanceName 
+                      << " UV coords: (" << u0 << "," << v0 << ") to (" 
+                      << u1 << "," << v1 << "), numRows=" << numRows 
+                      << ", phase=" << element.spriteSheetPhase << std::endl;
+            */
+        }
+        
+        // Calculate element quad dimensions
         float halfWidth_ndc = (cellWidth * element.scale) / 2.0f;
         float halfHeight_ndc = (cellHeight * element.scale) / 2.0f;
         
@@ -260,14 +419,15 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         // Rotate if needed
         if (element.rotation != 0.0f) {
             glRotatef(element.rotation, 0.0f, 0.0f, 1.0f);
-        }
-        
-        // Draw textured quad centered at origin
+        }        // Draw textured quad centered at origin using calculated UV coordinates
+        // Use a consistent vertex order that matches map rendering
+        // Map renders in clockwise order starting from top-left
         glBegin(GL_QUADS);
-            glTexCoord2f(0.0f, 0.0f); glVertex2f(-halfWidth_ndc, -halfHeight_ndc);
-            glTexCoord2f(1.0f, 0.0f); glVertex2f( halfWidth_ndc, -halfHeight_ndc);
-            glTexCoord2f(1.0f, 1.0f); glVertex2f( halfWidth_ndc,  halfHeight_ndc);
-            glTexCoord2f(0.0f, 1.0f); glVertex2f(-halfWidth_ndc,  halfHeight_ndc);
+            // Top-left, top-right, bottom-right, bottom-left (clockwise order)
+            glTexCoord2f(u0, v1); glVertex2f(-halfWidth_ndc,  halfHeight_ndc);  // Top-left
+            glTexCoord2f(u1, v1); glVertex2f( halfWidth_ndc,  halfHeight_ndc);  // Top-right
+            glTexCoord2f(u1, v0); glVertex2f( halfWidth_ndc, -halfHeight_ndc);  // Bottom-right
+            glTexCoord2f(u0, v0); glVertex2f(-halfWidth_ndc, -halfHeight_ndc);  // Bottom-left
         glEnd();
         
         // Unbind texture

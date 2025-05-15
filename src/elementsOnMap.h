@@ -10,15 +10,27 @@
 
 // Define an enum for element texture types
 enum class ElementTextureName {
-    BUSH
+    BUSH,
+    CHARACTER1
     // Add more element texture types as needed
+};
+
+// Define an enum for texture types
+enum class ElementTextureType {
+    STATIC,
+    SPRITESHEET
 };
 
 // Struct to hold texture information
 struct ElementTextureInfo {
     ElementTextureName name;
     std::string path;
-    // Add more fields as needed (e.g., animationFrames for animated elements)
+    ElementTextureType type = ElementTextureType::STATIC; // Type of texture (static or spritesheet)
+    int spriteWidth = 0;  // Width of a single sprite in a spritesheet
+    int spriteHeight = 0; // Height of a single sprite in a spritesheet
+    int totalWidth = 0;   // Total width of the texture (for calculating UV coordinates)
+    int totalHeight = 0;  // Total height of the texture (for calculating UV coordinates)
+    GLuint textureID = 0; // OpenGL texture handle
 };
 
 // Struct to hold placed element information
@@ -28,8 +40,15 @@ struct PlacedElement {
     float scale;
     float x; // Grid-relative float coordinates (e.g., 0.5 for center of cell 0)
     float y;
-    // Optional: rotation angle in degrees
-    float rotation = 0.0f;
+    float rotation = 0.0f; // Optional: rotation angle in degrees
+    
+    // Spritesheet animation properties
+    int spriteSheetPhase = 0;     // Which animation row to use in the spritesheet (0-indexed)
+    int spriteSheetFrame = 0;     // Current frame in the animation (0-indexed)
+    bool isAnimated = false;      // Whether to automatically animate this element
+    float animationSpeed = 10.0f; // Frames per second for animation
+    float currentFrameTime = 0.0f; // Time accumulator for animation
+    int numFramesInPhase = 0;     // Number of frames in current animation phase (calculated)
 };
 
 // Main class to handle elements on the map
@@ -40,19 +59,28 @@ public:
 
     // Initialize the manager and load textures
     bool init(glbasimac::GLBI_Engine& engine);
-    
-    // Place an element at the specified coordinates
+      // Place an element at the specified coordinates
     void placeElement(const std::string& instanceName, ElementTextureName textureName, 
-                      float scale, float x, float y, float rotation = 0.0f);
+                      float scale, float x, float y, float rotation = 0.0f,
+                      int spriteSheetPhase = 0, int spriteSheetFrame = 0,
+                      bool isAnimated = false, float animationSpeed = 10.0f);
     
     // Remove an element by its instance name
     bool removeElement(const std::string& instanceName);
     
     // Move an existing element to a new position
     bool moveElement(const std::string& instanceName, float newX, float newY, float newRotation = -1.0f);
+      // Draw all placed elements
+    void drawElements(float startX, float endX, float startY, float endY, int gridSize, double deltaTime = 0.0);
     
-    // Draw all placed elements
-    void drawElements(float startX, float endX, float startY, float endY, int gridSize);
+    // Get texture dimensions for the specified texture
+    std::pair<int, int> getTextureDimensions(ElementTextureName textureName) const {
+        auto it = textureDimensions.find(textureName);
+        if (it != textureDimensions.end()) {
+            return it->second;
+        }
+        return std::make_pair(0, 0); // Return zeros if texture not found
+    }
 
 private:
     // Modified texture loading that doesn't rely on activateTexturing
