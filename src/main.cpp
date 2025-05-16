@@ -82,11 +82,14 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         // Toggle player debug info
         else if (key == GLFW_KEY_F3) {
             togglePlayerDebugMode();
-        }
-        // List all elements when F4 is pressed
+        }        // List all elements when F4 is pressed
         else if (key == GLFW_KEY_F4) {
             std::cout << "\n--- Current Elements List ---" << std::endl;
             elementsManager.listElements();
+        }
+        // Print detailed element positions when F6 is pressed
+        else if (key == GLFW_KEY_F6) {
+            elementsManager.printElementPositions();
         }
     } else if (action == GLFW_RELEASE) {
         keyPressedStates[key] = false;
@@ -239,15 +242,8 @@ int main() {
 	placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);
 	// Place additional decorative elements on the map with unique names using texture-defined anchor points
     // Note: The coordinate system has (0,0) at top-left, with Y increasing downward
-	elementsManager.placeElement("test1", ElementTextureName::BUSH, 2.0f, 0.0f, GRID_SIZE - 1.0f,
+	elementsManager.placeElement("test1", ElementTextureName::BUSH, 5.0f, 1.0f, 1.0f,
                                0.0f, 0, 0, false, 10.0f); // Using default anchor point from texture
-	                           
-    elementsManager.placeElement("bush2", ElementTextureName::BUSH, 5.0f, 21.0f, 21.0f,
-                               0.0f, 0, 0, false, 10.0f); // Using default anchor point from texture
-                               
-    // This one overrides the texture's default anchor point
-    elementsManager.placeElement("bush3", ElementTextureName::BUSH, 5.0f, 25.0f, 25.0f,
-                               0.0f, 0, 0, false, 10.0f, AnchorPoint::BOTTOM_RIGHT_CORNER);
     
     // Demonstrate moving an element
     elementsManager.changeElementCoordinates("bush2", 30.0f, 30.0f);  // Move bush2 to a new position

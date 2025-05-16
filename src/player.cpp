@@ -27,7 +27,8 @@ void createPlayer(float x, float y) {
         0,                           // Animation row 0 (typically downward-facing)
         0,                           // Starting at first frame
         false,                       // Start without animation until movement
-        11.0f                        // Animation speed in FPS
+        11.0f,
+        AnchorPoint::BOTTOM_CENTER                     // Animation speed in FPS
         // No explicit anchor point - use the texture's default BOTTOM_CENTER
     );
     

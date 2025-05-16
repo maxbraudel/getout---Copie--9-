@@ -26,7 +26,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     bushTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\decorations\\bush.png";
     bushTexture.type = ElementTextureType::STATIC;
     bushTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Bush grows from ground up, so anchor at bottom
-    bushTexture.anchorOffsetX = 0.8f; // No offset
+    bushTexture.anchorOffsetX = 0.4f; // No offset
     bushTexture.anchorOffsetY = 0.0f; // No offset
     textures.push_back(bushTexture);
     
@@ -402,63 +402,55 @@ bool ElementsOnMap::changeElementScale(const std::string& instanceName, float ne
         }
     }
     
-    // Store original scale and position for adjustment calculation
+    // Store original scale for calculation
     float oldScale = it->scale;
-    float oldPosX = it->x;
-    float oldPosY = it->y;
     
-    // Set new scale
-    it->scale = newScale;
+    // Calculate scale offsets based on the anchor point type and the change in scale
+    float offsetX = 0.0f;
+    float offsetY = 0.0f;
     
-    // Adjust position to keep anchor point fixed
-    // This ensures that when scaling, the anchor point remains at the same world position
-    if (oldScale != 0.0f) { // Prevent division by zero
-        float scaleRatio = newScale / oldScale;
-        
-        // Calculate the position adjustment based on anchor point
-        float adjustX = 0.0f;
-        float adjustY = 0.0f;
-        
-        // Only adjust if scale is changing
-        if (scaleRatio != 1.0f) {
-            // Calculate the offset from the center of the element to the anchor point
-            // For different anchor points, we need different offsets
-            switch(anchorPoint) {
-                case AnchorPoint::CENTER:
-                    // No adjustment needed for center anchor
-                    break;
-                case AnchorPoint::TOP_LEFT_CORNER:
-                    adjustX = 0.5f * (1.0f - scaleRatio);
-                    adjustY = -0.5f * (1.0f - scaleRatio);
-                    break;
-                case AnchorPoint::TOP_RIGHT_CORNER:
-                    adjustX = -0.5f * (1.0f - scaleRatio);
-                    adjustY = -0.5f * (1.0f - scaleRatio);
-                    break;
-                case AnchorPoint::BOTTOM_LEFT_CORNER:
-                    adjustX = 0.5f * (1.0f - scaleRatio);
-                    adjustY = 0.5f * (1.0f - scaleRatio);
-                    break;
-                case AnchorPoint::BOTTOM_RIGHT_CORNER:
-                    adjustX = -0.5f * (1.0f - scaleRatio);
-                    adjustY = 0.5f * (1.0f - scaleRatio);
-                    break;
-                case AnchorPoint::BOTTOM_CENTER:
-                    adjustX = 0.0f; // Centered horizontally, no horizontal adjustment
-                    adjustY = 0.5f * (1.0f - scaleRatio); // Bottom aligned
-                    break;
-                default:
-                    break;
-            }
-            
-            // Apply the position adjustment
-            // Adjustment is scaled by the original scale to account for existing scale
-            it->x += adjustX * oldScale;
-            it->y += adjustY * oldScale;
+    // Calculate the difference between old and new dimensions
+    float widthDiff = (newScale - oldScale) * 0.5f;
+    float heightDiff = widthDiff;
+    
+    // Only calculate offsets if scale is changing
+    if (newScale != oldScale && oldScale != 0.0f) { // Prevent division by zero
+        switch(anchorPoint) {
+            case AnchorPoint::CENTER:
+                // No offset needed for center anchor
+                break;
+            case AnchorPoint::TOP_LEFT_CORNER:
+                offsetX = -widthDiff;
+                offsetY = heightDiff;
+                break;
+            case AnchorPoint::TOP_RIGHT_CORNER:
+                offsetX = widthDiff;
+                offsetY = heightDiff;
+                break;
+            case AnchorPoint::BOTTOM_LEFT_CORNER:
+                offsetX = -widthDiff;
+                offsetY = -heightDiff;
+                break;
+            case AnchorPoint::BOTTOM_RIGHT_CORNER:
+                offsetX = widthDiff;
+                offsetY = -heightDiff;
+                break;
+            case AnchorPoint::BOTTOM_CENTER:
+                offsetX = 0.0f; // Centered horizontally
+                offsetY = -heightDiff; // Bottom aligned
+                break;
+            default:
+                break;
         }
     }
     
-    std::cout << "Changed element scale: " << instanceName << " to " << newScale << std::endl;
+    // Update the element's scale and scale offsets
+    it->scale = newScale;
+    it->scaleOffsetX = offsetX;
+    it->scaleOffsetY = offsetY;
+    
+    std::cout << "Changed element scale: " << instanceName << " to " << newScale 
+              << " with scale offsets (" << offsetX << ", " << offsetY << ")" << std::endl;
     return true;
 }
 
@@ -673,9 +665,14 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         }        // Calculate the element's position based on its grid coordinates
         float gridX = startX + (element.x / gridSize) * (endX - startX);
         
-        // Map Y coordinate directly - elementManager now stores coordinates in the game's grid system
-        // where 0 is at the top and increases downward
-        float gridY = startY + ((gridSize - 1 - element.y) / gridSize) * (endY - startY);        // Debug can be enabled below if needed for future troubleshooting
+        // FIX: Map Y coordinate correctly with top-left origin (0,0)
+        // The issue was that elements placed at y=0 (top row) were being rendered as if they were at y=-1
+        // Now we map Y directly from the element's coordinate to the grid system
+        float gridY = startY + ((gridSize - element.y) / gridSize) * (endY - startY);
+        
+        // Apply scale offsets to maintain anchor position when scaling
+        gridX += (element.scaleOffsetX / gridSize) * (endX - startX);
+        gridY -= (element.scaleOffsetY / gridSize) * (endY - startY);// Debug can be enabled below if needed for future troubleshooting
         // Currently disabled to prevent console spam
         /*
         static int debugCounter = 0;
@@ -791,23 +788,26 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         // Unbind texture
         glBindTexture(GL_TEXTURE_2D, 0);
         glDisable(GL_TEXTURE_2D);
-        
-        // Draw anchor point indicator if visualization is enabled
+          // Draw anchor point indicator if visualization is enabled
         if (showAnchorPoints) {
             // Draw a small crosshair to indicate the anchor point
             glColor4f(1.0f, 0.0f, 0.0f, 1.0f);  // Red color
             glLineWidth(3.0f);
             
-            // Draw horizontal line
+            // Calculate the actual position of the anchor point
+            float anchorPosX = anchorX;
+            float anchorPosY = anchorY;
+            
+            // Draw horizontal line at the actual anchor position
             glBegin(GL_LINES);
-            glVertex2f(-0.02f, 0.0f);
-            glVertex2f(0.02f, 0.0f);
+            glVertex2f(anchorPosX - 0.02f, anchorPosY);
+            glVertex2f(anchorPosX + 0.02f, anchorPosY);
             glEnd();
             
-            // Draw vertical line
+            // Draw vertical line at the actual anchor position
             glBegin(GL_LINES);
-            glVertex2f(0.0f, -0.02f);
-            glVertex2f(0.0f, 0.02f);
+            glVertex2f(anchorPosX, anchorPosY - 0.02f);
+            glVertex2f(anchorPosX, anchorPosY + 0.02f);
             glEnd();
             
             glLineWidth(1.0f);  // Reset line width
@@ -851,9 +851,91 @@ void ElementsOnMap::listElements() const {
         printf("%-6zu | %-17s | %-9s | (%.2f, %.2f)\n", 
                i, 
                element.instanceName.c_str(), 
-               typeName.c_str(),
-               element.x, 
+               typeName.c_str(),               element.x, 
                element.y);
     }
     std::cout << "===================================" << std::endl;
+}
+
+void ElementsOnMap::printElementPositions() const {
+    // Print a header for position information
+    std::cout << "\n===== Element Positions (" << elements.size() << " elements) =====" << std::endl;
+    std::cout << "Name                | Type       | Position (X,Y)  | Scale | Rotation | Anchor" << std::endl;
+    std::cout << "-------------------+------------+----------------+-------+----------+--------------" << std::endl;
+    
+    for (const auto& element : elements) {
+        // Convert enum to string for display
+        std::string typeName;
+        switch (element.textureName) {
+            case ElementTextureName::BUSH:
+                typeName = "BUSH";
+                break;
+            case ElementTextureName::CHARACTER1:
+                typeName = "CHARACTER1";
+                break;
+            default:
+                typeName = "UNKNOWN";
+                break;
+        }
+        
+        // Convert anchor point to string
+        std::string anchorName;
+        switch (element.anchorPoint) {
+            case AnchorPoint::CENTER:
+                anchorName = "CENTER";
+                break;
+            case AnchorPoint::TOP_LEFT_CORNER:
+                anchorName = "TOP_LEFT";
+                break;
+            case AnchorPoint::TOP_RIGHT_CORNER:
+                anchorName = "TOP_RIGHT";
+                break;
+            case AnchorPoint::BOTTOM_LEFT_CORNER:
+                anchorName = "BOTTOM_LEFT";
+                break;
+            case AnchorPoint::BOTTOM_RIGHT_CORNER:
+                anchorName = "BOTTOM_RIGHT";
+                break;
+            case AnchorPoint::BOTTOM_CENTER:
+                anchorName = "BOTTOM_CENTER";
+                break;
+            case AnchorPoint::USE_TEXTURE_DEFAULT:
+                anchorName = "DEFAULT";
+                break;
+            default:
+                anchorName = "UNKNOWN";
+                break;
+        }
+        
+        // Print element details with formatted column widths
+        printf("%-19s | %-10s | (%6.2f,%6.2f) | %5.2f | %8.2f | %s\n", 
+               element.instanceName.c_str(), 
+               typeName.c_str(),
+               element.x, element.y,
+               element.scale,
+               element.rotation,
+               anchorName.c_str());
+    }
+    
+    // Add offsets info when available
+    bool hasOffsets = false;
+    for (const auto& element : elements) {
+        if (element.scaleOffsetX != 0.0f || element.scaleOffsetY != 0.0f ||
+            element.anchorOffsetX != 0.0f || element.anchorOffsetY != 0.0f) {
+            
+            if (!hasOffsets) {
+                std::cout << "\n--- Elements with Offsets ---" << std::endl;
+                std::cout << "Name                | Scale Offsets (X,Y) | Anchor Offsets (X,Y)" << std::endl;
+                std::cout << "-------------------+-------------------+---------------------" << std::endl;
+                hasOffsets = true;
+            }
+            
+            printf("%-19s | (%6.2f,%6.2f)     | (%6.2f,%6.2f)\n", 
+                   element.instanceName.c_str(),
+                   element.scaleOffsetX, element.scaleOffsetY,
+                   element.anchorOffsetX, element.anchorOffsetY);
+        }
+    }
+    
+    std::cout << "==========================================================" << std::endl;
 }

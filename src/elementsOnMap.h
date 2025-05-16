@@ -61,6 +61,9 @@ struct PlacedElement {
     AnchorPoint anchorPoint = AnchorPoint::CENTER; // Default to center
     float anchorOffsetX = 0.0f;                    // Additional X offset from anchor point
     float anchorOffsetY = 0.0f;                    // Additional Y offset from anchor point
+      // Scale offset for maintaining anchor points when scaling
+    float scaleOffsetX = 0.0f;  // X offset to maintain anchor when scaling
+    float scaleOffsetY = 0.0f;  // Y offset to maintain anchor when scaling
     
     // Spritesheet animation properties
     int spriteSheetPhase = 0;     // Which animation row to use in the spritesheet (0-indexed)
@@ -132,8 +135,7 @@ public:
     size_t getElementsCount() const {
         return elements.size();
     }
-    
-    // Toggle debug visualization of anchor points
+      // Toggle debug visualization of anchor points
     void toggleAnchorPointVisualization() {
         showAnchorPoints = !showAnchorPoints;
         std::cout << "Anchor point visualization " << (showAnchorPoints ? "enabled" : "disabled") << std::endl;
@@ -143,6 +145,9 @@ public:
     bool isShowingAnchorPoints() const {
         return showAnchorPoints;
     }
+    
+    // Print detailed position information for all placed elements
+    void printElementPositions() const;
 
 private:
     // Modified texture loading that doesn't rely on activateTexturing
