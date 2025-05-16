@@ -242,7 +242,7 @@ int main() {
 	placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);
 	// Place additional decorative elements on the map with unique names using texture-defined anchor points
     // Note: The coordinate system has (0,0) at top-left, with Y increasing downward
-	elementsManager.placeElement("test1", ElementTextureName::BUSH, 5.0f, 1.0f, 1.0f,
+	elementsManager.placeElement("test1", ElementTextureName::COCONUT_TREE_1, 5.0f, 1.0f, 1.0f,
                                0.0f, 0, 0, false, 10.0f); // Using default anchor point from texture
     
     // Demonstrate moving an element

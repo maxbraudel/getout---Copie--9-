@@ -10,7 +10,9 @@
 
 // Define an enum for element texture types
 enum class ElementTextureName {
-    BUSH,
+    COCONUT_TREE_1,
+    COCONUT_TREE_2,
+    COCONUT_TREE_3,
     CHARACTER1,
     TEST
     // Add more element texture types as needed

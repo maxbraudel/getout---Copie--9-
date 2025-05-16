@@ -18,17 +18,29 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     testTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass.png";
     testTexture.type = ElementTextureType::STATIC;
     testTexture.anchorPoint = AnchorPoint::CENTER; // Default center anchor
-    textures.push_back(testTexture);
-
-    // Static texture for bush
-    ElementTextureInfo bushTexture;
-    bushTexture.name = ElementTextureName::BUSH;
-    bushTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\decorations\\bush.png";
-    bushTexture.type = ElementTextureType::STATIC;
-    bushTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Bush grows from ground up, so anchor at bottom
-    bushTexture.anchorOffsetX = 0.4f; // No offset
-    bushTexture.anchorOffsetY = 0.0f; // No offset
-    textures.push_back(bushTexture);
+    textures.push_back(testTexture);    // Static texture for coconut tree 1
+    ElementTextureInfo coconutTree1Texture;
+    coconutTree1Texture.name = ElementTextureName::COCONUT_TREE_1;
+    coconutTree1Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\decorations\\coconut_tree_1.png";
+    coconutTree1Texture.type = ElementTextureType::STATIC;
+    coconutTree1Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
+    coconutTree1Texture.anchorOffsetX = 0.4f; // X offset
+    coconutTree1Texture.anchorOffsetY = 0.0f; // No Y offset
+    textures.push_back(coconutTree1Texture);    ElementTextureInfo coconutTree2Texture;
+    coconutTree2Texture.name = ElementTextureName::COCONUT_TREE_2;
+    coconutTree2Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\decorations\\coconut_tree_2.png";
+    coconutTree2Texture.type = ElementTextureType::STATIC;
+    coconutTree2Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
+    coconutTree2Texture.anchorOffsetX = -0.3f; // No offset
+    coconutTree2Texture.anchorOffsetY = 0.0f; // No offset
+    textures.push_back(coconutTree2Texture);    ElementTextureInfo coconutTree3Texture;
+    coconutTree3Texture.name = ElementTextureName::COCONUT_TREE_3;
+    coconutTree3Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\decorations\\coconut_tree_3.png";
+    coconutTree3Texture.type = ElementTextureType::STATIC;
+    coconutTree3Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
+    coconutTree3Texture.anchorOffsetX = 0.0f; // No offset
+    coconutTree3Texture.anchorOffsetY = 0.0f; // No offset
+    textures.push_back(coconutTree3Texture);
     
     // Sprite sheet texture for character
     ElementTextureInfo characterTexture;
@@ -148,7 +160,7 @@ GLuint ElementsOnMap::loadTexture(const std::string& path) {
     glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
     
     // Store dimensions for later use (aspect ratio calculation)
-    ElementTextureName currentTextureName = ElementTextureName::BUSH; // Default
+    ElementTextureName currentTextureName = ElementTextureName::COCONUT_TREE_1; // Default
     
     // Find which texture we're currently loading
     for (const auto& texInfo : elementTexturesToLoad) {
@@ -836,8 +848,8 @@ void ElementsOnMap::listElements() const {
         
         // Convert enum to string for display
         switch (element.textureName) {
-            case ElementTextureName::BUSH:
-                typeName = "BUSH";
+            case ElementTextureName::COCONUT_TREE_1:
+                typeName = "COCONUT_TREE_1";
                 break;
             case ElementTextureName::CHARACTER1:
                 typeName = "CHARACTER1";
@@ -867,8 +879,8 @@ void ElementsOnMap::printElementPositions() const {
         // Convert enum to string for display
         std::string typeName;
         switch (element.textureName) {
-            case ElementTextureName::BUSH:
-                typeName = "BUSH";
+            case ElementTextureName::COCONUT_TREE_1:
+                typeName = "COCONUT_TREE_1";
                 break;
             case ElementTextureName::CHARACTER1:
                 typeName = "CHARACTER1";

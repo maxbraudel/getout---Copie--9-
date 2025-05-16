@@ -212,7 +212,7 @@ void placeTerrainElements(
     
     // Track placed bush locations for distance checking
     std::vector<std::pair<int, int>> placedBushes;
-    const int MIN_BUSH_DISTANCE = 4; // Minimum distance between bushes
+    const int MIN_COCONUT_TREE_1_DISTANCE = 4; // Minimum distance between bushes
     
     // Iterate through all grid positions
     for (int y = 0; y < gridHeight; y++) {
@@ -225,10 +225,10 @@ void placeTerrainElements(
                   // Count sand blocks and edges
                 sandCount++;
                   // Place bushes with 1/50 chance, but limit to max 50 total bushes for performance
-                const int MAX_BUSHES = 50;
-                const int BUSH_CHANCE = 50; // 1/50 chance
+                const int MAX_COCONUT_TREE_1ES = 50;
+                const int COCONUT_TREE_1_CHANCE = 50; // 1/50 chance
                 
-                if (bushCount < MAX_BUSHES && rand() % BUSH_CHANCE == 0) {
+                if (bushCount < MAX_COCONUT_TREE_1ES && rand() % COCONUT_TREE_1_CHANCE == 0) {
                     // Check distance from existing bushes
                     bool tooClose = false;
                     for (const auto& bush : placedBushes) {
@@ -237,7 +237,7 @@ void placeTerrainElements(
                         int distanceSquared = dx*dx + dy*dy;
                         
                         // Use square of distance to avoid square root calculation
-                        if (distanceSquared < MIN_BUSH_DISTANCE * MIN_BUSH_DISTANCE) {
+                        if (distanceSquared < MIN_COCONUT_TREE_1_DISTANCE * MIN_COCONUT_TREE_1_DISTANCE) {
                             tooClose = true;
                             break;
                         }
@@ -252,16 +252,35 @@ void placeTerrainElements(
                         // FIX: Ensure Y coordinate matches the system with (0,0) at top-left
                         // Use the raw Y coordinate directly without the +1.5f adjustment
                         float worldY = y + 0.5f;  // Center of the block
-                          
-                        // Add bush location to tracking vector
+                            // Add bush location to tracking vector
                         placedBushes.push_back({x, y});
                         
-                        // Place a bush at this location
-                        // Using default anchor point from texture (BOTTOM_CENTER for bush)
+                        // Randomly pick one of the three coconut tree textures with 1/3 chance for each
+                        ElementTextureName treeTexture;
+                        int randomTree = rand() % 3;
+                        switch (randomTree) {
+                            case 0:
+                                treeTexture = ElementTextureName::COCONUT_TREE_1;
+                                break;
+                            case 1:
+                                treeTexture = ElementTextureName::COCONUT_TREE_2;
+                                break;
+                            case 2:
+                                treeTexture = ElementTextureName::COCONUT_TREE_3;
+                                break;
+                            default: // Should never happen, but just in case
+                                treeTexture = ElementTextureName::COCONUT_TREE_1;
+                        }
+
+                        float randomScale = 0.7f + static_cast<float>(rand()) / RAND_MAX * (1.0f - 0.7f);
+
+                        
+                        // Place a coconut tree at this location
+                        // Using default anchor point from texture (BOTTOM_CENTER for trees)
                         elementsManager.placeElement(
                             bushName,                    // Unique name
-                            ElementTextureName::BUSH,    // Bush texture
-                            5.0f,                        // Size (scaled by 5.0f)
+                            treeTexture,                 // Randomly selected coconut tree texture
+                            5.0f * randomScale,                        // Size (scaled by 5.0f)
                             worldX,                      // X position
                             worldY,                      // Y position
                             0.0f,                        // No rotation
