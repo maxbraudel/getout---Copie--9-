@@ -26,6 +26,12 @@ static float gridLineWidth = 1.0f;
 static int windowWidth = 1024;
 static int windowHeight = 1024;
 
+// Variables to store grid rendering parameters for coordinate conversion
+static float g_startX = -1.0f;
+static float g_endX = 1.0f;
+static float g_startY = -1.0f;
+static float g_endY = 1.0f;
+
 // Add this boolean variable to control grid line visibility
 static bool showGridLines = false;
 
@@ -87,6 +93,71 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     }
 }
 
+// Mouse button callback function
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        // Get cursor position
+        double mouseX, mouseY;
+        glfwGetCursorPos(window, &mouseX, &mouseY);
+        
+        // COORDINATE SYSTEM: The game uses a coordinate system where (0,0) is at top-left
+        // and Y increases downward, matching typical 2D game conventions.
+        
+        // Convert to normalized screen coordinates (-1 to 1)
+        double normalizedX = (2.0 * mouseX / windowWidth) - 1.0;
+        double normalizedY = 1.0 - (2.0 * mouseY / windowHeight); // Y is inverted in screen space
+        
+        // Compute grid coordinates based on current grid rendering parameters
+        // Check if the click is inside the grid area
+        if (normalizedX >= g_startX && normalizedX <= g_endX && 
+            normalizedY >= g_startY && normalizedY <= g_endY) {
+                  // Map normalized coordinates to grid coordinates
+            float gridX = (normalizedX - g_startX) / (g_endX - g_startX) * GRID_SIZE;
+            float gridY = (normalizedY - g_startY) / (g_endY - g_startY) * GRID_SIZE;
+            
+            // Convert to integer grid coordinates
+            int gridXInt = static_cast<int>(gridX);
+            
+            // Calculate grid Y coordinate
+            // Our grid has (0,0) at top-left, but OpenGL has (0,0) at bottom-left
+            // Note: OpenGL normalized coordinates have y=1 at the top, y=-1 at the bottom
+            // So normalized y = 1.0 should map to grid y = 0, and normalized y = -1.0 should map to grid y = GRID_SIZE-1
+            int gridYInt = GRID_SIZE - 1 - static_cast<int>(gridY); 
+              // Reduced debug output - only show the essential information
+            // std::cout << "Debug: Mouse at normalized (" << normalizedX << ", " << normalizedY << ")" << std::endl;
+            // std::cout << "Debug: Grid area from (" << g_startX << "," << g_startY << ") to (" 
+            //           << g_endX << "," << g_endY << ")" << std::endl;            // Calculate world position for reference (but don't print)
+            float worldX = gridXInt + 0.5f;  // Center of the block
+            float worldY = gridYInt + 0.5f;  // Center of the block
+            
+            // Get block name at these coordinates
+            TextureName blockName = gameMap.getBlockNameByCoordinates(gridXInt, gridYInt);
+            
+            // Convert enum to string for better output
+            std::string blockNameStr = "UNKNOWN";
+            switch (blockName) {
+                case TextureName::GRASS_0: blockNameStr = "GRASS_0"; break;
+                case TextureName::GRASS_1: blockNameStr = "GRASS_1"; break;
+                case TextureName::GRASS_2: blockNameStr = "GRASS_2"; break;
+                case TextureName::GRASS_3: blockNameStr = "GRASS_3"; break;
+                case TextureName::GRASS_4: blockNameStr = "GRASS_4"; break;
+                case TextureName::GRASS_5: blockNameStr = "GRASS_5"; break;
+                case TextureName::SAND: blockNameStr = "SAND"; break;
+                case TextureName::WATER_0: blockNameStr = "WATER_0"; break;
+                case TextureName::WATER_1: blockNameStr = "WATER_1"; break;
+                case TextureName::WATER_2: blockNameStr = "WATER_2"; break;
+                case TextureName::WATER_3: blockNameStr = "WATER_3"; break;
+                case TextureName::WATER_4: blockNameStr = "WATER_4"; break;
+                default: blockNameStr = "UNKNOWN"; break;
+            }
+            
+            // Output the block information
+            std::cout << "Clicked on grid cell: (" << gridXInt << ", " << gridYInt << ")" << std::endl;
+            std::cout << "Block type: " << blockNameStr << " (enum value: " << static_cast<int>(blockName) << ")" << std::endl;
+        }
+    }
+}
+
 int main() {
     // Seed the random number generator ONCE at the start of the program
     // You can change time(0) to a specific unsigned int for a fixed, repeatable map.
@@ -112,6 +183,9 @@ int main() {
     // Set the keyboard callback
     glfwSetKeyCallback(window, keyCallback);
     
+    // Set the mouse button callback
+    glfwSetMouseButtonCallback(window, mouseButtonCallback);
+    
     // Get initial window size
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     
@@ -135,39 +209,38 @@ int main() {
 		glfwTerminate();
 		return -1;
 	}
-	
-	std::cout << "\n--- Elements before player creation ---" << std::endl;
-	elementsManager.listElements();
-	
-	// Create a single player character at position (10, 10)
+		// Create a single player character at position (10, 10)
 	createPlayer(10.0f, 10.0f);
 	
-	std::cout << "\n--- Elements after player creation ---" << std::endl;
-	elementsManager.listElements();
-	
-	// Place a sand block at position (0,0) - top left corner
-
-	// Example usage of placeBlocks
-	std::map<std::pair<int, int>, TextureName> blocksToPlace; // Changed GLuint to TextureName
-	blocksToPlace[{1, 0}] = TextureName::SAND;
-	blocksToPlace[{0, 1}] = TextureName::SAND;
-	blocksToPlace[{1, 1}] = TextureName::SAND;
-	blocksToPlace[{5, 5}] = TextureName::SAND;
-	// blocksToPlace[{GRID_SIZE -1, GRID_SIZE -1}] = TextureName::SAND; // Bottom-right corner
-
-	// Place an area of animated water
-	
-	gameMap.placeBlockArea(TextureName::WATER_0, 0, 0,GRID_SIZE -1, GRID_SIZE -1); // Right Column
-
-	gameMap.placeBlockArea(TextureName::SAND, 4, 4,GRID_SIZE -5, GRID_SIZE -5); // Right Column
-
-	gameMap.placeBlocks(blocksToPlace); // Apply the map of blocks
-
-	gameMap.placeBlock(TextureName::SAND, 0, 0); // Overwrite top-left with sand again
+	// Only print final elements list before game loop
+	// std::cout << "\n--- Elements after player creation ---" << std::endl;
+	// elementsManager.listElements();
+		// Generate the terrain first - this will be our base map
+	std::cout << "Generating terrain..." << std::endl;
 	std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.7f);
-	gameMap.placeBlocks(generatedMap);	// Place decorative elements on the map with unique names using texture-defined anchor points
-	elementsManager.placeElement("test1", ElementTextureName::BUSH, 10.0f, 0.0f, 0.0f,
-	                           0.0f, 0, 0, false, 10.0f); // Using default anchor point from texture
+	// Apply the generated terrain - this is more efficient than placing blocks and then overwriting them
+	std::cout << "Placing generated terrain..." << std::endl;
+	gameMap.placeBlocks(generatedMap);	
+	
+	// Now add a few specific blocks (only if you need to override the terrain)
+	// These are placed after the terrain generation, so they will override any blocks at the same positions
+	std::map<std::pair<int, int>, TextureName> specialBlocks;
+	specialBlocks[{0, 0}] = TextureName::SAND; // Special block at top-left
+	specialBlocks[{5, 5}] = TextureName::SAND; // Special block at position
+	gameMap.placeBlocks(specialBlocks);
+		// Update the generated map with special blocks to keep it in sync with the actual map
+	for (const auto& pair : specialBlocks) {
+		generatedMap[pair.first] = pair.second;
+	}
+	
+	std::cout << "Map generation complete." << std::endl;
+		// Automatically place terrain elements (bushes on sand blocks) with 1/50 chance
+	// Instead of creating a separate map, we'll use the gameMap directly to ensure we see the actual blocks
+	placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);
+	// Place additional decorative elements on the map with unique names using texture-defined anchor points
+    // Note: The coordinate system has (0,0) at top-left, with Y increasing downward
+	elementsManager.placeElement("test1", ElementTextureName::BUSH, 2.0f, 0.0f, GRID_SIZE - 1.0f,
+                               0.0f, 0, 0, false, 10.0f); // Using default anchor point from texture
 	                           
     elementsManager.placeElement("bush2", ElementTextureName::BUSH, 5.0f, 21.0f, 21.0f,
                                0.0f, 0, 0, false, 10.0f); // Using default anchor point from texture
@@ -178,10 +251,11 @@ int main() {
     
     // Demonstrate moving an element
     elementsManager.changeElementCoordinates("bush2", 30.0f, 30.0f);  // Move bush2 to a new position
-	
-	// Print elements again to verify state
-	std::cout << "\n--- Elements before game loop ---" << std::endl;
-	elementsManager.listElements();
+		// Only show elements count rather than full list for cleaner output
+	std::cout << "Game ready with " << elementsManager.getElementsCount() << " elements placed" << std::endl;
+		// Skip block test output for cleaner console
+	          	// Display brief coordinate system information
+	std::cout << "\nGame uses a coordinate system with (0,0) at top-left, Y increasing downward" << std::endl;
 	
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
@@ -219,10 +293,10 @@ int main() {
 		
 		// Check arrow keys for player movement
 		if (keyPressedStates[GLFW_KEY_UP] || keyPressedStates[GLFW_KEY_W]) {
-			playerMoveY += currentSpeed * (float)deltaTime;
+			playerMoveY -= currentSpeed * (float)deltaTime;
 		}
 		if (keyPressedStates[GLFW_KEY_DOWN] || keyPressedStates[GLFW_KEY_S]) {
-			playerMoveY -= currentSpeed * (float)deltaTime;
+			playerMoveY += currentSpeed * (float)deltaTime;
 		}
 		if (keyPressedStates[GLFW_KEY_LEFT] || keyPressedStates[GLFW_KEY_A]) {
 			playerMoveX -= currentSpeed * (float)deltaTime;
@@ -288,6 +362,12 @@ int main() {
         float endX = 1.0f - offsetX;
         float startY = -1.0f + offsetY;
         float endY = 1.0f - offsetY;
+        
+        // Store grid rendering parameters for mouse click conversion
+        g_startX = startX;
+        g_endX = endX;
+        g_startY = startY;
+        g_endY = endY;
         
         // Draw grid
         if (showGridLines) {

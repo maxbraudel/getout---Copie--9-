@@ -128,6 +128,11 @@ public:
         return std::make_pair(0, 0); // Return zeros if texture not found
     }
     
+    // Get the total number of elements
+    size_t getElementsCount() const {
+        return elements.size();
+    }
+    
     // Toggle debug visualization of anchor points
     void toggleAnchorPointVisualization() {
         showAnchorPoints = !showAnchorPoints;

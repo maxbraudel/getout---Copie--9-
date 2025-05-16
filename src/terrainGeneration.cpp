@@ -1,5 +1,5 @@
 #include "terrainGeneration.h"
-#include "../src/map.h" // For TextureName enum
+#include "map.h" // For TextureName enum and gameMap
 #include <vector>
 #include <queue>
 #include <map>
@@ -192,4 +192,76 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
     }
 
     return generatedBlocks;
+}
+
+// Places decorative elements (bushes, etc.) on appropriate terrain blocks
+void placeTerrainElements(
+    ElementsOnMap& elementsManager,
+    const Map& map,
+    int gridWidth,
+    int gridHeight
+) {
+    // Keep track of how many bushes we've placed to give unique IDs
+    int bushCount = 0;
+    
+    // Count of different block types for debugging
+    int sandCount = 0;
+    int grassCount = 0;
+    int waterCount = 0;
+    int otherCount = 0;
+    
+    // Iterate through all grid positions
+    for (int y = 0; y < gridHeight; y++) {
+        for (int x = 0; x < gridWidth; x++) {
+            // Get the actual block type from the map
+            TextureName blockType = map.getBlockNameByCoordinates(x, y);
+            
+            // Count block types for debugging
+            if (blockType == TextureName::SAND) {
+                sandCount++;
+                  // Place bushes with 1/50 chance, but limit to max 50 total bushes for performance
+                const int MAX_BUSHES = 50;
+                const int BUSH_CHANCE = 50; // 1/50 chance
+                
+                if (bushCount < MAX_BUSHES && rand() % BUSH_CHANCE == 0) {
+                    // Create a unique name for this bush
+                    std::string bushName = "terrain_bush_" + std::to_string(bushCount++);                    // Convert grid coordinates to world coordinates (center of the block)
+                    float worldX = x + 0.5f;  // Center of the block
+                    
+                    // IMPORTANT: Use the raw Y coordinate directly
+                    // Our game uses a coordinate system where (0,0) is at the top-left
+                    float worldY = y + 0.5f;  // Center of the block
+                      // Debug output - only show total count at the end instead of each bush
+                    // std::cout << "Placing bush #" << bushCount << " on SAND block at grid (" << x << ", " << y 
+                    //          << "), world (" << worldX << ", " << worldY << ")" << std::endl;
+                    
+                    // Place a bush at this location
+                    // Using default anchor point from texture (BOTTOM_CENTER for bush)
+                    elementsManager.placeElement(
+                        bushName,                    // Unique name
+                        ElementTextureName::BUSH,    // Bush texture
+                        5.0f,                        // Size (scaled by 5.0f)
+                        worldX + 0.5,                      // X position
+                        worldY + 0.5,                      // Y position
+                        0.0f,                        // No rotation
+                        0,                           // Default sprite sheet phase
+                        0,                           // Default sprite sheet frame
+                        false,                       // Not animated
+                        10.0f,                       // Default animation speed
+                        AnchorPoint::USE_TEXTURE_DEFAULT // Use texture's default anchor point
+                    );
+                }
+            } else if (blockType >= TextureName::GRASS_0 && blockType <= TextureName::GRASS_5) {
+                grassCount++;
+            } else if (blockType >= TextureName::WATER_0 && blockType <= TextureName::WATER_4) {
+                waterCount++;
+            } else {
+                otherCount++;
+            }
+        }
+    }
+      // Concise summary of terrain generation results
+    std::cout << "Terrain blocks: " << sandCount << " sand, " << grassCount << " grass, " 
+              << waterCount << " water blocks" << std::endl;
+    std::cout << "Placed " << bushCount << " bushes on sand blocks" << std::endl;
 }

@@ -80,6 +80,9 @@ public:
     // Public method to get a loaded texture ID by its type
     GLuint getTexture(TextureName type) const;
     
+    // Get the texture name at the specified grid coordinates
+    TextureName getBlockNameByCoordinates(int x, int y) const;
+    
 private:
     // Internal helper to load a single texture from file
     bool loadTexture(const std::string& path, GLuint& textureID, int& width, int& height);
@@ -94,6 +97,7 @@ private:
 
     std::vector<Block> blocks;
     std::map<TextureName, TextureInfo> textureDetails; // Stores detailed info for each texture
+    std::map<std::pair<int, int>, size_t> blockPositionMap; // Maps coordinates to block index for faster lookups
     glbasimac::GLBI_Engine* enginePtr;
 };
 

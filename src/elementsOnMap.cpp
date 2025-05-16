@@ -38,6 +38,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     characterTexture.spriteWidth = 32;  // Assuming 32px width for each sprite frame
     characterTexture.spriteHeight = 48; // Assuming 32px height for each sprite frame
     characterTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Player stands on ground
+    characterTexture.anchorOffsetY = 0.1f; // No offset
     // We need to add the BOTTOM_CENTER enum value
     textures.push_back(characterTexture);
     
@@ -388,7 +389,75 @@ bool ElementsOnMap::changeElementScale(const std::string& instanceName, float ne
         return false;
     }
     
+    // Calculate anchor point offset based on the element's anchor point
+    // Get texture info to determine default anchor point if needed
+    AnchorPoint anchorPoint = it->anchorPoint;
+    if (anchorPoint == AnchorPoint::USE_TEXTURE_DEFAULT) {
+        // Look up the default anchor point from the texture definition
+        for (const auto& texInfo : elementTexturesToLoad) {
+            if (texInfo.name == it->textureName) {
+                anchorPoint = texInfo.anchorPoint;
+                break;
+            }
+        }
+    }
+    
+    // Store original scale and position for adjustment calculation
+    float oldScale = it->scale;
+    float oldPosX = it->x;
+    float oldPosY = it->y;
+    
+    // Set new scale
     it->scale = newScale;
+    
+    // Adjust position to keep anchor point fixed
+    // This ensures that when scaling, the anchor point remains at the same world position
+    if (oldScale != 0.0f) { // Prevent division by zero
+        float scaleRatio = newScale / oldScale;
+        
+        // Calculate the position adjustment based on anchor point
+        float adjustX = 0.0f;
+        float adjustY = 0.0f;
+        
+        // Only adjust if scale is changing
+        if (scaleRatio != 1.0f) {
+            // Calculate the offset from the center of the element to the anchor point
+            // For different anchor points, we need different offsets
+            switch(anchorPoint) {
+                case AnchorPoint::CENTER:
+                    // No adjustment needed for center anchor
+                    break;
+                case AnchorPoint::TOP_LEFT_CORNER:
+                    adjustX = 0.5f * (1.0f - scaleRatio);
+                    adjustY = -0.5f * (1.0f - scaleRatio);
+                    break;
+                case AnchorPoint::TOP_RIGHT_CORNER:
+                    adjustX = -0.5f * (1.0f - scaleRatio);
+                    adjustY = -0.5f * (1.0f - scaleRatio);
+                    break;
+                case AnchorPoint::BOTTOM_LEFT_CORNER:
+                    adjustX = 0.5f * (1.0f - scaleRatio);
+                    adjustY = 0.5f * (1.0f - scaleRatio);
+                    break;
+                case AnchorPoint::BOTTOM_RIGHT_CORNER:
+                    adjustX = -0.5f * (1.0f - scaleRatio);
+                    adjustY = 0.5f * (1.0f - scaleRatio);
+                    break;
+                case AnchorPoint::BOTTOM_CENTER:
+                    adjustX = 0.0f; // Centered horizontally, no horizontal adjustment
+                    adjustY = 0.5f * (1.0f - scaleRatio); // Bottom aligned
+                    break;
+                default:
+                    break;
+            }
+            
+            // Apply the position adjustment
+            // Adjustment is scaled by the original scale to account for existing scale
+            it->x += adjustX * oldScale;
+            it->y += adjustY * oldScale;
+        }
+    }
+    
     std::cout << "Changed element scale: " << instanceName << " to " << newScale << std::endl;
     return true;
 }
@@ -531,11 +600,11 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
     // Enable blending for transparent textures
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
-    // Sort elements by Y-coordinate (descending) to draw from back to front
-    // Elements with larger Y (visually higher on screen) are drawn first (behind)
+      // Sort elements by Y-coordinate (ascending) to draw from back to front
+    // Elements with smaller Y (visually higher on screen) are drawn first (behind)
+    // This means elements with larger Y (lower on screen) will be drawn on top
     std::sort(elements.begin(), elements.end(), [](const PlacedElement& a, const PlacedElement& b) {
-        return a.y > b.y;
+        return a.y < b.y;
     });
     
     // Calculate the grid cell dimensions in NDC coordinates
@@ -601,11 +670,21 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
                           << ", deltaTime=" << deltaTime << std::endl;
                 */
             }
-        }
-        
-        // Calculate the element's position based on its grid coordinates
+        }        // Calculate the element's position based on its grid coordinates
         float gridX = startX + (element.x / gridSize) * (endX - startX);
-        float gridY = startY + (element.y / gridSize) * (endY - startY);
+        
+        // Map Y coordinate directly - elementManager now stores coordinates in the game's grid system
+        // where 0 is at the top and increases downward
+        float gridY = startY + ((gridSize - 1 - element.y) / gridSize) * (endY - startY);        // Debug can be enabled below if needed for future troubleshooting
+        // Currently disabled to prevent console spam
+        /*
+        static int debugCounter = 0;
+        if (element.instanceName.find("terrain_bush_") != std::string::npos && debugCounter++ % 1000 == 0) {
+            std::cout << "Drawing " << element.instanceName << " - World coords: ("
+                      << element.x << ", " << element.y << "), Grid cell: ("
+                      << static_cast<int>(element.x) << ", " << static_cast<int>(element.y) << ")" << std::endl;
+        }
+        */
         
         // Calculate UV coordinates based on whether this is a spritesheet
         float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;

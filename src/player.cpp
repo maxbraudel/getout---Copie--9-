@@ -75,10 +75,10 @@ void movePlayer(float deltaX, float deltaY) {
         elementsManager.changeElementSpritePhase("player1", 2); // Assuming 1 is the left-facing animation
     } else if (deltaY > 0) {
         // Moving up (or up movement is dominant)
-        elementsManager.changeElementSpritePhase("player1", 0); // Assuming 3 is the up-facing animation
+        elementsManager.changeElementSpritePhase("player1", 3); // Assuming 3 is the up-facing animation
     } else if (deltaY < 0) {
         // Moving down (or down movement is dominant)
-        elementsManager.changeElementSpritePhase("player1", 3); // Assuming 0 is the down-facing animation
+        elementsManager.changeElementSpritePhase("player1", 0); // Assuming 0 is the down-facing animation
     }
     
     // Display player position in debug mode

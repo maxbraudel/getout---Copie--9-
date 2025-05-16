@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include "map.h" // For TextureName and std::pair<int, int>
+#include "elementsOnMap.h" // For ElementsOnMap class
 
 // Generates a terrain map using a placeholder Perlin noise function.
 // A real Perlin noise implementation/library should be used for better results.
@@ -14,6 +15,17 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
     float seaFeatureSize,    // Added: Controls the size of sea areas
     float waterThreshold,
     float grassThreshold // Added: Values above this (and waterThreshold) become grass
+);
+
+// Places decorative elements (bushes, etc.) on appropriate terrain blocks
+// (bushes on sand, etc.) with some probability
+// COORDINATE SYSTEM: Uses the game's standard coordinate system where (0,0) is at top-left
+// and Y increases downward. Elements are placed at the center of blocks at coordinates (x+0.5, y+0.5)
+void placeTerrainElements(
+    ElementsOnMap& elementsManager,
+    const Map& map,
+    int gridWidth,
+    int gridHeight
 );
 
 #endif // TERRAIN_GENERATION_H
