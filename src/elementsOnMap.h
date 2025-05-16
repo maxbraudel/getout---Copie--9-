@@ -84,10 +84,10 @@ public:
 
     // Initialize the manager and load textures
     bool init(glbasimac::GLBI_Engine& engine);
-    
-    // Debug functions
+      // Debug functions
     void listElements() const;
-      // Place an element at the specified coordinates
+    
+    // Place an element at the specified coordinates
     void placeElement(const std::string& instanceName, ElementTextureName textureName, 
                       float scale, float x, float y, float rotation = 0.0f,
                       int spriteSheetPhase = 0, int spriteSheetFrame = 0,

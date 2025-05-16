@@ -205,8 +205,7 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
     PlacedElement element;
     element.instanceName = instanceName;
     element.textureName = textureName;
-    element.scale = scale;
-    element.x = x;
+    element.scale = scale;    element.x = x;
     element.y = y;
     element.rotation = rotation;
     
@@ -784,12 +783,11 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         }
         
         // Apply anchor point offset (this effectively changes where the element is positioned)
-        glTranslatef(-anchorX, -anchorY, 0.0f);
-        
-        // Draw textured quad centered at origin using calculated UV coordinates
+        glTranslatef(-anchorX, -anchorY, 0.0f);        // Draw textured quad centered at origin using calculated UV coordinates
         // Use a consistent vertex order that matches map rendering
         // Map renders in clockwise order starting from top-left
         glBegin(GL_QUADS);
+            // Normal rendering
             // Top-left, top-right, bottom-right, bottom-left (clockwise order)
             glTexCoord2f(u0, v1); glVertex2f(-halfWidth_ndc,  halfHeight_ndc);  // Top-left
             glTexCoord2f(u1, v1); glVertex2f( halfWidth_ndc,  halfHeight_ndc);  // Top-right

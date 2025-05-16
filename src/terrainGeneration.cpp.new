@@ -297,8 +297,13 @@ void placeTerrainElements(
                                 break;
                             default: // Should never happen, but just in case
                                 treeTexture = ElementTextureName::COCONUT_TREE_1;
-                        }                        // Add random scale variation to trees for visual diversity
+                        }
+
+                        // Add random scale variation to trees for visual diversity
                         float randomScale = 0.7f + static_cast<float>(rand()) / RAND_MAX * (1.0f - 0.7f);
+                        
+                        // Decide if the tree should be horizontally flipped (50% chance)
+                        bool flip = (rand() % 2 == 0);
                         
                         // Place a coconut tree at this location
                         // Using default anchor point from texture (BOTTOM_CENTER for trees)
@@ -315,7 +320,8 @@ void placeTerrainElements(
                             10.0f,                       // Default animation speed
                             AnchorPoint::USE_TEXTURE_DEFAULT, // Use texture's default anchor point
                             0.0f,                        // No additional X anchor offset
-                            0.0f                         // No additional Y anchor offset
+                            0.0f,                        // No additional Y anchor offset
+                            flip                         // Horizontal flipping
                         );
                     }
                 }
