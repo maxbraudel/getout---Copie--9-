@@ -358,8 +358,7 @@ int main() {
         /* Render here */
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
 		glClear(GL_COLOR_BUFFER_BIT);
-        
-        // Get the player position for camera centering
+          // Get the player position for camera centering
         // Reusing playerX and playerY variables that were declared earlier
         getPlayerPosition(playerX, playerY);
         
@@ -386,14 +385,36 @@ int main() {
             cameraTop = GRID_SIZE;
             cameraBottom = GRID_SIZE - CAMERA_REGION * 2;
         }
-        
-        // Grid positions for rendering - these will be used to map from world to screen
+          // Grid positions for rendering - these will be used to map from world to screen
         // We still use the aspect ratio correction from g_startX etc.
         float startX = g_startX;
         float endX = g_endX;
         float startY = g_startY;
-        float endY = g_endY;
-          // Draw grid
+        float endY = g_endY;        // Calculate the width and height of the view in world coordinates
+        float viewWidth = cameraRight - cameraLeft;
+        float viewHeight = cameraTop - cameraBottom;
+          // Calculate the map grid boundaries in window coordinates for the scissor test
+        // Convert from normalized device coordinates (-1 to 1) to window coordinates (0 to windowWidth/Height)
+        // First, determine what portion of screen space is occupied by the grid
+        float gridScreenWidth = endX - startX;   // Width in NDC space
+        float gridScreenHeight = endY - startY;  // Height in NDC space
+        
+        // Convert NDC coordinates (-1 to 1) to window coordinates (0 to windowWidth/Height)
+        // In OpenGL, (0,0) is the bottom-left corner of the window
+        int scissorX = (int)((startX + 1.0f) * 0.5f * windowWidth);
+        int scissorY = (int)((startY + 1.0f) * 0.5f * windowHeight);
+        int scissorWidth = (int)(gridScreenWidth * 0.5f * windowWidth);
+        int scissorHeight = (int)(gridScreenHeight * 0.5f * windowHeight);
+        
+        // Make sure scissor dimensions are positive (required by OpenGL)
+        scissorWidth = scissorWidth > 0 ? scissorWidth : 0;
+        scissorHeight = scissorHeight > 0 ? scissorHeight : 0;
+        
+        // Enable scissor test to hide pixels outside the map grid
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(scissorX, scissorY, scissorWidth, scissorHeight);
+        
+        // Draw grid
         if (showGridLines) {
             myEngine.setFlatColor(1.0f, 1.0f, 1.0f); // White color for grid lines
             
@@ -424,9 +445,13 @@ int main() {
 		
 		// Reset to default state before drawing elements
 		glMatrixMode(GL_MODELVIEW);
-		glLoadIdentity();
-		// Draw elements on top of the map tiles (freely placed decorations)
+		glLoadIdentity();		// Draw elements on top of the map tiles (freely placed decorations)
 		elementsManager.drawElements(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, deltaTime);
+        
+        // Disable scissor test when rendering is complete
+        glDisable(GL_SCISSOR_TEST);
+        glDisable(GL_SCISSOR_TEST);
+        
 		// Check escape key to close the window
         if (keyPressedStates[GLFW_KEY_ESCAPE]) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
