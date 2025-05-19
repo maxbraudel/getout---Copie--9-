@@ -23,8 +23,8 @@ static const int GRID_SIZE = 170;
 static float islandFeatureSize = 0.1f; // Controls the size of islands. Smaller values = smaller, more numerous islands. Larger values = larger, fewer islands.
 static float seaFeatureSize = 0.016f; // Controls the size of sea areas. Larger values = larger sea areas.
 static float gridLineWidth = 1.0f;
-static int windowWidth = 2024;
-static int windowHeight = 2024;
+static int windowWidth = 1920;
+static int windowHeight = 1080;
 
 /* Camera properties */
 static const float CAMERA_REGION = 20.0f; // Size of the visible region around the player (in grid units)
@@ -35,8 +35,9 @@ static float g_endX = 1.0f;
 static float g_startY = -1.0f;
 static float g_endY = 1.0f;
 
-// Add this boolean variable to control grid line visibility
+// Boolean variables to control visibility features
 static bool showGridLines = false;
+static bool hideOutsideGrid = false; // Controls whether to hide pixels outside the map grid
 
 /* OpenGL Engine */
 GLBI_Engine myEngine;
@@ -52,30 +53,35 @@ void onWindowResize(GLFWwindow* window, int width, int height) {
     windowHeight = height;
     glViewport(0, 0, width, height);
     
-    // Calculate grid size to maintain aspect ratio and fit within window
-    float gridSize, offsetX = 0.0f, offsetY = 0.0f;
+    // Calculate aspect ratio adjusted projection
+    float aspectRatio = (float)width / (float)height;
+    float projLeft, projRight, projBottom, projTop;
     
-    if (windowWidth >= windowHeight) {
-        // Window is wider than tall, fit to height
-        gridSize = 2.0f; // Use full height (-1 to 1)
-        float gridWidth = gridSize * windowHeight / windowWidth; // Adjust width to maintain aspect ratio
-        float gridHeight = gridSize;
-        offsetX = (2.0f - gridWidth) / 2.0f; // Center horizontally
-        offsetY = 0.0f;
+    if (aspectRatio >= 1.0f) {
+        // Window is wider than tall - expand projection width
+        projLeft = -aspectRatio;
+        projRight = aspectRatio;
+        projBottom = -1.0f;
+        projTop = 1.0f;
     } else {
-        // Window is taller than wide, fit to width
-        gridSize = 2.0f; // Use full width (-1 to 1)
-        float gridWidth = gridSize;
-        float gridHeight = gridSize * windowWidth / windowHeight; // Adjust height to maintain aspect ratio
-        offsetX = 0.0f;
-        offsetY = (2.0f - gridHeight) / 2.0f; // Center vertically
+        // Window is taller than wide - expand projection height
+        projLeft = -1.0f;
+        projRight = 1.0f;
+        projBottom = -1.0f / aspectRatio;
+        projTop = 1.0f / aspectRatio;
     }
     
-    // Update grid rendering parameters for coordinate conversion
-    g_startX = -1.0f + offsetX;
-    g_endX = 1.0f - offsetX;
-    g_startY = -1.0f + offsetY;
-    g_endY = 1.0f - offsetY;
+    // Update the projection matrix to match window's aspect ratio
+    // Only do this if we have a valid OpenGL context
+    if (glfwGetCurrentContext() != nullptr) {
+        myEngine.set2DProjection(projLeft, projRight, projBottom, projTop);
+    }
+    
+    // Keep grid rendering parameters for coordinate conversion covering the full NDC space
+    g_startX = -1.0f;
+    g_endX = 1.0f;
+    g_startY = -1.0f;
+    g_endY = 1.0f;
 }
 
 // Constants for gameplay
@@ -220,13 +226,11 @@ int main() {
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
 		return -1;
 	}
-    
-    // Call the resize callback once to initialize grid parameters
-    onWindowResize(window, windowWidth, windowHeight);// Initialize Rendering Engine
+      // Initialize Rendering Engine first
 	myEngine.initGL();
 	
-	// Setup 2D projection for our grid - mapping -1 to 1 range to the window
-	myEngine.set2DProjection(-1.0f, 1.0f, -1.0f, 1.0f);
+	// Then call the resize callback to set up the correct projection based on window size
+    onWindowResize(window, windowWidth, windowHeight);
 		// Initialize our game map
 	if (!gameMap.init(myEngine)) {
 		std::cerr << "Failed to initialize map!" << std::endl;
@@ -357,33 +361,76 @@ int main() {
         
         /* Render here */
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
-		glClear(GL_COLOR_BUFFER_BIT);
-          // Get the player position for camera centering
+		glClear(GL_COLOR_BUFFER_BIT);        // Get the player position for camera centering
         // Reusing playerX and playerY variables that were declared earlier
         getPlayerPosition(playerX, playerY);
         
-        // Calculate camera view boundaries in world coordinates
-        float cameraLeft = playerX - CAMERA_REGION;
-        float cameraRight = playerX + CAMERA_REGION;
-        float cameraBottom = playerY - CAMERA_REGION;
-        float cameraTop = playerY + CAMERA_REGION;
+        // Calculate adaptive camera view that matches window aspect ratio
+        // Get current window aspect ratio
+        float windowAspectRatio = (float)windowWidth / (float)windowHeight;
+        
+        // Calculate half-width and half-height of camera view based on aspect ratio
+        // CAMERA_REGION now represents the minimum visibility area
+        float cameraHalfWidth, cameraHalfHeight;
+        
+        if (windowAspectRatio >= 1.0f) {
+            // Window is wider than tall (or square) - expand width
+            cameraHalfHeight = CAMERA_REGION;
+            cameraHalfWidth = cameraHalfHeight * windowAspectRatio;
+        } else {
+            // Window is taller than wide - expand height
+            cameraHalfWidth = CAMERA_REGION;
+            cameraHalfHeight = cameraHalfWidth / windowAspectRatio;
+        }
+        
+        // Log camera dimensions when F1 is pressed (for debugging)
+        static bool lastF1KeyState = false;
+        if (keyPressedStates[GLFW_KEY_F1] && !lastF1KeyState) {
+            std::cout << "Window size: " << windowWidth << "x" << windowHeight 
+                      << ", Aspect ratio: " << windowAspectRatio 
+                      << ", Camera size: " << cameraHalfWidth * 2 << "x" << cameraHalfHeight * 2 
+                      << " grid units" << std::endl;
+        }
+        lastF1KeyState = keyPressedStates[GLFW_KEY_F1];
+        
+        // Center camera on player
+        float cameraLeft = playerX - cameraHalfWidth;
+        float cameraRight = playerX + cameraHalfWidth;
+        float cameraBottom = playerY - cameraHalfHeight;
+        float cameraTop = playerY + cameraHalfHeight;
+        
+        // Calculate camera width and height
+        float cameraWidth = cameraHalfWidth * 2.0f;
+        float cameraHeight = cameraHalfHeight * 2.0f;
         
         // Ensure the camera doesn't go out of bounds
         if (cameraLeft < 0) {
             cameraLeft = 0;
-            cameraRight = CAMERA_REGION * 2;
+            cameraRight = cameraWidth;
         }
         if (cameraRight > GRID_SIZE) {
             cameraRight = GRID_SIZE;
-            cameraLeft = GRID_SIZE - CAMERA_REGION * 2;
+            cameraLeft = GRID_SIZE - cameraWidth;
         }
         if (cameraBottom < 0) {
             cameraBottom = 0;
-            cameraTop = CAMERA_REGION * 2;
+            cameraTop = cameraHeight;
         }
         if (cameraTop > GRID_SIZE) {
             cameraTop = GRID_SIZE;
-            cameraBottom = GRID_SIZE - CAMERA_REGION * 2;
+            cameraBottom = GRID_SIZE - cameraHeight;
+        }
+        
+        // Further adjust if the grid is smaller than the camera view
+        if (GRID_SIZE < cameraWidth) {
+            // Grid is narrower than camera view - center horizontally
+            cameraLeft = 0;
+            cameraRight = GRID_SIZE;
+        }
+        if (GRID_SIZE < cameraHeight) {
+            // Grid is shorter than camera view - center vertically
+            cameraBottom = 0;
+            cameraTop = GRID_SIZE;
         }
           // Grid positions for rendering - these will be used to map from world to screen
         // We still use the aspect ratio correction from g_startX etc.
@@ -405,14 +452,15 @@ int main() {
         int scissorY = (int)((startY + 1.0f) * 0.5f * windowHeight);
         int scissorWidth = (int)(gridScreenWidth * 0.5f * windowWidth);
         int scissorHeight = (int)(gridScreenHeight * 0.5f * windowHeight);
-        
-        // Make sure scissor dimensions are positive (required by OpenGL)
+          // Make sure scissor dimensions are positive (required by OpenGL)
         scissorWidth = scissorWidth > 0 ? scissorWidth : 0;
         scissorHeight = scissorHeight > 0 ? scissorHeight : 0;
         
-        // Enable scissor test to hide pixels outside the map grid
-        glEnable(GL_SCISSOR_TEST);
-        glScissor(scissorX, scissorY, scissorWidth, scissorHeight);
+        // Enable scissor test to hide pixels outside the map grid, but only if the feature is enabled
+        if (hideOutsideGrid) {
+            glEnable(GL_SCISSOR_TEST);
+            glScissor(scissorX, scissorY, scissorWidth, scissorHeight);
+        }
         
         // Draw grid
         if (showGridLines) {
@@ -447,10 +495,10 @@ int main() {
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();		// Draw elements on top of the map tiles (freely placed decorations)
 		elementsManager.drawElements(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, deltaTime);
-        
-        // Disable scissor test when rendering is complete
-        glDisable(GL_SCISSOR_TEST);
-        glDisable(GL_SCISSOR_TEST);
+          // Disable scissor test when rendering is complete
+        if (hideOutsideGrid) {
+            glDisable(GL_SCISSOR_TEST);
+        }
         
 		// Check escape key to close the window
         if (keyPressedStates[GLFW_KEY_ESCAPE]) {
@@ -487,14 +535,21 @@ int main() {
             elementsManager.toggleAnchorPointVisualization();
         }
         lastFrameAnchorPointKeyState = keyPressedStates[GLFW_KEY_F5];
-        
-        // Print elements list when F4 is pressed
+          // Print elements list when F4 is pressed
         static bool lastFrameDebugElementsState = false;
         if (keyPressedStates[GLFW_KEY_F4] && !lastFrameDebugElementsState) {
             std::cout << "\n--- Current Elements List ---" << std::endl;
             elementsManager.listElements();
         }
         lastFrameDebugElementsState = keyPressedStates[GLFW_KEY_F4];
+        
+        // Toggle hide pixels outside map grid with F6
+        static bool lastFrameHideOutsideGridState = false;
+        if (keyPressedStates[GLFW_KEY_F6] && !lastFrameHideOutsideGridState) {
+            hideOutsideGrid = !hideOutsideGrid;
+            std::cout << "Hiding pixels outside map grid: " << (hideOutsideGrid ? "enabled" : "disabled") << std::endl;
+        }
+        lastFrameHideOutsideGridState = keyPressedStates[GLFW_KEY_F6];
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
