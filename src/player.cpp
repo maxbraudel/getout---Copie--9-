@@ -81,7 +81,7 @@ void movePlayer(float deltaX, float deltaY) {
         // Moving down (or down movement is dominant)
         elementsManager.changeElementSpritePhase("player1", 3); // Assuming 0 is the down-facing animation
     }
-    
+
     // Display player position in debug mode
     if (playerDebugMode) {
         float x, y;

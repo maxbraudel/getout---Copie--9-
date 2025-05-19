@@ -23,11 +23,11 @@ static const int GRID_SIZE = 170;
 static float islandFeatureSize = 0.1f; // Controls the size of islands. Smaller values = smaller, more numerous islands. Larger values = larger, fewer islands.
 static float seaFeatureSize = 0.016f; // Controls the size of sea areas. Larger values = larger sea areas.
 static float gridLineWidth = 1.0f;
-static int windowWidth = 1024;
-static int windowHeight = 1024;
+static int windowWidth = 2024;
+static int windowHeight = 2024;
 
 /* Camera properties */
-static const float CAMERA_REGION = 10.0f; // Size of the visible region around the player (in grid units)
+static const float CAMERA_REGION = 20.0f; // Size of the visible region around the player (in grid units)
 
 // Variables to store grid rendering parameters for coordinate conversion
 static float g_startX = -1.0f;
@@ -339,23 +339,23 @@ int main() {
 		// Track if player is moving
 		static bool wasMoving = false;
 		bool isMoving = (playerMoveX != 0.0f || playerMoveY != 0.0f);
-		
-		// Move the player if any movement key is pressed
+				// Move the player if any movement key is pressed
 		if (isMoving) {
-			movePlayer(playerMoveX, playerMoveY);
-			
-			// If player just started moving, enable animation
+			// If player just started moving, print debug message
 			if (!wasMoving) {
-				elementsManager.changeElementAnimationStatus("player1", true);
+				std::cout << "Player started moving" << std::endl;
 			}
-		} 
-		// If player just stopped moving, disable animation and set to standing frame
+			movePlayer(playerMoveX, playerMoveY);
+		}// If player just stopped moving, disable animation and set to standing frame
 		else if (wasMoving) {
+			std::cout << "Player stopped moving - disabling animation" << std::endl;
 			elementsManager.changeElementAnimationStatus("player1", false);
 			elementsManager.changeElementSpriteFrame("player1", 0); // Set to standing frame
 		}
-		
-		// Update movement state		wasMoving = isMoving;        /* Render here */
+				// Update movement state
+		wasMoving = isMoving;
+        
+        /* Render here */
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
 		glClear(GL_COLOR_BUFFER_BIT);
         
