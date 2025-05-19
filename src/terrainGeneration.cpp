@@ -237,7 +237,7 @@ void placeTerrainElements(
                 // Count sand blocks and edges
                 sandCount++;
                 // Place trees with 1/50 chance, but limit to max 50 total trees for performance
-                const int MAX_COCONUT_TREES = 50;
+                const int MAX_COCONUT_TREES = 1000;
                 const int COCONUT_TREE_CHANCE = 50; // 1/50 chance
                 
                 if (bushCount < MAX_COCONUT_TREES && rand() % COCONUT_TREE_CHANCE == 0) {
@@ -272,11 +272,10 @@ void placeTerrainElements(
                     // Only place tree if not too close to existing trees AND is near water
                     if (!tooClose && nearWater) {
                         // Create a unique name for this coconut tree
-                        std::string bushName = "terrain_coconut_tree_" + std::to_string(bushCount++);
-                        // Convert grid coordinates to world coordinates (center of the block)
+                        std::string bushName = "terrain_coconut_tree_" + std::to_string(bushCount++);                        // Convert grid coordinates to world coordinates (center of the block)
                         float worldX = x + 0.5f;  // Center of the block
                         
-                        // Ensure Y coordinate matches the system with (0,0) at top-left
+                        // Ensure Y coordinate matches the system with (0,0) at bottom-left
                         float worldY = y + 0.5f;  // Center of the block
                         
                         // Add tree location to tracking vector
@@ -301,7 +300,7 @@ void placeTerrainElements(
                         float randomScale = 0.7f + static_cast<float>(rand()) / RAND_MAX * (1.0f - 0.7f);
                         
                         // Place a coconut tree at this location
-                        // Using default anchor point from texture (BOTTOM_CENTER for trees)
+                        // Using default anchor point from texture (BOTTOM_CENTER for trees)                        // Using default anchor point from texture (BOTTOM_CENTER for trees)
                         elementsManager.placeElement(
                             bushName,                    // Unique name
                             treeTexture,                 // Randomly selected coconut tree texture
@@ -317,6 +316,7 @@ void placeTerrainElements(
                             0.0f,                        // No additional X anchor offset
                             0.0f                         // No additional Y anchor offset
                         );
+                        // Note: Hitbox parameters were removed as they're not supported in the function definition
                     }
                 }
             } else if (blockType >= TextureName::GRASS_0 && blockType <= TextureName::GRASS_5) {

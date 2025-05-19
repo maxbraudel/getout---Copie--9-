@@ -19,7 +19,7 @@ static const double FRAMERATE_IN_SECONDS = 1. / 60.; // Changed to 60 FPS
 static float aspectRatio = 1.0f;
 
 /* Grid properties */
-static const int GRID_SIZE = 70;
+static const int GRID_SIZE = 170;
 static float islandFeatureSize = 0.1f; // Controls the size of islands. Smaller values = smaller, more numerous islands. Larger values = larger, fewer islands.
 static float seaFeatureSize = 0.016f; // Controls the size of sea areas. Larger values = larger sea areas.
 static float gridLineWidth = 1.0f;
@@ -48,6 +48,31 @@ void onWindowResize(GLFWwindow* window, int width, int height) {
     windowWidth = width;
     windowHeight = height;
     glViewport(0, 0, width, height);
+    
+    // Calculate grid size to maintain aspect ratio and fit within window
+    float gridSize, offsetX = 0.0f, offsetY = 0.0f;
+    
+    if (windowWidth >= windowHeight) {
+        // Window is wider than tall, fit to height
+        gridSize = 2.0f; // Use full height (-1 to 1)
+        float gridWidth = gridSize * windowHeight / windowWidth; // Adjust width to maintain aspect ratio
+        float gridHeight = gridSize;
+        offsetX = (2.0f - gridWidth) / 2.0f; // Center horizontally
+        offsetY = 0.0f;
+    } else {
+        // Window is taller than wide, fit to width
+        gridSize = 2.0f; // Use full width (-1 to 1)
+        float gridWidth = gridSize;
+        float gridHeight = gridSize * windowWidth / windowHeight; // Adjust height to maintain aspect ratio
+        offsetX = 0.0f;
+        offsetY = (2.0f - gridHeight) / 2.0f; // Center vertically
+    }
+    
+    // Update grid rendering parameters for coordinate conversion
+    g_startX = -1.0f + offsetX;
+    g_endX = 1.0f - offsetX;
+    g_startY = -1.0f + offsetY;
+    g_endY = 1.0f - offsetY;
 }
 
 // Constants for gameplay
@@ -102,13 +127,12 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
         // Get cursor position
         double mouseX, mouseY;
         glfwGetCursorPos(window, &mouseX, &mouseY);
-        
-        // COORDINATE SYSTEM: The game uses a coordinate system where (0,0) is at top-left
-        // and Y increases downward, matching typical 2D game conventions.
+          // COORDINATE SYSTEM: The game now uses a coordinate system where (0,0) is at bottom-left
+        // and Y increases upward, matching mathematical conventions.
         
         // Convert to normalized screen coordinates (-1 to 1)
         double normalizedX = (2.0 * mouseX / windowWidth) - 1.0;
-        double normalizedY = 1.0 - (2.0 * mouseY / windowHeight); // Y is inverted in screen space
+        double normalizedY = (2.0 * mouseY / windowHeight) - 1.0; // Y increases upward
         
         // Compute grid coordinates based on current grid rendering parameters
         // Check if the click is inside the grid area
@@ -120,12 +144,10 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             
             // Convert to integer grid coordinates
             int gridXInt = static_cast<int>(gridX);
-            
-            // Calculate grid Y coordinate
-            // Our grid has (0,0) at top-left, but OpenGL has (0,0) at bottom-left
-            // Note: OpenGL normalized coordinates have y=1 at the top, y=-1 at the bottom
-            // So normalized y = 1.0 should map to grid y = 0, and normalized y = -1.0 should map to grid y = GRID_SIZE-1
-            int gridYInt = GRID_SIZE - 1 - static_cast<int>(gridY); 
+              // Calculate grid Y coordinate
+            // Our grid now has (0,0) at bottom-left, same as OpenGL
+            // Normalized y = -1.0 should map to grid y = 0, and normalized y = 1.0 should map to grid y = GRID_SIZE-1
+            int gridYInt = static_cast<int>(gridY);
               // Reduced debug output - only show the essential information
             // std::cout << "Debug: Mouse at normalized (" << normalizedX << ", " << normalizedY << ")" << std::endl;
             // std::cout << "Debug: Grid area from (" << g_startX << "," << g_startY << ") to (" 
@@ -188,14 +210,16 @@ int main() {
     
     // Set the mouse button callback
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
-    
-    // Get initial window size
+      // Get initial window size
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     
 	// Intialize glad (loads the OpenGL functions)
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
 		return -1;
-	}	// Initialize Rendering Engine
+	}
+    
+    // Call the resize callback once to initialize grid parameters
+    onWindowResize(window, windowWidth, windowHeight);// Initialize Rendering Engine
 	myEngine.initGL();
 	
 	// Setup 2D projection for our grid - mapping -1 to 1 range to the window
@@ -241,7 +265,7 @@ int main() {
 	// Instead of creating a separate map, we'll use the gameMap directly to ensure we see the actual blocks
 	placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);
 	// Place additional decorative elements on the map with unique names using texture-defined anchor points
-    // Note: The coordinate system has (0,0) at top-left, with Y increasing downward
+  	// Note: The coordinate system has (0,0) at bottom-left, with Y increasing upward
 	elementsManager.placeElement("test1", ElementTextureName::COCONUT_TREE_1, 5.0f, 1.0f, 1.0f,
                                0.0f, 0, 0, false, 10.0f); // Using default anchor point from texture
     
@@ -251,7 +275,7 @@ int main() {
 	std::cout << "Game ready with " << elementsManager.getElementsCount() << " elements placed" << std::endl;
 		// Skip block test output for cleaner console
 	          	// Display brief coordinate system information
-	std::cout << "\nGame uses a coordinate system with (0,0) at top-left, Y increasing downward" << std::endl;
+	std::cout << "\nGame uses a coordinate system with (0,0) at bottom-left, Y increasing upward" << std::endl;
 	
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
@@ -289,10 +313,10 @@ int main() {
 		
 		// Check arrow keys for player movement
 		if (keyPressedStates[GLFW_KEY_UP] || keyPressedStates[GLFW_KEY_W]) {
-			playerMoveY -= currentSpeed * (float)deltaTime;
+			playerMoveY += currentSpeed * (float)deltaTime;
 		}
 		if (keyPressedStates[GLFW_KEY_DOWN] || keyPressedStates[GLFW_KEY_S]) {
-			playerMoveY += currentSpeed * (float)deltaTime;
+			playerMoveY -= currentSpeed * (float)deltaTime;
 		}
 		if (keyPressedStates[GLFW_KEY_LEFT] || keyPressedStates[GLFW_KEY_A]) {
 			playerMoveX -= currentSpeed * (float)deltaTime;
@@ -329,41 +353,16 @@ int main() {
 		}
 		
 		// Update movement state
-		wasMoving = isMoving;
-		
-		/* Render here */
+		wasMoving = isMoving;        /* Render here */
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
-		glClear(GL_COLOR_BUFFER_BIT);        // Calculate grid size to maintain aspect ratio and fit within window
-        float gridSize;
-        float offsetX = 0.0f;
-        float offsetY = 0.0f;
-        float gridWidth, gridHeight;
+		glClear(GL_COLOR_BUFFER_BIT);
         
-        if (windowWidth >= windowHeight) {
-            // Window is wider than tall, fit to height
-            gridSize = 2.0f; // Use full height (-1 to 1)
-            gridWidth = gridSize * windowHeight / windowWidth; // Adjust width to maintain aspect ratio
-            gridHeight = gridSize;
-            offsetX = (2.0f - gridWidth) / 2.0f; // Center horizontally
-        } else {
-            // Window is taller than wide, fit to width
-            gridSize = 2.0f; // Use full width (-1 to 1)
-            gridWidth = gridSize;
-            gridHeight = gridSize * windowWidth / windowHeight; // Adjust height to maintain aspect ratio
-            offsetY = (2.0f - gridHeight) / 2.0f; // Center vertically
-        }
-        
-        // Calculate actual positions of grid in normalized coordinates
-        float startX = -1.0f + offsetX;
-        float endX = 1.0f - offsetX;
-        float startY = -1.0f + offsetY;
-        float endY = 1.0f - offsetY;
-        
-        // Store grid rendering parameters for mouse click conversion
-        g_startX = startX;
-        g_endX = endX;
-        g_startY = startY;
-        g_endY = endY;
+        // Grid positions are now maintained by the resize callback
+        // We just use the global variables directly
+        float startX = g_startX;
+        float endX = g_endX;
+        float startY = g_startY;
+        float endY = g_endY;
         
         // Draw grid
         if (showGridLines) {

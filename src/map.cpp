@@ -416,12 +416,10 @@ void Map::drawBlocks(float startX, float endX, float startY, float endY, int gri
             std::cerr << "Texture details not found for block type " << static_cast<int>(block.name) << std::endl;
             continue;
         }
-        
-        const TextureInfo& texInfo = it->second; // New: Read-only for shared info
+          const TextureInfo& texInfo = it->second; // New: Read-only for shared info
         Block& currentBlock = block; // Get reference to the current block instance
-
         float x = startX + currentBlock.x * cellWidth;
-        float y = startY + (gridSize - currentBlock.y - 1) * cellHeight; // Adjusted for Y-down grid to Y-up OpenGL
+        float y = startY + currentBlock.y * cellHeight; // Now Y increases upward with origin at bottom left
         
         glBindTexture(GL_TEXTURE_2D, texInfo.textureID);
         

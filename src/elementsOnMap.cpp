@@ -602,12 +602,11 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
     
     // Enable blending for transparent textures
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-      // Sort elements by Y-coordinate (ascending) to draw from back to front
-    // Elements with smaller Y (visually higher on screen) are drawn first (behind)
-    // This means elements with larger Y (lower on screen) will be drawn on top
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);    // Sort elements by Y-coordinate (descending) to draw from back to front
+    // Elements with larger Y (visually higher on screen) are drawn first (behind)
+    // This means elements with smaller Y (lower on screen) will be drawn on top
     std::sort(elements.begin(), elements.end(), [](const PlacedElement& a, const PlacedElement& b) {
-        return a.y < b.y;
+        return a.y > b.y;
     });
     
     // Calculate the grid cell dimensions in NDC coordinates
@@ -676,14 +675,13 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         }        // Calculate the element's position based on its grid coordinates
         float gridX = startX + (element.x / gridSize) * (endX - startX);
         
-        // FIX: Map Y coordinate correctly with top-left origin (0,0)
-        // The issue was that elements placed at y=0 (top row) were being rendered as if they were at y=-1
-        // Now we map Y directly from the element's coordinate to the grid system
-        float gridY = startY + ((gridSize - element.y) / gridSize) * (endY - startY);
+        // UPDATED: Map Y coordinate with bottom-left origin (0,0) where Y increases upward
+        // This is the opposite of the previous system where (0,0) was at top-left and Y increased downward
+        float gridY = startY + (element.y / gridSize) * (endY - startY);
         
         // Apply scale offsets to maintain anchor position when scaling
         gridX += (element.scaleOffsetX / gridSize) * (endX - startX);
-        gridY -= (element.scaleOffsetY / gridSize) * (endY - startY);// Debug can be enabled below if needed for future troubleshooting
+        gridY += (element.scaleOffsetY / gridSize) * (endY - startY);// Debug can be enabled below if needed for future troubleshooting
         // Currently disabled to prevent console spam
         /*
         static int debugCounter = 0;

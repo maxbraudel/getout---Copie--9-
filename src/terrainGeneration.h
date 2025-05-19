@@ -19,8 +19,8 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
 
 // Places decorative elements (bushes, etc.) on appropriate terrain blocks
 // (bushes on sand, etc.) with some probability
-// COORDINATE SYSTEM: Uses the game's standard coordinate system where (0,0) is at top-left
-// and Y increases downward. Elements are placed at the center of blocks at coordinates (x+0.5, y+0.5)
+// COORDINATE SYSTEM: Uses the game's standard coordinate system where (0,0) is at bottom-left
+// and Y increases upward. Elements are placed at the center of blocks at coordinates (x+0.5, y+0.5)
 void placeTerrainElements(
     ElementsOnMap& elementsManager,
     const Map& map,
