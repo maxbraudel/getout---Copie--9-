@@ -69,13 +69,11 @@ public:
     void placeBlock(TextureName name, int x, int y);
 
     // Place multiple blocks based on a map of coordinates to TextureNames
-    void placeBlocks(const std::map<std::pair<int, int>, TextureName>& blocksToPlace);
-
-    // Place a texture on all blocks in a rectangular area using its TextureName
+    void placeBlocks(const std::map<std::pair<int, int>, TextureName>& blocksToPlace);    // Place a texture on all blocks in a rectangular area using its TextureName
     void placeBlockArea(TextureName name, int x1, int y1, int x2, int y2);
 
     // Draw all blocks, deltaTime for animations
-    void drawBlocks(float startX, float endX, float startY, float endY, int gridSize, double deltaTime);
+    void drawBlocks(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop, double deltaTime);
 
     // Public method to get a loaded texture ID by its type
     GLuint getTexture(TextureName type) const;

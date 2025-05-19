@@ -588,10 +588,14 @@ bool ElementsOnMap::changeElementAnimationSpeed(const std::string& instanceName,
     }
 }
 
-void ElementsOnMap::drawElements(float startX, float endX, float startY, float endY, int gridSize, double deltaTime) {
-    if (elements.empty() || gridSize <= 0) {
+void ElementsOnMap::drawElements(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop, double deltaTime) {
+    if (elements.empty()) {
         return;
     }
+    
+    // Calculate the visible area size for camera view
+    float viewWidth = cameraRight - cameraLeft;
+    float viewHeight = cameraTop - cameraBottom;
     
     // Save current OpenGL state
     GLboolean blendEnabled;
@@ -608,10 +612,9 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
     std::sort(elements.begin(), elements.end(), [](const PlacedElement& a, const PlacedElement& b) {
         return a.y > b.y;
     });
-    
-    // Calculate the grid cell dimensions in NDC coordinates
-    float cellWidth = (endX - startX) / gridSize;
-    float cellHeight = (endY - startY) / gridSize;
+      // Calculate the grid cell dimensions in screen coordinates
+    float cellWidth = (endX - startX) / viewWidth;
+    float cellHeight = (endY - startY) / viewHeight;
     
     // Since the grid is already maintained as a square in main.cpp (through offsetX/offsetY),
     // we know that cellWidth and cellHeight should represent the same physical size.
@@ -672,16 +675,22 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
                           << ", deltaTime=" << deltaTime << std::endl;
                 */
             }
-        }        // Calculate the element's position based on its grid coordinates
-        float gridX = startX + (element.x / gridSize) * (endX - startX);
+        }        // Skip elements that are outside the camera view
+        if (element.x < cameraLeft - element.scale || element.x > cameraRight + element.scale || 
+            element.y < cameraBottom - element.scale || element.y > cameraTop + element.scale) {
+            continue;
+        }
         
-        // UPDATED: Map Y coordinate with bottom-left origin (0,0) where Y increases upward
-        // This is the opposite of the previous system where (0,0) was at top-left and Y increased downward
-        float gridY = startY + (element.y / gridSize) * (endY - startY);
+        // Calculate the element's position by mapping from world coordinates to screen coordinates
+        float normalizedX = (element.x - cameraLeft) / viewWidth;
+        float normalizedY = (element.y - cameraBottom) / viewHeight;
         
-        // Apply scale offsets to maintain anchor position when scaling
-        gridX += (element.scaleOffsetX / gridSize) * (endX - startX);
-        gridY += (element.scaleOffsetY / gridSize) * (endY - startY);// Debug can be enabled below if needed for future troubleshooting
+        // Map from normalized [0,1] to screen coordinates
+        float gridX = startX + normalizedX * (endX - startX);
+        float gridY = startY + normalizedY * (endY - startY);
+          // Apply scale offsets to maintain anchor position when scaling - scaled to camera view
+        gridX += (element.scaleOffsetX / viewWidth) * (endX - startX);
+        gridY += (element.scaleOffsetY / viewHeight) * (endY - startY);// Debug can be enabled below if needed for future troubleshooting
         // Currently disabled to prevent console spam
         /*
         static int debugCounter = 0;
@@ -754,10 +763,9 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
                 anchorY = -halfHeight_ndc; // Bottom aligned
                 break;
         }
-        
-        // Apply additional anchor offsets (in NDC space)
-        float additionalOffsetX = (element.anchorOffsetX / gridSize) * (endX - startX);
-        float additionalOffsetY = (element.anchorOffsetY / gridSize) * (endY - startY);
+          // Apply additional anchor offsets (in screen space) - scaled to camera view
+        float additionalOffsetX = (element.anchorOffsetX / viewWidth) * (endX - startX);
+        float additionalOffsetY = (element.anchorOffsetY / viewHeight) * (endY - startY);
         anchorX += additionalOffsetX;
         anchorY += additionalOffsetY;
         

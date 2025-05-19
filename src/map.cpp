@@ -401,25 +401,43 @@ TextureName Map::getBlockNameByCoordinates(int x, int y) const {
     return TextureName::GRASS_0;
 }
 
-void Map::drawBlocks(float startX, float endX, float startY, float endY, int gridSize, double deltaTime) {
-    float cellWidth = (endX - startX) / gridSize;
-    float cellHeight = (endY - startY) / gridSize;
+void Map::drawBlocks(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop, double deltaTime) {
+    // Calculate cell dimensions in screen coordinates
+    float viewWidth = cameraRight - cameraLeft;
+    float viewHeight = cameraTop - cameraBottom;
+    float cellWidth = (endX - startX) / viewWidth;
+    float cellHeight = (endY - startY) / viewHeight;
 
     glUseProgram(0); 
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     glEnable(GL_TEXTURE_2D);
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
+    // Only process blocks that are within or partially within the camera view
     for (auto& block : blocks) { // Iterate by reference to potentially modify block state if needed in future
+        // Skip blocks that are outside the camera view
+        if (block.x < cameraLeft - 1 || block.x > cameraRight + 1 || 
+            block.y < cameraBottom - 1 || block.y > cameraTop + 1) {
+            continue;
+        }
         auto it = textureDetails.find(block.name);
         if (it == textureDetails.end()) {
             std::cerr << "Texture details not found for block type " << static_cast<int>(block.name) << std::endl;
             continue;
-        }
-          const TextureInfo& texInfo = it->second; // New: Read-only for shared info
+        }        const TextureInfo& texInfo = it->second; // New: Read-only for shared info
         Block& currentBlock = block; // Get reference to the current block instance
-        float x = startX + currentBlock.x * cellWidth;
-        float y = startY + currentBlock.y * cellHeight; // Now Y increases upward with origin at bottom left
+        
+        // Convert block world coordinates to screen coordinates based on the camera view
+        float worldX = currentBlock.x;
+        float worldY = currentBlock.y;
+        
+        // Calculate position in screen space (normalized to [0,1] within the camera view)
+        float normalizedX = (worldX - cameraLeft) / viewWidth;
+        float normalizedY = (worldY - cameraBottom) / viewHeight;
+        
+        // Map from normalized [0,1] to screen coordinates
+        float x = startX + normalizedX * (endX - startX);
+        float y = startY + normalizedY * (endY - startY);
         
         glBindTexture(GL_TEXTURE_2D, texInfo.textureID);
         

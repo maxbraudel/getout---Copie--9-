@@ -120,9 +120,8 @@ public:
     bool changeElementAnimationStatus(const std::string& instanceName, bool isAnimated);
     
     // Change animation speed
-    bool changeElementAnimationSpeed(const std::string& instanceName, float newSpeed);
-      // Draw all placed elements
-    void drawElements(float startX, float endX, float startY, float endY, int gridSize, double deltaTime = 0.0);
+    bool changeElementAnimationSpeed(const std::string& instanceName, float newSpeed);    // Draw all placed elements
+    void drawElements(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop, double deltaTime = 0.0);
     
     // Get texture dimensions for the specified texture
     std::pair<int, int> getTextureDimensions(ElementTextureName textureName) const {

@@ -26,6 +26,9 @@ static float gridLineWidth = 1.0f;
 static int windowWidth = 1024;
 static int windowHeight = 1024;
 
+/* Camera properties */
+static const float CAMERA_REGION = 10.0f; // Size of the visible region around the player (in grid units)
+
 // Variables to store grid rendering parameters for coordinate conversion
 static float g_startX = -1.0f;
 static float g_endX = 1.0f;
@@ -352,50 +355,78 @@ int main() {
 			elementsManager.changeElementSpriteFrame("player1", 0); // Set to standing frame
 		}
 		
-		// Update movement state
-		wasMoving = isMoving;        /* Render here */
+		// Update movement state		wasMoving = isMoving;        /* Render here */
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
 		glClear(GL_COLOR_BUFFER_BIT);
         
-        // Grid positions are now maintained by the resize callback
-        // We just use the global variables directly
+        // Get the player position for camera centering
+        // Reusing playerX and playerY variables that were declared earlier
+        getPlayerPosition(playerX, playerY);
+        
+        // Calculate camera view boundaries in world coordinates
+        float cameraLeft = playerX - CAMERA_REGION;
+        float cameraRight = playerX + CAMERA_REGION;
+        float cameraBottom = playerY - CAMERA_REGION;
+        float cameraTop = playerY + CAMERA_REGION;
+        
+        // Ensure the camera doesn't go out of bounds
+        if (cameraLeft < 0) {
+            cameraLeft = 0;
+            cameraRight = CAMERA_REGION * 2;
+        }
+        if (cameraRight > GRID_SIZE) {
+            cameraRight = GRID_SIZE;
+            cameraLeft = GRID_SIZE - CAMERA_REGION * 2;
+        }
+        if (cameraBottom < 0) {
+            cameraBottom = 0;
+            cameraTop = CAMERA_REGION * 2;
+        }
+        if (cameraTop > GRID_SIZE) {
+            cameraTop = GRID_SIZE;
+            cameraBottom = GRID_SIZE - CAMERA_REGION * 2;
+        }
+        
+        // Grid positions for rendering - these will be used to map from world to screen
+        // We still use the aspect ratio correction from g_startX etc.
         float startX = g_startX;
         float endX = g_endX;
         float startY = g_startY;
         float endY = g_endY;
-        
-        // Draw grid
+          // Draw grid
         if (showGridLines) {
             myEngine.setFlatColor(1.0f, 1.0f, 1.0f); // White color for grid lines
             
             // Draw the grid lines
             glLineWidth(gridLineWidth);
             
-            // Draw vertical lines
+            // Draw vertical lines for the visible camera region
             glBegin(GL_LINES);
-            for (int i = 0; i <= GRID_SIZE; i++) {
-                float ratio = (float)i / GRID_SIZE;
-                float x = startX + ratio * (endX - startX);
-                glVertex2f(x, startY);
-                glVertex2f(x, endY);
+            for (int i = (int)cameraLeft; i <= (int)cameraRight + 1; i++) {
+                // Convert from world coordinates to screen coordinates
+                float worldRatio = (float)(i - cameraLeft) / (cameraRight - cameraLeft);
+                float screenX = startX + worldRatio * (endX - startX);
+                glVertex2f(screenX, startY);
+                glVertex2f(screenX, endY);
             }
-                    // Draw horizontal lines
-            for (int i = 0; i <= GRID_SIZE; i++) {
-                float ratio = (float)i / GRID_SIZE;
-                float y = startY + ratio * (endY - startY);
-                glVertex2f(startX, y);
-                glVertex2f(endX, y);
+                    // Draw horizontal lines for the visible camera region
+            for (int i = (int)cameraBottom; i <= (int)cameraTop + 1; i++) {
+                // Convert from world coordinates to screen coordinates
+                float worldRatio = (float)(i - cameraBottom) / (cameraTop - cameraBottom);
+                float screenY = startY + worldRatio * (endY - startY);
+                glVertex2f(startX, screenY);
+                glVertex2f(endX, screenY);
             }
             glEnd();        }
 				// Draw the blocks (textured squares) on the grid
-		// Draw the map blocks
-		gameMap.drawBlocks(startX, endX, startY, endY, GRID_SIZE, deltaTime);
+		// Now we pass the camera boundaries to drawBlocks instead of the GRID_SIZE
+		gameMap.drawBlocks(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, deltaTime);
 		
 		// Reset to default state before drawing elements
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
-				// Draw elements on top of the map tiles (freely placed decorations)
-		elementsManager.drawElements(startX, endX, startY, endY, GRID_SIZE, deltaTime);
+		// Draw elements on top of the map tiles (freely placed decorations)
+		elementsManager.drawElements(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, deltaTime);
 		// Check escape key to close the window
         if (keyPressedStates[GLFW_KEY_ESCAPE]) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
