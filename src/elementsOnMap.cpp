@@ -700,15 +700,19 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
                       << static_cast<int>(element.x) << ", " << static_cast<int>(element.y) << ")" << std::endl;
         }
         */
-        
-        // Calculate UV coordinates based on whether this is a spritesheet
+          // Calculate UV coordinates based on whether this is a spritesheet
         float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
+        float aspectRatio = 1.0f; // Default aspect ratio
         
         if (isSpritesheet && spriteWidth > 0 && spriteHeight > 0 && textureWidth > 0 && textureHeight > 0) {
             // Calculate UV coordinates for the current frame in the sprite sheet
             float frameWidthRatio = static_cast<float>(spriteWidth) / textureWidth;
             float frameHeightRatio = static_cast<float>(spriteHeight) / textureHeight;
-              // Calculate horizontal position (frame index)
+            
+            // Store the aspect ratio for the sprite (height/width)
+            aspectRatio = static_cast<float>(spriteHeight) / spriteWidth;
+              
+            // Calculate horizontal position (frame index)
             u0 = element.spriteSheetFrame * frameWidthRatio;
             u1 = u0 + frameWidthRatio;
             
@@ -734,6 +738,11 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
           // Calculate element quad dimensions
         float halfWidth_ndc = (cellWidth * element.scale) / 2.0f;
         float halfHeight_ndc = (cellHeight * element.scale) / 2.0f;
+        
+        // Apply aspect ratio for sprite sheets to maintain correct proportions
+        if (isSpritesheet) {
+            halfHeight_ndc *= aspectRatio;
+        }
         
         // Calculate anchor point offset based on the selected anchor point
         float anchorX = 0.0f;

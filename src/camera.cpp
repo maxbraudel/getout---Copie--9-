@@ -5,7 +5,7 @@
 // Define static constants
 const float Camera::MIN_CAMERA_REGION = 5.0f; // Minimum camera region size
 const float Camera::MAX_CAMERA_REGION = 200.0f; // Maximum camera region size
-const float Camera::DEFAULT_CAMERA_REGION = 30.0f; // Default camera region size
+const float Camera::DEFAULT_CAMERA_REGION = 15.0f; // Default camera region size
 
 // Global camera instance
 Camera gameCamera(GRID_SIZE); // Initialize with GRID_SIZE from globals.h
