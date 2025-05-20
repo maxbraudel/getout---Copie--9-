@@ -10,6 +10,7 @@
 ElementsOnMap elementsManager;
 
 // Define textures to load - using C++11 compatible initialization syntax
+// Define textures to load - using C++11 compatible initialization syntax
 static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     std::vector<ElementTextureInfo> textures;
       // Static texture for test/grass
@@ -28,22 +29,20 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     coconutTree1Texture.anchorOffsetY = 0.2f; // No Y offset
     // Add hitbox to the coconut tree
     coconutTree1Texture.hasHitBox = true;
-    coconutTree1Texture.hitBoxFirstPointX = -0.01f;  // Left side of trunk, relative to anchor
-    coconutTree1Texture.hitBoxFirstPointY = -0.01f;   // Bottom of trunk, relative to anchor
-    coconutTree1Texture.hitBoxSecondPointX = 0.01f;  // Right side of trunk, relative to anchor
-    coconutTree1Texture.hitBoxSecondPointY = 0.01f;  // Top of trunk area, relative to anchor
+    coconutTree1Texture.hitBoxFirstPointX = -0.007f;  // Left side of trunk, relative to anchor
+    coconutTree1Texture.hitBoxFirstPointY = -0.033f;   // Bottom of trunk, relative to anchor
+    coconutTree1Texture.hitBoxSecondPointX = 0.007f;  // Right side of trunk, relative to anchor
+    coconutTree1Texture.hitBoxSecondPointY = -0.028f;  // Top of trunk area, relative to anchor
     textures.push_back(coconutTree1Texture);ElementTextureInfo coconutTree2Texture;
+
+
     coconutTree2Texture.name = ElementTextureName::COCONUT_TREE_2;
     coconutTree2Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_2.png";
     coconutTree2Texture.type = ElementTextureType::STATIC;    coconutTree2Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree2Texture.anchorOffsetX = 0.0f; // No offset
     coconutTree2Texture.anchorOffsetY = 0.8f; // No offset
     // Add hitbox to the second coconut tree
-    coconutTree2Texture.hasHitBox = true;
-    coconutTree2Texture.hitBoxFirstPointX = -0.01f;  // Left side of trunk, relative to anchor
-    coconutTree2Texture.hitBoxFirstPointY = -0.01f;    // Bottom of trunk, relative to anchor
-    coconutTree2Texture.hitBoxSecondPointX = 0.01f;  // Right side of trunk, relative to anchor
-    coconutTree2Texture.hitBoxSecondPointY = 0.01f;   // Top of trunk area, relative to anchor
+    coconutTree2Texture.hasHitBox = false;
     textures.push_back(coconutTree2Texture);ElementTextureInfo coconutTree3Texture;
     coconutTree3Texture.name = ElementTextureName::COCONUT_TREE_3;
     coconutTree3Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_3.png";
@@ -74,6 +73,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     
     return textures;
 }
+
 
 // Create textures vector using the function
 static const std::vector<ElementTextureInfo> elementTexturesToLoad = createElementTexturesToLoad();
