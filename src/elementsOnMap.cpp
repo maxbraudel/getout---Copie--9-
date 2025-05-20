@@ -15,31 +15,31 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
       // Static texture for test/grass
     ElementTextureInfo testTexture;
     testTexture.name = ElementTextureName::TEST;
-    testTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass.png";
+    testTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\blocks\\grass.png";
     testTexture.type = ElementTextureType::STATIC;
     testTexture.anchorPoint = AnchorPoint::CENTER; // Default center anchor
     textures.push_back(testTexture);    // Static texture for coconut tree 1
     ElementTextureInfo coconutTree1Texture;
     coconutTree1Texture.name = ElementTextureName::COCONUT_TREE_1;
-    coconutTree1Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\decorations\\coconut_tree_1.png";
+    coconutTree1Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_1.png";
     coconutTree1Texture.type = ElementTextureType::STATIC;
     coconutTree1Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
-    coconutTree1Texture.anchorOffsetX = 0.4f; // X offset
-    coconutTree1Texture.anchorOffsetY = 0.0f; // No Y offset
+    coconutTree1Texture.anchorOffsetX = -0.2f; // X offset
+    coconutTree1Texture.anchorOffsetY = 0.4f; // No Y offset
     textures.push_back(coconutTree1Texture);    ElementTextureInfo coconutTree2Texture;
     coconutTree2Texture.name = ElementTextureName::COCONUT_TREE_2;
-    coconutTree2Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\decorations\\coconut_tree_2.png";
+    coconutTree2Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_2.png";
     coconutTree2Texture.type = ElementTextureType::STATIC;
     coconutTree2Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
-    coconutTree2Texture.anchorOffsetX = -0.3f; // No offset
-    coconutTree2Texture.anchorOffsetY = 0.0f; // No offset
+    coconutTree2Texture.anchorOffsetX = 0.0f; // No offset
+    coconutTree2Texture.anchorOffsetY = 0.8f; // No offset
     textures.push_back(coconutTree2Texture);    ElementTextureInfo coconutTree3Texture;
     coconutTree3Texture.name = ElementTextureName::COCONUT_TREE_3;
-    coconutTree3Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\decorations\\coconut_tree_3.png";
+    coconutTree3Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_3.png";
     coconutTree3Texture.type = ElementTextureType::STATIC;
     coconutTree3Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
-    coconutTree3Texture.anchorOffsetX = 0.0f; // No offset
-    coconutTree3Texture.anchorOffsetY = 0.0f; // No offset
+    coconutTree3Texture.anchorOffsetX = 0.2f; // No offset
+    coconutTree3Texture.anchorOffsetY = 0.4f; // No offset
     textures.push_back(coconutTree3Texture);
     
     // Sprite sheet texture for character

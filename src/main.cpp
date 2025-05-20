@@ -10,6 +10,7 @@
 #include "player.h" // Added include for player management
 #include <ctime> // For time(0) to seed random number generator
 #include <cmath> // For sqrt function
+#include <algorithm> // For std::min and std::max
 
 
 using namespace glbasimac;
@@ -19,7 +20,7 @@ static const double FRAMERATE_IN_SECONDS = 1. / 60.; // Changed to 60 FPS
 static float aspectRatio = 1.0f;
 
 /* Grid properties */
-static const int GRID_SIZE = 170;
+static const int GRID_SIZE = 100;
 static float islandFeatureSize = 0.1f; // Controls the size of islands. Smaller values = smaller, more numerous islands. Larger values = larger, fewer islands.
 static float seaFeatureSize = 0.016f; // Controls the size of sea areas. Larger values = larger sea areas.
 static float gridLineWidth = 1.0f;
@@ -27,7 +28,9 @@ static int windowWidth = 1920;
 static int windowHeight = 1080;
 
 /* Camera properties */
-static const float CAMERA_REGION = 20.0f; // Size of the visible region around the player (in grid units)
+static float CAMERA_REGION = 30.0f; // Size of the visible region around the player (in grid units)
+static const float MIN_CAMERA_REGION = 5.0f; // Minimum camera region size
+static const float MAX_CAMERA_REGION = 200.0f; // Maximum camera region size
 
 // Variables to store grid rendering parameters for coordinate conversion
 static float g_startX = -1.0f;
@@ -542,14 +545,30 @@ int main() {
             elementsManager.listElements();
         }
         lastFrameDebugElementsState = keyPressedStates[GLFW_KEY_F4];
-        
-        // Toggle hide pixels outside map grid with F6
+          // Toggle hide pixels outside map grid with F6
         static bool lastFrameHideOutsideGridState = false;
         if (keyPressedStates[GLFW_KEY_F6] && !lastFrameHideOutsideGridState) {
             hideOutsideGrid = !hideOutsideGrid;
             std::cout << "Hiding pixels outside map grid: " << (hideOutsideGrid ? "enabled" : "disabled") << std::endl;
         }
         lastFrameHideOutsideGridState = keyPressedStates[GLFW_KEY_F6];
+          // Adjust CAMERA_REGION with P and M keys
+        static bool lastPKeyState = false;
+        static bool lastMKeyState = false;
+        
+        // P key - zoom in (decrease camera region)
+        if (keyPressedStates[GLFW_KEY_P] && !lastPKeyState) {
+            CAMERA_REGION = std::max(CAMERA_REGION - 1.0f, MIN_CAMERA_REGION);
+            std::cout << "Zoomed in: Camera region set to: " << CAMERA_REGION << std::endl;
+        }
+        lastPKeyState = keyPressedStates[GLFW_KEY_P];
+        
+        // M key - zoom out (increase camera region)
+        if (keyPressedStates[GLFW_KEY_M] && !lastMKeyState) {
+            CAMERA_REGION = std::min(CAMERA_REGION + 1.0f, MAX_CAMERA_REGION);
+            std::cout << "Zoomed out: Camera region set to: " << CAMERA_REGION << std::endl;
+        }
+        lastMKeyState = keyPressedStates[GLFW_KEY_M];
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
