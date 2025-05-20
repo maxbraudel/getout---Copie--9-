@@ -8,6 +8,8 @@
 #include "terrainGeneration.h"
 #include "elementsOnMap.h" // Added include for element management
 #include "player.h" // Added include for player management
+#include "camera.h" // Added include for camera management
+#include "globals.h" // Added include for global variables
 #include <ctime> // For time(0) to seed random number generator
 #include <cmath> // For sqrt function
 #include <algorithm> // For std::min and std::max
@@ -15,32 +17,7 @@
 
 using namespace glbasimac;
 
-/* Minimal time wanted between two images */
-static const double FRAMERATE_IN_SECONDS = 1. / 60.; // Changed to 60 FPS
-static float aspectRatio = 1.0f;
-
-/* Grid properties */
-static const int GRID_SIZE = 100;
-static float islandFeatureSize = 0.1f; // Controls the size of islands. Smaller values = smaller, more numerous islands. Larger values = larger, fewer islands.
-static float seaFeatureSize = 0.016f; // Controls the size of sea areas. Larger values = larger sea areas.
-static float gridLineWidth = 1.0f;
-static int windowWidth = 1920;
-static int windowHeight = 1080;
-
-/* Camera properties */
-static float CAMERA_REGION = 30.0f; // Size of the visible region around the player (in grid units)
-static const float MIN_CAMERA_REGION = 5.0f; // Minimum camera region size
-static const float MAX_CAMERA_REGION = 200.0f; // Maximum camera region size
-
-// Variables to store grid rendering parameters for coordinate conversion
-static float g_startX = -1.0f;
-static float g_endX = 1.0f;
-static float g_startY = -1.0f;
-static float g_endY = 1.0f;
-
-// Boolean variables to control visibility features
-static bool showGridLines = false;
-static bool hideOutsideGrid = false; // Controls whether to hide pixels outside the map grid
+/* OpenGL Engine */
 
 /* OpenGL Engine */
 GLBI_Engine myEngine;
@@ -83,16 +60,8 @@ void onWindowResize(GLFWwindow* window, int width, int height) {
     // Keep grid rendering parameters for coordinate conversion covering the full NDC space
     g_startX = -1.0f;
     g_endX = 1.0f;
-    g_startY = -1.0f;
-    g_endY = 1.0f;
+    g_startY = -1.0f;    g_endY = 1.0f;
 }
-
-// Constants for gameplay
-const float PLAYER_BASE_SPEED = 4.0f;   // Base speed of player movement (grid units per second)
-const float PLAYER_SPRINT_SPEED = 6.0f; // Sprint speed when shift is held (grid units per second)
-
-// Global variables for input handling
-bool keyPressedStates[GLFW_KEY_LAST + 1] = { false };
 
 // Keyboard callback function
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -361,88 +330,45 @@ int main() {
 		}
 				// Update movement state
 		wasMoving = isMoving;
-        
-        /* Render here */
+          /* Render here */
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
-		glClear(GL_COLOR_BUFFER_BIT);        // Get the player position for camera centering
+		glClear(GL_COLOR_BUFFER_BIT);
+        
+        // Get the player position for camera centering
         // Reusing playerX and playerY variables that were declared earlier
         getPlayerPosition(playerX, playerY);
         
-        // Calculate adaptive camera view that matches window aspect ratio
-        // Get current window aspect ratio
-        float windowAspectRatio = (float)windowWidth / (float)windowHeight;
-        
-        // Calculate half-width and half-height of camera view based on aspect ratio
-        // CAMERA_REGION now represents the minimum visibility area
-        float cameraHalfWidth, cameraHalfHeight;
-        
-        if (windowAspectRatio >= 1.0f) {
-            // Window is wider than tall (or square) - expand width
-            cameraHalfHeight = CAMERA_REGION;
-            cameraHalfWidth = cameraHalfHeight * windowAspectRatio;
-        } else {
-            // Window is taller than wide - expand height
-            cameraHalfWidth = CAMERA_REGION;
-            cameraHalfHeight = cameraHalfWidth / windowAspectRatio;
-        }
+        // Update camera position based on player position and window dimensions
+        gameCamera.updateCameraPosition(playerX, playerY, windowWidth, windowHeight);
         
         // Log camera dimensions when F1 is pressed (for debugging)
         static bool lastF1KeyState = false;
         if (keyPressedStates[GLFW_KEY_F1] && !lastF1KeyState) {
+            float cameraWidth = gameCamera.getWidth();
+            float cameraHeight = gameCamera.getHeight();
+            float windowAspectRatio = (float)windowWidth / (float)windowHeight;
+            
             std::cout << "Window size: " << windowWidth << "x" << windowHeight 
                       << ", Aspect ratio: " << windowAspectRatio 
-                      << ", Camera size: " << cameraHalfWidth * 2 << "x" << cameraHalfHeight * 2 
+                      << ", Camera size: " << cameraWidth << "x" << cameraHeight 
                       << " grid units" << std::endl;
         }
-        lastF1KeyState = keyPressedStates[GLFW_KEY_F1];
-        
-        // Center camera on player
-        float cameraLeft = playerX - cameraHalfWidth;
-        float cameraRight = playerX + cameraHalfWidth;
-        float cameraBottom = playerY - cameraHalfHeight;
-        float cameraTop = playerY + cameraHalfHeight;
-        
-        // Calculate camera width and height
-        float cameraWidth = cameraHalfWidth * 2.0f;
-        float cameraHeight = cameraHalfHeight * 2.0f;
-        
-        // Ensure the camera doesn't go out of bounds
-        if (cameraLeft < 0) {
-            cameraLeft = 0;
-            cameraRight = cameraWidth;
-        }
-        if (cameraRight > GRID_SIZE) {
-            cameraRight = GRID_SIZE;
-            cameraLeft = GRID_SIZE - cameraWidth;
-        }
-        if (cameraBottom < 0) {
-            cameraBottom = 0;
-            cameraTop = cameraHeight;
-        }
-        if (cameraTop > GRID_SIZE) {
-            cameraTop = GRID_SIZE;
-            cameraBottom = GRID_SIZE - cameraHeight;
-        }
-        
-        // Further adjust if the grid is smaller than the camera view
-        if (GRID_SIZE < cameraWidth) {
-            // Grid is narrower than camera view - center horizontally
-            cameraLeft = 0;
-            cameraRight = GRID_SIZE;
-        }
-        if (GRID_SIZE < cameraHeight) {
-            // Grid is shorter than camera view - center vertically
-            cameraBottom = 0;
-            cameraTop = GRID_SIZE;
-        }
-          // Grid positions for rendering - these will be used to map from world to screen
+        lastF1KeyState = keyPressedStates[GLFW_KEY_F1];        // Grid positions for rendering - these will be used to map from world to screen
         // We still use the aspect ratio correction from g_startX etc.
         float startX = g_startX;
         float endX = g_endX;
         float startY = g_startY;
-        float endY = g_endY;        // Calculate the width and height of the view in world coordinates
-        float viewWidth = cameraRight - cameraLeft;
-        float viewHeight = cameraTop - cameraBottom;
+        float endY = g_endY;
+        
+        // Get camera boundaries
+        float cameraLeft = gameCamera.getLeft();
+        float cameraRight = gameCamera.getRight();
+        float cameraBottom = gameCamera.getBottom();
+        float cameraTop = gameCamera.getTop();
+        
+        // Calculate the width and height of the view in world coordinates
+        float viewWidth = gameCamera.getWidth();
+        float viewHeight = gameCamera.getHeight();
           // Calculate the map grid boundaries in window coordinates for the scissor test
         // Convert from normalized device coordinates (-1 to 1) to window coordinates (0 to windowWidth/Height)
         // First, determine what portion of screen space is occupied by the grid
@@ -464,8 +390,7 @@ int main() {
             glEnable(GL_SCISSOR_TEST);
             glScissor(scissorX, scissorY, scissorWidth, scissorHeight);
         }
-        
-        // Draw grid
+          // Draw grid
         if (showGridLines) {
             myEngine.setFlatColor(1.0f, 1.0f, 1.0f); // White color for grid lines
             
@@ -489,7 +414,8 @@ int main() {
                 glVertex2f(startX, screenY);
                 glVertex2f(endX, screenY);
             }
-            glEnd();        }
+            glEnd();        
+        }
 				// Draw the blocks (textured squares) on the grid
 		// Now we pass the camera boundaries to drawBlocks instead of the GRID_SIZE
 		gameMap.drawBlocks(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, deltaTime);
@@ -551,22 +477,19 @@ int main() {
             hideOutsideGrid = !hideOutsideGrid;
             std::cout << "Hiding pixels outside map grid: " << (hideOutsideGrid ? "enabled" : "disabled") << std::endl;
         }
-        lastFrameHideOutsideGridState = keyPressedStates[GLFW_KEY_F6];
-          // Adjust CAMERA_REGION with P and M keys
+        lastFrameHideOutsideGridState = keyPressedStates[GLFW_KEY_F6];        // Adjust camera region with P and M keys
         static bool lastPKeyState = false;
         static bool lastMKeyState = false;
         
         // P key - zoom in (decrease camera region)
         if (keyPressedStates[GLFW_KEY_P] && !lastPKeyState) {
-            CAMERA_REGION = std::max(CAMERA_REGION - 1.0f, MIN_CAMERA_REGION);
-            std::cout << "Zoomed in: Camera region set to: " << CAMERA_REGION << std::endl;
+            gameCamera.decreaseCameraRegion(1.0f);
         }
         lastPKeyState = keyPressedStates[GLFW_KEY_P];
         
         // M key - zoom out (increase camera region)
         if (keyPressedStates[GLFW_KEY_M] && !lastMKeyState) {
-            CAMERA_REGION = std::min(CAMERA_REGION + 1.0f, MAX_CAMERA_REGION);
-            std::cout << "Zoomed out: Camera region set to: " << CAMERA_REGION << std::endl;
+            gameCamera.increaseCameraRegion(1.0f);
         }
         lastMKeyState = keyPressedStates[GLFW_KEY_M];
 
