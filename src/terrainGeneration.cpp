@@ -304,7 +304,7 @@ void placeTerrainElements(
                         elementsManager.placeElement(
                             bushName,                    // Unique name
                             treeTexture,                 // Randomly selected coconut tree texture
-                            5.0f * randomScale,          // Size (scaled by 5.0f with random variation)
+                            7.0f * randomScale,          // Size (scaled by 5.0f with random variation)
                             worldX,                      // X position
                             worldY,                      // Y position
                             0.0f,                        // No rotation

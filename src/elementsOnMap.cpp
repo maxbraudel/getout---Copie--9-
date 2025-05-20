@@ -24,8 +24,8 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     coconutTree1Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_1.png";
     coconutTree1Texture.type = ElementTextureType::STATIC;
     coconutTree1Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
-    coconutTree1Texture.anchorOffsetX = -0.2f; // X offset
-    coconutTree1Texture.anchorOffsetY = 0.4f; // No Y offset
+    coconutTree1Texture.anchorOffsetX = -0.3f; // X offset
+    coconutTree1Texture.anchorOffsetY = 0.2f; // No Y offset
     textures.push_back(coconutTree1Texture);    ElementTextureInfo coconutTree2Texture;
     coconutTree2Texture.name = ElementTextureName::COCONUT_TREE_2;
     coconutTree2Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_2.png";
@@ -38,19 +38,19 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     coconutTree3Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_3.png";
     coconutTree3Texture.type = ElementTextureType::STATIC;
     coconutTree3Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
-    coconutTree3Texture.anchorOffsetX = 0.2f; // No offset
+    coconutTree3Texture.anchorOffsetX = 0.3f; // No offset
     coconutTree3Texture.anchorOffsetY = 0.4f; // No offset
     textures.push_back(coconutTree3Texture);
     
     // Sprite sheet texture for character
     ElementTextureInfo characterTexture;
     characterTexture.name = ElementTextureName::CHARACTER1;
-    characterTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\entities\\player.png";
+    characterTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\entities\\player.png";
     characterTexture.type = ElementTextureType::SPRITESHEET;
     characterTexture.spriteWidth = 32;  // Assuming 32px width for each sprite frame
     characterTexture.spriteHeight = 48; // Assuming 32px height for each sprite frame
     characterTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Player stands on ground
-    characterTexture.anchorOffsetY = 0.1f; // No offset
+    characterTexture.anchorOffsetY = 2.0f; // No offset
     // We need to add the BOTTOM_CENTER enum value
     textures.push_back(characterTexture);
     

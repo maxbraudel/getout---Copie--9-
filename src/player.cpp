@@ -21,7 +21,7 @@ void createPlayer(float x, float y) {
     elementsManager.placeElement(
         "player1",                   // Unique instance name
         ElementTextureName::CHARACTER1, // Using the character sprite sheet
-        2.0f,                        // Scale (adjust as needed)
+        1.6f,                        // Scale (adjust as needed)
         x, y,                        // Position on grid
         0.0f,                        // No rotation
         0,                           // Animation row 0 (typically downward-facing)
