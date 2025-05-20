@@ -48,10 +48,10 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     characterTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\entities\\player.png";
     characterTexture.type = ElementTextureType::SPRITESHEET;
     characterTexture.spriteWidth = 32;  // Assuming 32px width for each sprite frame
-    characterTexture.spriteHeight = 48; // Assuming 32px height for each sprite frame
+    characterTexture.spriteHeight = 48; // Assuming 48px height for each sprite frame
     characterTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Player stands on ground
-    characterTexture.anchorOffsetY = 2.0f; // No offset
-    // We need to add the BOTTOM_CENTER enum value
+    characterTexture.anchorOffsetX = 0.0f; // Example X offset
+    characterTexture.anchorOffsetY = 0.1f;  // Example Y offset for testing
     textures.push_back(characterTexture);
     
     // Add more texture definitions here as needed
@@ -747,37 +747,73 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         // Calculate anchor point offset based on the selected anchor point
         float anchorX = 0.0f;
         float anchorY = 0.0f;
-          switch(element.anchorPoint) {
+
+        // Determine the effective anchor point and offsets for the current element
+        AnchorPoint effectiveAnchorPoint = element.anchorPoint;
+        float effectiveAnchorOffsetX = element.anchorOffsetX;
+        float effectiveAnchorOffsetY = element.anchorOffsetY;
+
+        // If USE_TEXTURE_DEFAULT, get defaults from textureDetails (which should be populated in init)
+        // This part seems to be handled correctly in placeElement, so element.anchorPoint should be resolved.
+
+        switch(effectiveAnchorPoint) {
             case AnchorPoint::CENTER:
-                // Default center anchor - no offset needed
+                // Default center anchor - no offset needed from halfWidth/Height
                 break;
             case AnchorPoint::TOP_LEFT_CORNER:
-                anchorX = -halfWidth_ndc;
-                anchorY = halfHeight_ndc;
+                anchorX = -halfWidth_ndc; // Move left by half width
+                anchorY = halfHeight_ndc; // Move up by half height
                 break;
             case AnchorPoint::TOP_RIGHT_CORNER:
-                anchorX = halfWidth_ndc;
-                anchorY = halfHeight_ndc;
+                anchorX = halfWidth_ndc;  // Move right by half width
+                anchorY = halfHeight_ndc; // Move up by half height
                 break;
             case AnchorPoint::BOTTOM_LEFT_CORNER:
-                anchorX = -halfWidth_ndc;
-                anchorY = -halfHeight_ndc;
+                anchorX = -halfWidth_ndc; // Move left by half width
+                anchorY = -halfHeight_ndc;// Move down by half height
                 break;
             case AnchorPoint::BOTTOM_RIGHT_CORNER:
-                anchorX = halfWidth_ndc;
-                anchorY = -halfHeight_ndc;
+                anchorX = halfWidth_ndc;  // Move right by half width
+                anchorY = -halfHeight_ndc;// Move down by half height
                 break;
             case AnchorPoint::BOTTOM_CENTER:
-                anchorX = 0.0f; // Centered horizontally
-                anchorY = -halfHeight_ndc; // Bottom aligned
+                anchorX = 0.0f;           // Centered horizontally
+                anchorY = -halfHeight_ndc;// Move down by half height (aligns bottom edge)
                 break;
+            // USE_TEXTURE_DEFAULT should have been resolved by placeElement
+            // to one of the specific anchor points above.
+            // If it still appears here, it implies an issue in placeElement logic or texture setup.
+            case AnchorPoint::USE_TEXTURE_DEFAULT:
+                 std::cerr << "Warning: USE_TEXTURE_DEFAULT encountered directly in drawElements for " << element.instanceName << std::endl;
+                 // Fallback to CENTER if not resolved
+                 break;
         }
-          // Apply additional anchor offsets (in screen space) - scaled to camera view
-        float additionalOffsetX = (element.anchorOffsetX / viewWidth) * (endX - startX);
-        float additionalOffsetY = (element.anchorOffsetY / viewHeight) * (endY - startY);
-        anchorX += additionalOffsetX;
-        anchorY += additionalOffsetY;
+
+        // Apply the element-specific anchor offsets (these are additional to the anchor point logic)
+        // These offsets are in world units and need to be scaled to screen space.
+        float additionalScreenOffsetX = (effectiveAnchorOffsetX / viewWidth) * (endX - startX);
+        float additionalScreenOffsetY = (effectiveAnchorOffsetY / viewHeight) * (endY - startY);
+
+        // For spritesheets, the halfHeight_ndc was already scaled by aspectRatio.
+        // The additionalScreenOffsetY, if it's meant to be in sprite pixels, might also need scaling,
+        // or it's a world-unit offset that's independent of sprite aspect ratio.
+        // Assuming element.anchorOffsetX/Y are world-unit offsets for now.
+        // If they are pixel offsets, they would need different handling.
+
+        anchorX += additionalScreenOffsetX;
+        anchorY += additionalScreenOffsetY;
         
+        // Debugging output for spritesheet elements with non-zero anchor offsets
+        /*
+        if (isSpritesheet && (element.anchorOffsetX != 0.0f || element.anchorOffsetY != 0.0f)) {
+            std::cout << "Sprite element: " << element.instanceName 
+                      << ", Base Anchor: (" << anchorX - additionalScreenOffsetX << ", " << anchorY - additionalScreenOffsetY << ")" 
+                      << ", Additional Offsets (world): (" << element.anchorOffsetX << ", " << element.anchorOffsetY << ")"
+                      << ", Additional Offsets (screen): (" << additionalScreenOffsetX << ", " << additionalScreenOffsetY << ")"
+                      << ", Final Anchor Point (screen): (" << anchorX << ", " << anchorY << ")" << std::endl;
+        }
+        */
+
         // Bind texture
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, textureID);
