@@ -92,10 +92,16 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         else if (key == GLFW_KEY_F4) {
             std::cout << "\n--- Current Elements List ---" << std::endl;
             elementsManager.listElements();
-        }
-        // Print detailed element positions when F6 is pressed
+        }        // Print detailed element positions when F6 is pressed
         else if (key == GLFW_KEY_F6) {
             elementsManager.printElementPositions();
+        }        // Toggle hitbox visualization when F7 is pressed
+        else if (key == GLFW_KEY_F7) {
+            elementsManager.toggleHitBoxVisualization();
+        }
+        // Toggle anchor points and hitboxes visualization when F8 is pressed
+        else if (key == GLFW_KEY_F8) {
+            elementsManager.toggleAllDebugVisualization();
         }
     } else if (action == GLFW_RELEASE) {
         keyPressedStates[key] = false;

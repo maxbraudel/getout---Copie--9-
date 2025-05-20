@@ -48,6 +48,13 @@ struct ElementTextureInfo {
     AnchorPoint anchorPoint = AnchorPoint::CENTER; // Default anchor point for this texture
     float anchorOffsetX = 0.0f;                    // Default X offset from anchor point
     float anchorOffsetY = 0.0f;                    // Default Y offset from anchor point
+    
+    // Hitbox configuration (relative to the anchor point)
+    bool hasHitBox = false;                        // Whether this element has a hitbox
+    float hitBoxFirstPointX = 0.0f;                // X coordinate of first hitbox corner
+    float hitBoxFirstPointY = 0.0f;                // Y coordinate of first hitbox corner
+    float hitBoxSecondPointX = 0.0f;               // X coordinate of second hitbox corner
+    float hitBoxSecondPointY = 0.0f;               // Y coordinate of second hitbox corner
 };
 
 // Struct to hold placed element information
@@ -147,6 +154,25 @@ public:
         return showAnchorPoints;
     }
     
+    // Toggle hitbox visualization
+    void toggleHitBoxVisualization() {
+        showHitBoxes = !showHitBoxes;
+        std::cout << "Hitbox visualization " << (showHitBoxes ? "enabled" : "disabled") << std::endl;
+    }
+    
+    // Toggle all debug visualization (anchors and hitboxes)
+    void toggleAllDebugVisualization() {
+        bool newState = !showHitBoxes && !showAnchorPoints;
+        showHitBoxes = newState;
+        showAnchorPoints = newState;
+        std::cout << "All debug visualization " << (newState ? "enabled" : "disabled") << std::endl;
+    }
+    
+    // Check if hitboxes are being visualized
+    bool isShowingHitBoxes() const {
+        return showHitBoxes;
+    }
+    
     // Print detailed position information for all placed elements
     void printElementPositions() const;
 
@@ -159,10 +185,15 @@ private:
     std::map<std::string, size_t> elementIndexMap; // Maps element name to index in elements vector
     
     // Store width and height for aspect ratio calculation
-    std::map<ElementTextureName, std::pair<int, int>> textureDimensions;
-
-    // Debug visualization flag
+    std::map<ElementTextureName, std::pair<int, int>> textureDimensions;    // Debug visualization flags
     bool showAnchorPoints = false;
+    bool showHitBoxes = false;
+    
+    // Set hitbox for element texture
+    bool setElementTextureHitBox(const ElementTextureName textureName, 
+                                 bool hasHitBox,
+                                 float firstPointX, float firstPointY,
+                                 float secondPointX, float secondPointY);
 };
 
 // Global instance

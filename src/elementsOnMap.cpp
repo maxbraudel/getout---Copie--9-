@@ -26,14 +26,25 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     coconutTree1Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree1Texture.anchorOffsetX = -0.3f; // X offset
     coconutTree1Texture.anchorOffsetY = 0.2f; // No Y offset
-    textures.push_back(coconutTree1Texture);    ElementTextureInfo coconutTree2Texture;
+    // Add hitbox to the coconut tree
+    coconutTree1Texture.hasHitBox = true;
+    coconutTree1Texture.hitBoxFirstPointX = -0.01f;  // Left side of trunk, relative to anchor
+    coconutTree1Texture.hitBoxFirstPointY = -0.01f;   // Bottom of trunk, relative to anchor
+    coconutTree1Texture.hitBoxSecondPointX = 0.01f;  // Right side of trunk, relative to anchor
+    coconutTree1Texture.hitBoxSecondPointY = 0.01f;  // Top of trunk area, relative to anchor
+    textures.push_back(coconutTree1Texture);ElementTextureInfo coconutTree2Texture;
     coconutTree2Texture.name = ElementTextureName::COCONUT_TREE_2;
     coconutTree2Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_2.png";
-    coconutTree2Texture.type = ElementTextureType::STATIC;
-    coconutTree2Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
+    coconutTree2Texture.type = ElementTextureType::STATIC;    coconutTree2Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree2Texture.anchorOffsetX = 0.0f; // No offset
     coconutTree2Texture.anchorOffsetY = 0.8f; // No offset
-    textures.push_back(coconutTree2Texture);    ElementTextureInfo coconutTree3Texture;
+    // Add hitbox to the second coconut tree
+    coconutTree2Texture.hasHitBox = true;
+    coconutTree2Texture.hitBoxFirstPointX = -0.01f;  // Left side of trunk, relative to anchor
+    coconutTree2Texture.hitBoxFirstPointY = -0.01f;    // Bottom of trunk, relative to anchor
+    coconutTree2Texture.hitBoxSecondPointX = 0.01f;  // Right side of trunk, relative to anchor
+    coconutTree2Texture.hitBoxSecondPointY = 0.01f;   // Top of trunk area, relative to anchor
+    textures.push_back(coconutTree2Texture);ElementTextureInfo coconutTree3Texture;
     coconutTree3Texture.name = ElementTextureName::COCONUT_TREE_3;
     coconutTree3Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_3.png";
     coconutTree3Texture.type = ElementTextureType::STATIC;
@@ -43,8 +54,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     textures.push_back(coconutTree3Texture);
     
     // Sprite sheet texture for character
-    ElementTextureInfo characterTexture;
-    characterTexture.name = ElementTextureName::CHARACTER1;
+    ElementTextureInfo characterTexture;    characterTexture.name = ElementTextureName::CHARACTER1;
     characterTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\entities\\player.png";
     characterTexture.type = ElementTextureType::SPRITESHEET;
     characterTexture.spriteWidth = 32;  // Assuming 32px width for each sprite frame
@@ -52,6 +62,12 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     characterTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Player stands on ground
     characterTexture.anchorOffsetX = 0.0f; // Example X offset
     characterTexture.anchorOffsetY = 0.1f;  // Example Y offset for testing
+    // Add hitbox to the character
+    characterTexture.hasHitBox = true;
+    characterTexture.hitBoxFirstPointX = -0.01f;  // Left side of character, relative to anchor
+    characterTexture.hitBoxFirstPointY = -0.04f;   // Bottom of character (feet), relative to anchor
+    characterTexture.hitBoxSecondPointX = 0.01f;  // Right side of character, relative to anchor
+    characterTexture.hitBoxSecondPointY = -0.05f;  // Top of character (head), relative to anchor
     textures.push_back(characterTexture);
     
     // Add more texture definitions here as needed
@@ -792,13 +808,13 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         // Apply the element-specific anchor offsets (these are additional to the anchor point logic)
         // These offsets are in world units and need to be scaled to screen space.
         float additionalScreenOffsetX = (effectiveAnchorOffsetX / viewWidth) * (endX - startX);
-        float additionalScreenOffsetY = (effectiveAnchorOffsetY / viewHeight) * (endY - startY);
-
-        // For spritesheets, the halfHeight_ndc was already scaled by aspectRatio.
+        float additionalScreenOffsetY = (effectiveAnchorOffsetY / viewHeight) * (endY - startY);        // For spritesheets, the halfHeight_ndc was already scaled by aspectRatio.
         // The additionalScreenOffsetY, if it's meant to be in sprite pixels, might also need scaling,
         // or it's a world-unit offset that's independent of sprite aspect ratio.
-        // Assuming element.anchorOffsetX/Y are world-unit offsets for now.
-        // If they are pixel offsets, they would need different handling.
+        // For sprite sheets, let's scale the Y offset by the aspect ratio
+        if (isSpritesheet && aspectRatio != 1.0f) {
+            additionalScreenOffsetY *= aspectRatio;
+        }
 
         anchorX += additionalScreenOffsetX;
         anchorY += additionalScreenOffsetY;
@@ -832,9 +848,10 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         if (element.rotation != 0.0f) {
             glRotatef(element.rotation, 0.0f, 0.0f, 1.0f);
         }
+          // Apply anchor point offset (this effectively changes where the element is positioned)
+        glTranslatef(-anchorX, -anchorY, 0.0f);
         
-        // Apply anchor point offset (this effectively changes where the element is positioned)
-        glTranslatef(-anchorX, -anchorY, 0.0f);        // Draw textured quad centered at origin using calculated UV coordinates
+        // Draw textured quad centered at origin using calculated UV coordinates
         // Use a consistent vertex order that matches map rendering
         // Map renders in clockwise order starting from top-left
         glBegin(GL_QUADS);
@@ -848,8 +865,7 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         
         // Unbind texture
         glBindTexture(GL_TEXTURE_2D, 0);
-        glDisable(GL_TEXTURE_2D);
-          // Draw anchor point indicator if visualization is enabled
+        glDisable(GL_TEXTURE_2D);        // Draw anchor point indicator if visualization is enabled
         if (showAnchorPoints) {
             // Draw a small crosshair to indicate the anchor point
             glColor4f(1.0f, 0.0f, 0.0f, 1.0f);  // Red color
@@ -872,6 +888,50 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
             glEnd();
             
             glLineWidth(1.0f);  // Reset line width
+        }
+        
+        // Draw hitbox if visualization is enabled and texture has a hitbox
+        if (showHitBoxes) {
+            // Look up the texture info to check if it has a hitbox
+            for (const auto& texInfo : elementTexturesToLoad) {
+                if (texInfo.name == element.textureName && texInfo.hasHitBox) {
+                    glColor4f(0.0f, 0.0f, 1.0f, 0.7f);  // Blue color, slightly transparent
+                    glLineWidth(2.0f);
+                    
+                    // Calculate the hitbox corners positions based on the anchor point
+                    // Note that these coordinates are already relative to the anchor
+                    float hitBoxX1 = texInfo.hitBoxFirstPointX;
+                    float hitBoxY1 = texInfo.hitBoxFirstPointY;
+                    float hitBoxX2 = texInfo.hitBoxSecondPointX;
+                    float hitBoxY2 = texInfo.hitBoxSecondPointY;
+                    
+                    // Scale the hitbox according to the element scale
+                    hitBoxX1 *= element.scale;
+                    hitBoxY1 *= element.scale;
+                    hitBoxX2 *= element.scale;
+                    hitBoxY2 *= element.scale;
+                    
+                    // Draw hitbox outline
+                    glBegin(GL_LINE_LOOP);
+                    glVertex2f(hitBoxX1, hitBoxY1); // First point
+                    glVertex2f(hitBoxX2, hitBoxY1); // Top right
+                    glVertex2f(hitBoxX2, hitBoxY2); // Bottom right
+                    glVertex2f(hitBoxX1, hitBoxY2); // Bottom left
+                    glEnd();
+                    
+                    // Fill hitbox with transparent blue
+                    glColor4f(0.0f, 0.0f, 1.0f, 0.2f);  // Blue color, very transparent
+                    glBegin(GL_QUADS);
+                    glVertex2f(hitBoxX1, hitBoxY1); // First point
+                    glVertex2f(hitBoxX2, hitBoxY1); // Top right
+                    glVertex2f(hitBoxX2, hitBoxY2); // Bottom right
+                    glVertex2f(hitBoxX1, hitBoxY2); // Bottom left
+                    glEnd();
+                    
+                    glLineWidth(1.0f);  // Reset line width
+                    break;
+                }
+            }
         }
         
         // Restore matrix state
@@ -999,4 +1059,35 @@ void ElementsOnMap::printElementPositions() const {
     }
     
     std::cout << "==========================================================" << std::endl;
+}
+
+bool ElementsOnMap::setElementTextureHitBox(const ElementTextureName textureName, 
+                                            bool hasHitBox,
+                                            float firstPointX, float firstPointY,
+                                            float secondPointX, float secondPointY) {
+    // Look for the texture in the elementTexturesToLoad vector
+    for (auto& texInfo : const_cast<std::vector<ElementTextureInfo>&>(elementTexturesToLoad)) {
+        if (texInfo.name == textureName) {
+            // Update hitbox parameters
+            texInfo.hasHitBox = hasHitBox;
+            
+            if (hasHitBox) {
+                texInfo.hitBoxFirstPointX = firstPointX;
+                texInfo.hitBoxFirstPointY = firstPointY;
+                texInfo.hitBoxSecondPointX = secondPointX;
+                texInfo.hitBoxSecondPointY = secondPointY;
+                
+                std::cout << "Updated hitbox for texture " << static_cast<int>(textureName) 
+                          << " with points (" << firstPointX << "," << firstPointY << ") and ("
+                          << secondPointX << "," << secondPointY << ")" << std::endl;
+            } else {
+                std::cout << "Disabled hitbox for texture " << static_cast<int>(textureName) << std::endl;
+            }
+            
+            return true;
+        }
+    }
+    
+    std::cerr << "Texture not found for hitbox update: " << static_cast<int>(textureName) << std::endl;
+    return false;
 }
