@@ -10,6 +10,7 @@
 #include "player.h" // Added include for player management
 #include "camera.h" // Added include for camera management
 #include "globals.h" // Added include for global variables
+#include "collision.h" // Added include for collision detection
 #include <ctime> // For time(0) to seed random number generator
 #include <cmath> // For sqrt function
 #include <algorithm> // For std::min and std::max
@@ -84,24 +85,43 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             isAnimating = !isAnimating;
             elementsManager.changeElementAnimationStatus("player1", isAnimating);
             std::cout << "Player animation " << (isAnimating ? "enabled" : "disabled") << std::endl;
-        }
-        // Toggle player debug info
+        }        // Toggle player debug info
         else if (key == GLFW_KEY_F3) {
             togglePlayerDebugMode();
-        }        // List all elements when F4 is pressed
+        }
+        // List all elements when F4 is pressed
         else if (key == GLFW_KEY_F4) {
             std::cout << "\n--- Current Elements List ---" << std::endl;
             elementsManager.listElements();
-        }        // Print detailed element positions when F6 is pressed
+        }
+        // Print detailed element positions when F6 is pressed
         else if (key == GLFW_KEY_F6) {
             elementsManager.printElementPositions();
-        }        // Toggle hitbox visualization when F7 is pressed
-        else if (key == GLFW_KEY_F7) {
-            elementsManager.toggleHitBoxVisualization();
         }
-        // Toggle anchor points and hitboxes visualization when F8 is pressed
-        else if (key == GLFW_KEY_F8) {
-            elementsManager.toggleAllDebugVisualization();
+        // Show tree collision information
+        else if (key == GLFW_KEY_F7) {
+            // Get all tree names
+            std::vector<std::string> trees = getTreeElementNames();
+            std::cout << "\n--- Tree Collision System ---" << std::endl;
+            std::cout << "Total trees for collision detection: " << trees.size() << std::endl;
+            // Display player position and check nearby trees
+            float playerX, playerY;
+            if (getPlayerPosition(playerX, playerY)) {
+                std::cout << "Player position: (" << playerX << ", " << playerY << ")" << std::endl;
+                // Check if player is near any trees
+                for (const auto& treeName : trees) {
+                    float treeX, treeY;
+                    if (elementsManager.getElementPosition(treeName, treeX, treeY)) {
+                        float dx = playerX - treeX;
+                        float dy = playerY - treeY;
+                        float distance = std::sqrt(dx*dx + dy*dy);
+                        if (distance < 2.0f) {
+                            std::cout << "Tree " << treeName << " at (" << treeX << ", " << treeY 
+                                      << ") - distance: " << distance << std::endl;
+                        }
+                    }
+                }
+            }
         }
     } else if (action == GLFW_RELEASE) {
         keyPressedStates[key] = false;

@@ -1,6 +1,8 @@
 #include "player.h"
 #include "elementsOnMap.h"
+#include "collision.h"
 #include <iostream>
+#include <cmath>
 
 // Global variables for player state
 static bool playerDebugMode = false;
@@ -18,7 +20,6 @@ void createPlayer(float x, float y) {
         return;
     }    // Create a single player character with animation
     // Using the CHARACTER1 texture's default anchor point (BOTTOM_CENTER)
-    // and explicitly providing the anchor offsets defined in the texture.
     elementsManager.placeElement(
         "player1",                   // Unique instance name
         ElementTextureName::CHARACTER1, // Using the character sprite sheet
@@ -28,10 +29,9 @@ void createPlayer(float x, float y) {
         0,                           // Animation row 0 (typically downward-facing)
         0,                           // Starting at first frame
         false,                       // Start without animation until movement
-        11.0f,                       // Animation speed in FPS
-        AnchorPoint::USE_TEXTURE_DEFAULT, // Use the texture's default anchor point and offsets
-        0.0f,                        // Additional X offset (if any, on top of texture's default)
-        0.0f                         // Additional Y offset (if any, on top of texture's default)
+        12.0f,
+        AnchorPoint::BOTTOM_CENTER                     // Animation speed in FPS
+        // No explicit anchor point - use the texture's default BOTTOM_CENTER
     );
     
     std::cout << "Player created at position (" << x << "," << y << ")" << std::endl;
@@ -63,8 +63,20 @@ void movePlayer(float deltaX, float deltaY) {
         return;
     }
     
-    // Move the player by the specified amount
-    elementsManager.moveElement("player1", deltaX, deltaY);
+    // Calculate the new position
+    float newX = x + deltaX;
+    float newY = y + deltaY;
+    
+    // Check if the new position would collide with a tree
+    if (wouldCollideWithTree(newX, newY)) {
+        // Collision detected, don't move, but still update animation and direction
+        if (playerDebugMode) {
+            std::cout << "Player collision with tree at position (" << newX << ", " << newY << ")" << std::endl;
+        }
+    } else {
+        // No collision, move the player
+        elementsManager.moveElement("player1", deltaX, deltaY);
+    }
     
     // Enable animation when moving
     elementsManager.changeElementAnimationStatus("player1", true);
@@ -100,6 +112,12 @@ bool getPlayerPosition(float& x, float& y) {
 
 // Function to teleport the player to a specific position
 void teleportPlayer(float x, float y) {
+    // Check for collision at the teleport destination
+    if (wouldCollideWithTree(x, y)) {
+        std::cout << "Cannot teleport player to (" << x << ", " << y << ") - position is occupied by a tree." << std::endl;
+        return;
+    }
+    
     // Directly set player position without affecting animation
     elementsManager.changeElementCoordinates("player1", x, y);
 }
