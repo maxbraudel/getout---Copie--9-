@@ -14,7 +14,8 @@ enum class ElementTextureName {
     COCONUT_TREE_2,
     COCONUT_TREE_3,
     CHARACTER1,
-    TEST
+    TEST,
+    ANTAGONIST1
     // Add more element texture types as needed
 };
 

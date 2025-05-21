@@ -12,6 +12,7 @@
 #include "globals.h" // Added include for global variables
 #include "collision.h" // Added include for collision detection
 #include "debug.h" // Added include for debugging features
+#include "entities.h" // Added include for entity management
 #include <ctime> // For time(0) to seed random number generator
 #include <cmath> // For sqrt function
 #include <algorithm> // For std::min and std::max
@@ -23,6 +24,17 @@ using namespace glbasimac;
 
 /* OpenGL Engine */
 GLBI_Engine myEngine;
+
+/* Forward declarations for functions in player.cpp */
+void updatePlayer(GLFWwindow* window, double deltaTime, Map& gameMap, ElementsOnMap& elementsManager);
+bool getPlayerPosition(float& x, float& y);
+
+/* Forward declarations for functions in camera.cpp */
+void updateCameraToPlayerPosition();
+
+/* Forward declarations for functions in debug.cpp */
+bool isPlayerDebugModeActive();
+void printPlayerDebugInfo(float playerX, float playerY, int mapWidth, int mapHeight);
 
 /* Error handling function */
 void onError(int error, const char* description) {
@@ -285,7 +297,41 @@ int main() {
     
     // Demonstrate moving an element
     elementsManager.changeElementCoordinates("bush2", 30.0f, 30.0f);  // Move bush2 to a new position
-		// Only show elements count rather than full list for cleaner output
+    
+    // Configure and place the antagonist entity
+    EntityConfiguration antagonistConfig;
+    antagonistConfig.typeName = "antagonist";
+    antagonistConfig.textureName = ElementTextureName::ANTAGONIST1;
+    antagonistConfig.scale = 1.0f;
+    antagonistConfig.defaultSpriteSheetPhase = 0;
+    antagonistConfig.defaultSpriteSheetFrame = 0;
+    antagonistConfig.defaultAnimationSpeed = 5.0f;
+    
+    // Define sprite phases for different directions
+    antagonistConfig.spritePhaseWalkUp = 0;    // Adjust based on your spritesheet layout
+    antagonistConfig.spritePhaseWalkDown = 1;  // Adjust based on your spritesheet layout
+    antagonistConfig.spritePhaseWalkLeft = 2;  // Adjust based on your spritesheet layout
+    antagonistConfig.spritePhaseWalkRight = 3; // Adjust based on your spritesheet layout
+    
+    // Define walking speeds
+    antagonistConfig.normalWalkingSpeed = 2.0f;
+    antagonistConfig.normalWalkingAnimationSpeed = 8.0f;
+    antagonistConfig.sprintWalkingSpeed = 4.0f;
+    antagonistConfig.sprintWalkingAnimationSpeed = 12.0f;
+    
+    // Collision settings
+    antagonistConfig.canCollide = true;
+    antagonistConfig.collisionRadius = 0.4f;
+    
+    // Add the configuration to the entities manager
+    entitiesManager.addConfiguration(antagonistConfig);
+    
+    // Place the antagonist entity at coordinates (1, 1)
+    entitiesManager.placeEntity("antagonist1", "antagonist", 1.0f, 1.0f);
+
+    entitiesManager.moveEntity("antagonist1", 10.0f, 10.0f); // Move the antagonist entity to a new position
+    
+	// Only show elements count rather than full list for cleaner output
 	std::cout << "Game ready with " << elementsManager.getElementsCount() << " elements placed" << std::endl;
 		// Skip block test output for cleaner console
 	          	// Display brief coordinate system information
@@ -307,7 +353,10 @@ int main() {
 		float playerMoveX = 0.0f;
 		float playerMoveY = 0.0f;
 		
-			// First check if the player exists before processing movements
+        // Update entities (handle movement and animations)
+        entitiesManager.update(deltaTime);
+        
+		// First check if the player exists before processing movements
 		float playerX, playerY;
 		bool playerExists = elementsManager.getElementPosition("player1", playerX, playerY);
 		

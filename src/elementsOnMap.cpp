@@ -57,6 +57,17 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     characterTexture.anchorOffsetY = 0.1f; // Y offset
     characterTexture.hasCollision = false; // Enable collision for player
     textures.push_back(characterTexture);
+
+    ElementTextureInfo antagonistTexture;
+    antagonistTexture.name = ElementTextureName::ANTAGONIST1;
+    antagonistTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\entities\\player3.png";
+    antagonistTexture.type = ElementTextureType::SPRITESHEET;
+    antagonistTexture.spriteWidth = 32;  // Assuming 32px width for each sprite frame
+    antagonistTexture.spriteHeight = 48; // Assuming 48px height for each sprite frame
+    antagonistTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Default anchor - can be changed in config
+    antagonistTexture.anchorOffsetY = 0.1f; // Y offset
+    antagonistTexture.hasCollision = false; // Enable collision for player
+    textures.push_back(antagonistTexture);
     
     // Add more texture definitions here as needed
     
