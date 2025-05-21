@@ -2,6 +2,7 @@
 #include "collision.h"
 #include "map.h" // Adding for gameMap access
 #include "pathfinding.h"
+#include "globals.h" // For GRID_SIZE
 #include <iostream>
 #include <cmath>
 
@@ -178,6 +179,14 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
     float currentX, currentY;
     if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
         std::cerr << "Error getting position for entity: " << instanceName << std::endl;
+        return false;
+    }
+    
+    // Validate target coordinates are within grid bounds
+    if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE ||
+        currentX < 0 || currentX >= GRID_SIZE || currentY < 0 || currentY >= GRID_SIZE) {
+        std::cerr << "Invalid movement coordinates. Start (" << currentX << "," << currentY 
+                 << ") or target (" << x << "," << y << ") are out of bounds." << std::endl;
         return false;
     }
     
@@ -554,8 +563,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                     moveDy = 0; // Only move in X
                     canMove = true;
                 }
-            }
-              if (!canMove) {
+            }              if (!canMove) {
                 // Entity is stuck, let's try to recalculate the path if using pathfinding
                 if (entity.usePathfinding) {
                     std::cout << "Entity " << entity.instanceName << " encountered obstacle at (" 
@@ -564,6 +572,21 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                     // Get current position
                     float curX, curY;
                     if (elementsManager.getElementPosition(elementName, curX, curY)) {
+                        // Validate coordinates before pathfinding
+                        if (curX < 0 || curX >= GRID_SIZE || curY < 0 || curY >= GRID_SIZE ||
+                            entity.targetX < 0 || entity.targetX >= GRID_SIZE || 
+                            entity.targetY < 0 || entity.targetY >= GRID_SIZE) {
+                            std::cout << "Invalid path recalculation coordinates: from (" 
+                                     << curX << "," << curY << ") to (" 
+                                     << entity.targetX << "," << entity.targetY << ")" << std::endl;
+                            
+                            // Stop movement as coordinates are invalid
+                            entity.isWalking = false;
+                            elementsManager.changeElementAnimationStatus(elementName, false);
+                            elementsManager.changeElementSpriteFrame(elementName, 0);
+                            return;
+                        }
+                        
                         // Recalculate the path from the current position
                         std::vector<std::pair<float, float>> newPath = findPath(
                             curX, curY,

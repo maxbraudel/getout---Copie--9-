@@ -407,7 +407,7 @@ int main() {
     antagonistConfig.scale = 1.5f;
     antagonistConfig.defaultSpriteSheetPhase = 0;
     antagonistConfig.defaultSpriteSheetFrame = 0;
-    antagonistConfig.defaultAnimationSpeed = 5.0f;
+    antagonistConfig.defaultAnimationSpeed = 11.0f;
     
     // Define sprite phases for different directions
     antagonistConfig.spritePhaseWalkUp = 0;    // Adjust based on your spritesheet layout
@@ -416,9 +416,9 @@ int main() {
     antagonistConfig.spritePhaseWalkRight = 3; // Adjust based on your spritesheet layout
     
     // Define walking speeds
-    antagonistConfig.normalWalkingSpeed = 2.0f;
-    antagonistConfig.normalWalkingAnimationSpeed = 8.0f;
-    antagonistConfig.sprintWalkingSpeed = 4.0f;
+    antagonistConfig.normalWalkingSpeed = 4.0f;
+    antagonistConfig.normalWalkingAnimationSpeed = 11.0f;
+    antagonistConfig.sprintWalkingSpeed = 10.0f;
     antagonistConfig.sprintWalkingAnimationSpeed = 12.0f;
     
     // Collision settings
