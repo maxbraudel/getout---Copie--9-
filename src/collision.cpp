@@ -9,6 +9,9 @@
 #include <set>
 #include <unordered_map>  // Added for spatial partitioning
 
+// Forward declaration for playerNonTraversableBlocks from player.cpp
+extern std::set<TextureName> playerNonTraversableBlocks;
+
 // Define M_PI if not already defined (needed for angle calculations)
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -325,11 +328,11 @@ bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap, const std::s
     return false; // No collision with non-traversable blocks
 }
 
-// Function to find a safe position when player is stuck inside a collision area
+// Function to find a safe position when a character is stuck inside a collision area
 bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap) {
     // First, check if the current position is already safe
     bool hasElementCollision = wouldCollideWithElement(x, y, playerRadius);
-    bool hasMapBlockCollision = wouldCollideWithMapBlock(x, y, gameMap);
+    bool hasMapBlockCollision = wouldCollideWithMapBlock(x, y, gameMap, playerNonTraversableBlocks);
     
     if (!hasElementCollision && !hasMapBlockCollision) {
         return false; // No adjustment needed, position is already safe
@@ -356,14 +359,13 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
         for (float angle = 0.0f; angle < 2.0f * M_PI; angle += angleStep) {
             float testX = x + distance * cos(angle);
             float testY = y + distance * sin(angle);
-            
-            // Check if this position is safe
+              // Check if this position is safe
             if (!wouldCollideWithElement(testX, testY, playerRadius) && 
-                !wouldCollideWithMapBlock(testX, testY, gameMap)) {
+                !wouldCollideWithMapBlock(testX, testY, gameMap, playerNonTraversableBlocks)) {
                 // Found a safe position, update coordinates and return
                 if (playerDebugMode) {
                     std::cout << "Safe position found at (" << testX << ", " << testY 
-                              << "), moved player " << distance << " units" << std::endl;
+                              << "), moved character " << distance << " units" << std::endl;
                 }
                 
                 x = testX;
@@ -399,17 +401,16 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
                 if (pointDist < searchDist - adaptiveStep || pointDist > searchDist + adaptiveStep) {
                     continue;
                 }
-                
-                float testX = x + dx;
+                  float testX = x + dx;
                 float testY = y + dy;
                 
                 // Check if this position is safe
                 if (!wouldCollideWithElement(testX, testY, playerRadius) && 
-                    !wouldCollideWithMapBlock(testX, testY, gameMap)) {
+                    !wouldCollideWithMapBlock(testX, testY, gameMap, playerNonTraversableBlocks)) {
                     // Found a safe position, update coordinates and return
                     if (playerDebugMode) {
                         std::cout << "Grid search found safe position at (" << testX << ", " << testY 
-                                  << "), moved player " << pointDist << " units" << std::endl;
+                                  << "), moved character " << pointDist << " units" << std::endl;
                     }
                     
                     x = testX;
@@ -431,14 +432,13 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
         // Generate random coordinates within the grid
         float testX = 1.0f + static_cast<float>(rand() % (GRID_SIZE - 2));
         float testY = 1.0f + static_cast<float>(rand() % (GRID_SIZE - 2));
-        
-        // Check if this position is safe
+          // Check if this position is safe
         if (!wouldCollideWithElement(testX, testY, playerRadius) && 
-            !wouldCollideWithMapBlock(testX, testY, gameMap)) {
+            !wouldCollideWithMapBlock(testX, testY, gameMap, playerNonTraversableBlocks)) {
             // Found a safe position, update coordinates and return
             if (playerDebugMode) {
                 std::cout << "Random search found safe position at (" << testX << ", " << testY 
-                          << "), teleported player" << std::endl;
+                          << "), teleported character" << std::endl;
             }
             
             x = testX;

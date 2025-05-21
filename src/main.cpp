@@ -424,6 +424,14 @@ int main() {
     
     // Place the antagonist entity at coordinates (10, 10)
     entitiesManager.placeEntityByType("antagonist1", "antagonist", 10.0f, 10.0f);
+
+    entitiesManager.placeEntityByType("antagonist2", "antagonist", 20.0f, 20.0f);
+
+    entitiesManager.placeEntityByType("antagonist3", "antagonist", 30.0f, 30.0f);
+
+    entitiesManager.placeEntityByType("antagonist4", "antagonist", 40.0f, 40.0f);
+
+
     
     // Register the antagonist with the behavior system
     entityBehaviorManager.registerEntity("antagonist1", "antagonist");

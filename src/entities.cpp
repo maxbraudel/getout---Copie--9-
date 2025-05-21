@@ -39,15 +39,15 @@ static void initializeEntityTypes() {
     // Collision settings
     antagonist.canCollide = true;
     antagonist.collisionRadius = 0.4f;
-    
-    // Define non-traversable blocks for antagonist
-    // Antagonists cannot walk on water blocks
+      // Define non-traversable blocks for antagonist
+    // Antagonists cannot walk on water blocks or through coconut trees
     antagonist.nonTraversableBlocks = {
         TextureName::WATER_0,
         TextureName::WATER_1,
         TextureName::WATER_2,
         TextureName::WATER_3,
         TextureName::WATER_4
+        // Note: Coconut trees are elements, not map blocks, so they're handled via element collision detection
     };
       
     // Add to the list
@@ -137,11 +137,10 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
     
     if (config->canCollide) {
         // Check if the target position is in a collision area
-        if (wouldCollideWithElement(safeX, safeY, config->collisionRadius) || 
-            wouldCollideWithMapBlock(safeX, safeY, gameMap)) {
+        if (wouldCollideWithElement(safeX, safeY, config->collisionRadius) ||        wouldCollideWithMapBlock(safeX, safeY, gameMap, config->nonTraversableBlocks)) {
             needsSafePosition = true;
             // Try to find a safe position nearby
-            if (!findSafePosition(safeX, safeY, config->collisionRadius, gameMap)) {
+            if (!findSafePosition(safeX, safeY, config->collisionRadius, gameMap, config->nonTraversableBlocks)) {
                 std::cerr << "WARNING: Could not find a safe starting position for entity near (" 
                         << x << ", " << y << "). Proceeding with original position." << std::endl;
                 safeX = x;
@@ -835,12 +834,34 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                         int phase = (entity.lastDirection == 3) ? config.spritePhaseWalkRight : config.spritePhaseWalkLeft;
                         elementsManager.changeElementSpritePhase(elementName, phase);
                     }
-                }
-            }if (!canMove) {
+                }            }
+            
+            if (!canMove) {
                 // Entity is stuck, let's try to recalculate the path if using pathfinding
                 if (entity.usePathfinding) {
                     std::cout << "Entity " << entity.instanceName << " encountered obstacle at (" 
                               << newX << ", " << newY << "), recalculating path..." << std::endl;
+                    
+                    // Identify what's blocking the entity
+                    bool hasElementCollision = wouldCollideWithElement(newX, newY, config.collisionRadius);
+                    bool hasMapBlockCollision = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
+                    
+                    if (hasElementCollision) {
+                        std::cout << "  - Element collision detected" << std::endl;
+                        // Get nearby elements for debugging
+                        std::vector<std::string> nearbyElements = getNearbyElements(newX, newY, config.collisionRadius + 0.5f);
+                        if (!nearbyElements.empty()) {
+                            std::cout << "  - Nearby elements: ";
+                            for (const auto& name : nearbyElements) {
+                                std::cout << name << " ";
+                            }
+                            std::cout << std::endl;
+                        }
+                    }
+                    
+                    if (hasMapBlockCollision) {
+                        std::cout << "  - Map block collision detected with entity-specific non-traversable blocks" << std::endl;
+                    }
                     
                     // Try to find a safe position first before recalculating
                     float safeX = currentX;
@@ -1002,6 +1023,15 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         updateDirectionAndSprite(dx, dy);    }
 }
 
+// Helper method to get an entity's type name by its instance name
+std::string EntitiesManager::getEntityType(const std::string& instanceName) const {
+    auto it = entities.find(instanceName);
+    if (it != entities.end()) {
+        return it->second.typeName;
+    }
+    return ""; // Empty string if entity not found
+}
+
 // Function to ensure entity is not stuck in any collision areas
 bool EntitiesManager::ensureEntityNotStuck(const std::string& instanceName) {
     // Get the entity
@@ -1128,12 +1158,11 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
     
     float targetX = x;
     float targetY = y;
-    
-    // Only check for collisions if this entity type can collide
+      // Only check for collisions if this entity type can collide
     if (config->canCollide) {
         // Check for collision at the teleport destination
         bool collisionWithElement = wouldCollideWithElement(targetX, targetY, config->collisionRadius);
-        bool collisionWithMapBlock = wouldCollideWithMapBlock(targetX, targetY, gameMap);
+        bool collisionWithMapBlock = wouldCollideWithMapBlock(targetX, targetY, gameMap, config->nonTraversableBlocks);
         
         if (collisionWithElement || collisionWithMapBlock) {
             // Log the collision type for debugging
@@ -1148,9 +1177,8 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
                 std::cout << "Element collision";
             }
             std::cout << std::endl;
-            
-            // Try to find a safe position near the requested coordinates
-            if (findSafePosition(targetX, targetY, config->collisionRadius, gameMap)) {
+                  // Try to find a safe position near the requested coordinates
+            if (findSafePosition(targetX, targetY, config->collisionRadius, gameMap, config->nonTraversableBlocks)) {
                 // Found a safe position near the requested coordinates
                 std::cout << "Adjusted entity teleport position from (" << x << ", " << y << ") to ("
                         << targetX << ", " << targetY << ") to avoid collisions." << std::endl;

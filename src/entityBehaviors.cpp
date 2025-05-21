@@ -224,9 +224,19 @@ bool EntityBehaviorManager::getRandomPositionNearOnBlockTypes(const std::string&
                     // Add increased safety buffer to stay further from obstacles
                     float safetyBuffer = 0.4f; // Increased from 0.2f
                     float safeCollisionRadius = collisionRadius + safetyBuffer;
+                      // First check map block collisions - faster check
+                    // Get the entity configuration to use entity-specific non-traversable blocks
+                    const EntityConfiguration* entityConfig = entitiesManager.getConfiguration(entitiesManager.getEntityType(instanceName));
+                    bool mapBlockCollision = false;
+                      if (entityConfig) {
+                        mapBlockCollision = wouldCollideWithMapBlock(posX, posY, gameMap, entityConfig->nonTraversableBlocks);
+                    } else {
+                        // Fallback to default nonTraversableBlocks if config not found
+                        // This should rarely happen since we should have a valid config
+                        std::cerr << "Warning: Using default nonTraversableBlocks for entity: " << instanceName << std::endl;
+                        mapBlockCollision = wouldCollideWithMapBlock(posX, posY, gameMap, nonTraversableBlocks);
+                    }
                     
-                    // First check map block collisions - faster check
-                    bool mapBlockCollision = wouldCollideWithMapBlock(posX, posY, gameMap);
                     if (!mapBlockCollision) {
                         // Then check element collisions with increased safety radius
                         bool elementCollision = wouldCollideWithElement(posX, posY, safeCollisionRadius);
@@ -318,27 +328,25 @@ void EntityBehaviorManager::antagonistBehavior(EntityBehaviorState& state, float
             // Set the new target
             state.targetX = newTargetX;
             state.targetY = newTargetY;
-            
-            // Check if target position has element collisions using the expanded radius
+              // Check if target position has element collisions using the expanded radius
             if (wouldCollideWithElement(state.targetX, state.targetY, pathPlanningRadius) || 
-                wouldCollideWithMapBlock(state.targetX, state.targetY, gameMap)) {
+                wouldCollideWithMapBlock(state.targetX, state.targetY, gameMap, config->nonTraversableBlocks)) {
                 
                 // If collision detected, try to find a position nearby that doesn't have collisions
                 float safeX = state.targetX;
                 float safeY = state.targetY;
                 
                 // Try to find a safe position using our enhanced collision detection radius
-                if (!findSafePosition(safeX, safeY, pathPlanningRadius, gameMap)) {
+                if (!findSafePosition(safeX, safeY, pathPlanningRadius, gameMap, config->nonTraversableBlocks)) {
                     // If we couldn't find a safe position, try again with a different random position
                     // and a smaller radius to search closer to the entity
                     bool foundSafePos = false;
                     
                     // Try three different random positions with different radii
                     for (float tryRadius = 8.0f; tryRadius >= 4.0f && !foundSafePos; tryRadius -= 2.0f) {
-                        if (manager.getRandomPositionNearOnBlockTypes(state.instanceName, safeX, safeY, tryRadius)) {
-                            // Verify this new position is actually safe
+                        if (manager.getRandomPositionNearOnBlockTypes(state.instanceName, safeX, safeY, tryRadius)) {                            // Verify this new position is actually safe
                             if (!wouldCollideWithElement(safeX, safeY, pathPlanningRadius) && 
-                                !wouldCollideWithMapBlock(safeX, safeY, gameMap)) {
+                                !wouldCollideWithMapBlock(safeX, safeY, gameMap, config->nonTraversableBlocks)) {
                                 state.targetX = safeX;
                                 state.targetY = safeY;
                                 foundSafePos = true;

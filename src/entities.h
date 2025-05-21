@@ -149,9 +149,11 @@ public:
     bool placeEntity(const std::string& instanceName, const std::string& typeName, float x, float y);
       // Helper method to get element name from entity instance name
     static std::string getElementName(const std::string& instanceName);
-    
-    // Place a predefined entity by type
+      // Place a predefined entity by type
     bool placeEntityByType(const std::string& instanceName, const std::string& typeName, float x, float y);
+    
+    // Get entity type name from instance name
+    std::string getEntityType(const std::string& instanceName) const;
     
     // Move an entity to specific coordinates (will walk there)
     bool moveEntity(const std::string& instanceName, float x, float y);
@@ -181,8 +183,7 @@ public:
     void ensureAllEntitiesNotStuck();
     
 private:
-    std::map<std::string, EntityConfiguration> configurations;    std::map<std::string, Entity> entities;
-      // Helper methods
+    std::map<std::string, EntityConfiguration> configurations;    std::map<std::string, Entity> entities;    // Helper methods
     Entity* getEntity(const std::string& instanceName);
     
     // Get the next waypoint from the entity's path

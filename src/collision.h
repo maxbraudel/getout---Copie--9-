@@ -45,8 +45,9 @@ void printNonTraversableBlocks();
 // Stream operator for TextureName enum
 std::ostream& operator<<(std::ostream& os, const TextureName& blockType);
 
-// Function to find a safe position when player is stuck inside a collision area
-// Returns true if the player position was adjusted, false if no adjustment was necessary
+// Function to find a safe position when a character is stuck inside a collision area
+// Returns true if the position was adjusted, false if no adjustment was necessary
+// This version is for the player and uses playerNonTraversableBlocks
 bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap);
 
 // Overloaded version that handles entity-specific non-traversable blocks

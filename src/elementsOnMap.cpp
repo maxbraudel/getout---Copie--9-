@@ -34,7 +34,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     coconutTree2Texture.type = ElementTextureType::STATIC;
     coconutTree2Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree2Texture.anchorOffsetX = 0.0f; // No offset
-    coconutTree2Texture.anchorOffsetY = 1.1f; // No offset
+    coconutTree2Texture.anchorOffsetY = 0.4f; // No offset
     coconutTree2Texture.hasCollision = true;  // Enable collision for this tree
     coconutTree2Texture.collisionRadius = 0.4f; // Set collision radius
     textures.push_back(coconutTree2Texture);    ElementTextureInfo coconutTree3Texture;

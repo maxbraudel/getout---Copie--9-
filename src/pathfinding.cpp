@@ -350,14 +350,13 @@ bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap) {
       // Convert grid coordinates to world coordinates (center of the cell)
     float worldX = x + 0.5f;
     float worldY = y + 0.5f;
-    
-    // Add a safety buffer to the collision radius for better pathfinding
+      // Add a safety buffer to the collision radius for better pathfinding
     float safetyBuffer = 0.2f;
     float pathfindingRadius = collisionRadius + safetyBuffer;
     
     // Check if this position would collide with any collision
     bool collisionWithElement = wouldCollideWithElement(worldX, worldY, pathfindingRadius);
-    bool collisionWithMapBlock = wouldCollideWithMapBlock(worldX, worldY, gameMap);
+    bool collisionWithMapBlock = wouldCollideWithMapBlock(worldX, worldY, gameMap, nonTraversableBlocks);
     
     return !collisionWithElement && !collisionWithMapBlock;
 }
