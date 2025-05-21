@@ -1,6 +1,9 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 
+// Forward declaration for safety check
+class Map;
+
 // Simple function to create a player character at the specified position
 void createPlayer(float x, float y);
 
@@ -22,5 +25,10 @@ void setPlayerAnimationState(bool isAnimating);
 
 // Function to toggle player debug mode - shows grid position
 void togglePlayerDebugMode();
+
+// Function to ensure player is not stuck in any collision areas
+// Should be called at the beginning of each game frame
+// Returns true if player position was adjusted
+bool ensurePlayerNotStuck(const Map& gameMap);
 
 #endif // PLAYER_H

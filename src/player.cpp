@@ -14,18 +14,41 @@ void createPlayer(float x, float y) {
     float existingX, existingY;
     bool playerExists = elementsManager.getElementPosition("player1", existingX, existingY);
     
+    // Check for a safe starting position regardless
+    float safeX = x;
+    float safeY = y;
+    bool needsSafePosition = false;
+    
+    // Check if the target position is in a collision area
+    if (wouldCollideWithElement(safeX, safeY, 0.2f) || 
+        wouldCollideWithMapBlock(safeX, safeY, gameMap)) {
+        needsSafePosition = true;
+        // Try to find a safe position nearby
+        if (!findSafePosition(safeX, safeY, 0.2f, gameMap)) {
+            std::cerr << "WARNING: Could not find a safe starting position for player near (" 
+                      << x << ", " << y << "). Proceeding with original position." << std::endl;
+            safeX = x;
+            safeY = y;
+        } else {
+            std::cout << "Adjusted player position from (" << x << ", " << y 
+                      << ") to (" << safeX << ", " << safeY << ") to avoid collisions." << std::endl;
+        }
+    }
+    
     if (playerExists) {
         std::cout << "Player already exists at position (" << existingX << "," << existingY << ")" << std::endl;
-        std::cout << "Moving existing player to position (" << x << "," << y << ")" << std::endl;
-        elementsManager.changeElementCoordinates("player1", x, y);
+        std::cout << "Moving existing player to position (" << safeX << "," << safeY << ")" << std::endl;
+        elementsManager.changeElementCoordinates("player1", safeX, safeY);
         return;
-    }    // Create a single player character with animation
+    }
+    
+    // Create a single player character with animation
     // Use the texture's default anchor point as defined in the texture config
     elementsManager.placeElement(
         "player1",                   // Unique instance name
         ElementTextureName::CHARACTER1, // Using the character sprite sheet
         1.6f,                        // Scale (adjust as needed)
-        x, y,                        // Position on grid
+        safeX, safeY,                // Position on grid (potentially adjusted to be safe)
         0.0f,                        // No rotation
         0,                           // Animation row 0 (typically downward-facing)
         0,                           // Starting at first frame
@@ -34,7 +57,12 @@ void createPlayer(float x, float y) {
         AnchorPoint::USE_TEXTURE_DEFAULT  // Use the texture's default anchor point
     );
     
-    std::cout << "Player created at position (" << x << "," << y << ")" << std::endl;
+    if (needsSafePosition && safeX != x && safeY != y) {
+        std::cout << "Player created at safe position (" << safeX << "," << safeY 
+                  << ") instead of requested (" << x << "," << y << ")" << std::endl;
+    } else {
+        std::cout << "Player created at position (" << safeX << "," << safeY << ")" << std::endl;
+    }
 }
 
 // Function to change the player's facing direction
@@ -62,7 +90,31 @@ void movePlayer(float deltaX, float deltaY) {
         elementsManager.listElements();
         return;
     }
-      // Calculate the new position
+    
+    // First, check if the player is already in a collision state and try to fix it
+    // This handles the case where the player somehow got stuck in a collision area
+    float currentX = x;
+    float currentY = y;
+    bool wasStuck = false;
+    
+    // Try to find a safe position for the player if they're currently stuck
+    if (wouldCollideWithElement(currentX, currentY, 0.2f) || 
+        wouldCollideWithMapBlock(currentX, currentY, gameMap)) {
+        wasStuck = findSafePosition(currentX, currentY, 0.2f, gameMap);
+        
+        if (wasStuck) {
+            // Player was stuck and we found a safe position, teleport them there
+            elementsManager.changeElementCoordinates("player1", currentX, currentY);
+            if (playerDebugMode) {
+                std::cout << "Player was stuck in collision, moved to safe position: (" 
+                          << currentX << ", " << currentY << ")" << std::endl;
+            }
+            x = currentX;
+            y = currentY;
+        }
+    }
+    
+    // Calculate the new position after potential unstuck operation
     float newX = x + deltaX;
     float newY = y + deltaY;
     
@@ -120,24 +172,35 @@ bool getPlayerPosition(float& x, float& y) {
 
 // Function to teleport the player to a specific position
 void teleportPlayer(float x, float y) {
+    float targetX = x;
+    float targetY = y;
+    
     // Check for collision at the teleport destination
-    bool collisionWithElement = wouldCollideWithElement(x, y, 0.2f);
-    bool collisionWithMapBlock = wouldCollideWithMapBlock(x, y, gameMap);
+    bool collisionWithElement = wouldCollideWithElement(targetX, targetY, 0.2f);
+    bool collisionWithMapBlock = wouldCollideWithMapBlock(targetX, targetY, gameMap);
     
     if (collisionWithElement || collisionWithMapBlock) {
-        std::cout << "Cannot teleport player to (" << x << ", " << y << ") - ";
-        if (collisionWithElement) {
-            std::cout << "position is occupied by a collidable element";
+        // Try to find a safe position near the requested coordinates
+        if (findSafePosition(targetX, targetY, 0.2f, gameMap)) {
+            // Found a safe position near the requested coordinates
+            std::cout << "Adjusted teleport position from (" << x << ", " << y << ") to ("
+                    << targetX << ", " << targetY << ") to avoid collisions." << std::endl;
+        } else {
+            // Could not find a safe position
+            std::cout << "Cannot teleport player to (" << x << ", " << y << ") - ";
+            if (collisionWithElement) {
+                std::cout << "position is occupied by a collidable element";
+            }
+            if (collisionWithMapBlock) {
+                std::cout << (collisionWithElement ? " and " : "") << "position has a non-traversable map block";
+            }
+            std::cout << "." << std::endl;
+            return;
         }
-        if (collisionWithMapBlock) {
-            std::cout << (collisionWithElement ? " and " : "") << "position has a non-traversable map block";
-        }
-        std::cout << "." << std::endl;
-        return;
     }
     
     // Directly set player position without affecting animation
-    elementsManager.changeElementCoordinates("player1", x, y);
+    elementsManager.changeElementCoordinates("player1", targetX, targetY);
 }
 
 // Function to set the player's animation state
@@ -149,4 +212,35 @@ void setPlayerAnimationState(bool isAnimating) {
 void togglePlayerDebugMode() {
     playerDebugMode = !playerDebugMode;
     std::cout << "Player debug mode " << (playerDebugMode ? "enabled" : "disabled") << std::endl;
+}
+
+// Function to ensure player is not stuck in any collision areas
+bool ensurePlayerNotStuck(const Map& gameMap) {
+    float x, y;
+    if (!getPlayerPosition(x, y)) {
+        // Player doesn't exist, nothing to do
+        return false;
+    }
+    
+    // Check if player is in a collision state
+    if (wouldCollideWithElement(x, y, 0.2f) || wouldCollideWithMapBlock(x, y, gameMap)) {
+        // Player is stuck, try to find a safe position
+        if (findSafePosition(x, y, 0.2f, gameMap)) {
+            // Found a safe position, move player there
+            elementsManager.changeElementCoordinates("player1", x, y);
+            if (playerDebugMode) {
+                std::cout << "Safety check: Player was stuck in collision, moved to safe position: (" 
+                          << x << ", " << y << ")" << std::endl;
+            }
+            return true; // Position was adjusted
+        } else {
+            // Could not find a safe position
+            if (playerDebugMode) {
+                std::cout << "Warning: Player is stuck in collision at (" << x << ", " << y 
+                          << ") and no safe position could be found!" << std::endl;
+            }
+        }
+    }
+    
+    return false; // No adjustment needed or possible
 }

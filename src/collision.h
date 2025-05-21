@@ -30,5 +30,11 @@ void addNonTraversableBlock(TextureName blockType);
 void removeNonTraversableBlock(TextureName blockType);
 bool isBlockNonTraversable(TextureName blockType);
 void clearNonTraversableBlocks();
+void printNonTraversableBlocks();
+std::string getBlockTypeName(TextureName blockType);
+
+// Function to find a safe position when player is stuck inside a collision area
+// Returns true if the player position was adjusted, false if no adjustment was necessary
+bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap);
 
 #endif // COLLISION_H

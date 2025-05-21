@@ -6,6 +6,11 @@
 #include <string>
 #include <set>
 
+// Define M_PI if not already defined (needed for angle calculations)
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 // Cache for collidable element names
 static std::vector<std::string> collidableElementNames;
 static bool collisionCacheInitialized = false;
@@ -46,6 +51,33 @@ void clearNonTraversableBlocks() {
     std::cout << "Cleared all non-traversable blocks." << std::endl;
 }
 
+// Helper function to convert TextureName to string
+std::string getBlockTypeName(TextureName blockType) {
+    switch (blockType) {
+        case TextureName::GRASS_0: return "GRASS_0";
+        case TextureName::GRASS_1: return "GRASS_1";
+        case TextureName::GRASS_2: return "GRASS_2";
+        case TextureName::GRASS_3: return "GRASS_3";
+        case TextureName::GRASS_4: return "GRASS_4";
+        case TextureName::GRASS_5: return "GRASS_5";
+        case TextureName::SAND: return "SAND";
+        case TextureName::WATER_0: return "WATER_0";
+        case TextureName::WATER_1: return "WATER_1";
+        case TextureName::WATER_2: return "WATER_2";
+        case TextureName::WATER_3: return "WATER_3";
+        case TextureName::WATER_4: return "WATER_4";
+        default: return "UNKNOWN";
+    }
+}
+
+// Function to print all non-traversable block types
+void printNonTraversableBlocks() {
+    std::cout << "Non-traversable block types (" << nonTraversableBlocks.size() << " total):" << std::endl;
+    for (const auto& blockType : nonTraversableBlocks) {
+        std::cout << " - " << getBlockTypeName(blockType) << " (enum: " << static_cast<int>(blockType) << ")" << std::endl;
+    }
+}
+
 // Function to get all collidable element names in the game
 std::vector<std::string> getCollidableElementNames() {
     if (!collisionCacheInitialized) {
@@ -64,6 +96,13 @@ std::vector<std::string> getCollidableElementNames() {
         
         collisionCacheInitialized = true;
         std::cout << "Initialized collision system with " << collidableElementNames.size() << " collidable elements." << std::endl;
+        
+        // Log non-traversable blocks
+        std::cout << "Non-traversable block types: ";
+        for (const auto& blockType : nonTraversableBlocks) {
+            std::cout << static_cast<int>(blockType) << " ";
+        }
+        std::cout << std::endl;
     }
     
     return collidableElementNames;
@@ -137,4 +176,61 @@ bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap) {
     }
     
     return false; // No collision with non-traversable blocks
+}
+
+// Function to find a safe position when player is stuck inside a collision area
+bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap) {
+    // First, check if the current position is already safe
+    bool hasElementCollision = wouldCollideWithElement(x, y, playerRadius);
+    bool hasMapBlockCollision = wouldCollideWithMapBlock(x, y, gameMap);
+    
+    if (!hasElementCollision && !hasMapBlockCollision) {
+        return false; // No adjustment needed, position is already safe
+    }
+    
+    if (playerDebugMode) {
+        std::cout << "Player found stuck in collision at (" << x << ", " << y 
+                  << "), attempting to find safe position..." << std::endl;
+    }
+    
+    // Try to find a safe position by checking in a spiral pattern around the current position
+    // This is more efficient than checking in a grid and handles both element and map block collisions
+    
+    const float step = 0.1f;  // Step size for each potential position check
+    const float maxDistance = 3.0f; // Maximum distance to check for safe position
+    float distance = step;
+    
+    // Try to find a safe position by spiraling outward
+    while (distance <= maxDistance) {
+        // Try positions in a circle at current distance
+        for (float angle = 0.0f; angle < 2.0f * M_PI; angle += 0.2f) {
+            float testX = x + distance * cos(angle);
+            float testY = y + distance * sin(angle);
+            
+            // Check if this position is safe
+            if (!wouldCollideWithElement(testX, testY, playerRadius) && 
+                !wouldCollideWithMapBlock(testX, testY, gameMap)) {
+                // Found a safe position, update coordinates and return
+                if (playerDebugMode) {
+                    std::cout << "Safe position found at (" << testX << ", " << testY 
+                              << "), moved player " << distance << " units" << std::endl;
+                }
+                
+                x = testX;
+                y = testY;
+                return true; // Position was adjusted
+            }
+        }
+        
+        // Increase distance for next search ring
+        distance += step;
+    }
+    
+    // If we got here, couldn't find a safe position within reasonable distance
+    if (playerDebugMode) {
+        std::cout << "Warning: Could not find safe position for player within " 
+                  << maxDistance << " units!" << std::endl;
+    }
+    
+    return false; // Couldn't adjust position
 }

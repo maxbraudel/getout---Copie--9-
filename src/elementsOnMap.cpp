@@ -54,7 +54,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     characterTexture.spriteWidth = 32;  // Assuming 32px width for each sprite frame
     characterTexture.spriteHeight = 48; // Assuming 48px height for each sprite frame
     characterTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Default anchor - can be changed in config
-    characterTexture.anchorOffsetY = 0.1f; // Y offset
+    characterTexture.anchorOffsetY = 0.3f; // Y offset
     characterTexture.hasCollision = false; // Enable collision for player
     textures.push_back(characterTexture);
 
@@ -65,7 +65,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     antagonistTexture.spriteWidth = 32;  // Assuming 32px width for each sprite frame
     antagonistTexture.spriteHeight = 48; // Assuming 48px height for each sprite frame
     antagonistTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Default anchor - can be changed in config
-    antagonistTexture.anchorOffsetY = 0.3f; // Y offset
+    antagonistTexture.anchorOffsetY = 0.2f; // Y offset
     antagonistTexture.hasCollision = false; // Enable collision for player
     textures.push_back(antagonistTexture);
     

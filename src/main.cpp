@@ -92,13 +92,33 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             teleportPlayer(10.0f, 10.0f);
             std::cout << "Player position reset to (10, 10)" << std::endl;
         }
+        // Test collision handling by attempting to put player in water
+        else if (key == GLFW_KEY_F) {
+            // Find a water tile in the grid
+            bool waterFound = false;
+            for (int x = 0; x < GRID_SIZE && !waterFound; x++) {
+                for (int y = 0; y < GRID_SIZE && !waterFound; y++) {
+                    TextureName blockType = gameMap.getBlockNameByCoordinates(x, y);
+                    if (isBlockNonTraversable(blockType)) {
+                        // Found a non-traversable block (water), try to teleport player near it
+                        std::cout << "Testing collision recovery - attempting to teleport player to water at ("
+                                 << x << ", " << y << ")" << std::endl;
+                        teleportPlayer(x + 0.5f, y + 0.5f); // Center of the block
+                        waterFound = true;
+                    }
+                }
+            }
+            if (!waterFound) {
+                std::cout << "No non-traversable blocks found to test collision recovery" << std::endl;
+            }
+        }
         // Toggle player animation
         else if (key == GLFW_KEY_T) {
             static bool isAnimating = true;
             isAnimating = !isAnimating;
             elementsManager.changeElementAnimationStatus("player1", isAnimating);
             std::cout << "Player animation " << (isAnimating ? "enabled" : "disabled") << std::endl;
-        }        // Toggle player debug info
+        }// Toggle player debug info
         else if (key == GLFW_KEY_F3) {
             togglePlayerDebugMode();
         }
@@ -108,7 +128,25 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             elementsManager.listElements();
         }        // Print detailed element positions when F6 is pressed
         else if (key == GLFW_KEY_F6) {
-            elementsManager.printElementPositions();
+            elementsManager.printElementPositions();        }        // Toggle sand as non-traversable
+        else if (key == GLFW_KEY_B) {
+            static bool sandIsBlocked = false;
+            sandIsBlocked = !sandIsBlocked;
+            
+            if (sandIsBlocked) {
+                addNonTraversableBlock(TextureName::SAND);
+                std::cout << "SAND blocks are now non-traversable" << std::endl;
+            } else {
+                removeNonTraversableBlock(TextureName::SAND);
+                std::cout << "SAND blocks are now traversable" << std::endl;
+            }
+            
+            // Print the updated list
+            printNonTraversableBlocks();
+        }
+        // Print all non-traversable blocks
+        else if (key == GLFW_KEY_N) {
+            printNonTraversableBlocks();
         }
         // Show collision information
         else if (key == GLFW_KEY_F7) {
@@ -355,8 +393,7 @@ int main() {
 		
         // Update entities (handle movement and animations)
         entitiesManager.update(deltaTime);
-        
-		// First check if the player exists before processing movements
+        		// First check if the player exists before processing movements
 		float playerX, playerY;
 		bool playerExists = elementsManager.getElementPosition("player1", playerX, playerY);
 		
@@ -366,6 +403,17 @@ int main() {
 			std::cerr << "Creating new player since the original one is missing..." << std::endl;
 			createPlayer(10.0f, 10.0f);
 			playerExists = true;
+		}
+		
+		// Safety check - make sure the player is never stuck in collision areas
+		// This is important in case the player somehow ends up in a collision area
+		// (e.g., if a map is loaded with player already in a collision block)
+		if (playerExists && ensurePlayerNotStuck(gameMap)) {
+			// If position was adjusted, get the new position for debug info
+			getPlayerPosition(playerX, playerY);
+			if (playerDebugMode) {
+				std::cout << "Player position adjusted to safe position: (" << playerX << ", " << playerY << ")" << std::endl;
+			}
 		}
 		
 		// Apply speed based on whether shift is held
