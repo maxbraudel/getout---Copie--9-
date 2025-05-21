@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <functional>
+#include <set>
 #include <cmath>
 
 // Minimum allowed distance between waypoints to reduce path zigzagging
@@ -46,8 +47,20 @@ std::vector<std::pair<float, float>> findPath(
     float collisionRadius
 );
 
+// Overloaded function that uses entity-specific non-traversable blocks
+std::vector<std::pair<float, float>> findPath(
+    float startX, float startY,
+    float goalX, float goalY,
+    const Map& gameMap,
+    float collisionRadius,
+    const std::set<TextureName>& nonTraversableBlocks
+);
+
 // Check if a position is valid for pathfinding
 bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap);
+
+// Overloaded function that uses entity-specific non-traversable blocks
+bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap, const std::set<TextureName>& nonTraversableBlocks);
 
 // Calculate the heuristic value (estimated cost to goal)
 // Using Euclidean distance for natural movement
@@ -60,7 +73,7 @@ std::vector<std::pair<int, int>> getNeighbors(int x, int y, float collisionRadiu
 // This reduces zigzagging and makes movement smoother
 void simplifyPath(std::vector<std::pair<float, float>>& path);
 
-// Get all valid neighbors for a position with diagonal movement
-std::vector<std::pair<int, int>> getNeighbors(int x, int y, float collisionRadius, const Map& gameMap);
+// Overloaded function that uses entity-specific non-traversable blocks
+std::vector<std::pair<int, int>> getNeighbors(int x, int y, float collisionRadius, const Map& gameMap, const std::set<TextureName>& nonTraversableBlocks);
 
 #endif // PATHFINDING_H

@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 #include <cmath> // For distance calculations
 #include <utility> // For std::pair
 
@@ -40,6 +41,9 @@ struct EntityInfo {
     // Collision settings
     bool canCollide;
     float collisionRadius;
+    
+    // Movement restrictions
+    std::set<TextureName> nonTraversableBlocks; // Blocks this entity type cannot walk on
 };
 
 // Struct to hold entity configuration
@@ -64,10 +68,12 @@ struct EntityConfiguration {
     float normalWalkingAnimationSpeed = 8.0f;
     float sprintWalkingSpeed = 4.0f;
     float sprintWalkingAnimationSpeed = 12.0f;
-    
-    // Collision settings
+      // Collision settings
     bool canCollide = true;
     float collisionRadius = 0.4f;
+    
+    // Movement restrictions
+    std::set<TextureName> nonTraversableBlocks; // Blocks this entity type cannot walk on
     
     // Constructor to create from EntityInfo
     EntityConfiguration() = default;
@@ -93,6 +99,7 @@ struct EntityConfiguration {
         
         canCollide = info.canCollide;
         collisionRadius = info.collisionRadius;
+        nonTraversableBlocks = info.nonTraversableBlocks; // Copy non-traversable blocks
     }
 };
 

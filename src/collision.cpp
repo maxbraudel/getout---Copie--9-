@@ -293,6 +293,38 @@ bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap) {
     return false; // No collision with non-traversable blocks
 }
 
+// Overloaded function that uses entity-specific non-traversable blocks
+bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap, const std::set<TextureName>& entityNonTraversableBlocks) {
+    // Convert floating point coordinates to grid integers
+    int gridX = static_cast<int>(x);
+    int gridY = static_cast<int>(y);
+    
+    // Skip invalid coordinates 
+    if (gridX < 0 || gridX >= GRID_SIZE || gridY < 0 || gridY >= GRID_SIZE) {
+        return true; // Treat out-of-bounds as collision
+    }
+    
+    // Get the texture type at these coordinates
+    TextureName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
+    
+    // Check if this block type is in the entity's set of non-traversable blocks
+    if (entityNonTraversableBlocks.find(blockType) != entityNonTraversableBlocks.end()) {
+        // Throttle debug output much more aggressively
+        static int mapCollisionCounter = 0;
+        static float lastMapDebugTime = 0.0f;
+        float currentTime = static_cast<float>(glfwGetTime());
+        
+        if (playerDebugMode && currentTime - lastMapDebugTime > 5.0f) {
+            lastMapDebugTime = currentTime;
+            std::cout << "Entity-specific map block collision at (" << x << ", " << y 
+                      << ") - Block type: " << static_cast<int>(blockType) << std::endl;
+        }
+        return true; // Collision detected with non-traversable block
+    }
+    
+    return false; // No collision with non-traversable blocks
+}
+
 // Function to find a safe position when player is stuck inside a collision area
 bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap) {
     // First, check if the current position is already safe

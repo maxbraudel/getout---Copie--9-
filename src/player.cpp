@@ -5,9 +5,20 @@
 #include "globals.h" // Added for GRID_SIZE
 #include <iostream>
 #include <cmath>
+#include <set> // Include for std::set
 
 // Global variables for player state - 'extern' in collision.h
 bool playerDebugMode = false;
+
+// Set of non-traversable blocks for the player
+std::set<TextureName> playerNonTraversableBlocks = {
+    TextureName::WATER_0,
+    TextureName::WATER_1,
+    TextureName::WATER_2,
+    TextureName::WATER_3,
+    TextureName::WATER_4
+    // Add more block types as needed
+};
 
 // Create a player character at the specified position
 void createPlayer(float x, float y) {
@@ -19,10 +30,9 @@ void createPlayer(float x, float y) {
     float safeX = x;
     float safeY = y;
     bool needsSafePosition = true;
-    
-    // Check if the target position is in a collision area
+      // Check if the target position is in a collision area
     if (wouldCollideWithElement(safeX, safeY, 0.2f) || 
-        wouldCollideWithMapBlock(safeX, safeY, gameMap)) {
+        wouldCollideWithMapBlock(safeX, safeY, gameMap, playerNonTraversableBlocks)) {
         needsSafePosition = true;
         // Try to find a safe position nearby
         if (!findSafePosition(safeX, safeY, 0.2f, gameMap)) {
@@ -96,10 +106,9 @@ void movePlayer(float deltaX, float deltaY) {
     float currentX = x;
     float currentY = y;
     bool wasStuck = false;
-    
-    // Try to find a safe position for the player if they're currently stuck
+      // Try to find a safe position for the player if they're currently stuck
     if (wouldCollideWithElement(currentX, currentY, 0.2f) || 
-        wouldCollideWithMapBlock(currentX, currentY, gameMap)) {
+        wouldCollideWithMapBlock(currentX, currentY, gameMap, playerNonTraversableBlocks)) {
         wasStuck = findSafePosition(currentX, currentY, 0.2f, gameMap);
         
         if (wasStuck) {
@@ -111,7 +120,7 @@ void movePlayer(float deltaX, float deltaY) {
             }
             x = currentX;
             y = currentY;
-        }        else {
+        }else {
             // Failed to find a safe position - try with a larger radius search
             // This is a more aggressive attempt to get the player unstuck
             std::cout << "WARNING: Player is stuck in collision and standard recovery failed." << std::endl;
@@ -132,10 +141,9 @@ void movePlayer(float deltaX, float deltaY) {
             for (const auto& location : safeLocations) {
                 currentX = location.first;
                 currentY = location.second;
-                
-                // Make sure this location is actually safe
+                  // Make sure this location is actually safe
                 if (!wouldCollideWithElement(currentX, currentY, 0.2f) && 
-                    !wouldCollideWithMapBlock(currentX, currentY, gameMap)) {
+                    !wouldCollideWithMapBlock(currentX, currentY, gameMap, playerNonTraversableBlocks)) {
                     elementsManager.changeElementCoordinates("player1", currentX, currentY);
                     std::cout << "Player emergency teleported to (" << currentX << ", " << currentY << ")" << std::endl;
                     x = currentX;
@@ -156,10 +164,9 @@ void movePlayer(float deltaX, float deltaY) {
                         // Center of the block
                         currentX = gridX + 0.5f;
                         currentY = gridY + 0.5f;
-                        
-                        // Check if position is safe
+                          // Check if position is safe
                         if (!wouldCollideWithElement(currentX, currentY, 0.2f) && 
-                            !wouldCollideWithMapBlock(currentX, currentY, gameMap)) {
+                            !wouldCollideWithMapBlock(currentX, currentY, gameMap, playerNonTraversableBlocks)) {
                             // Found a safe position
                             elementsManager.changeElementCoordinates("player1", currentX, currentY);
                             std::cout << "Player emergency teleported to (" << currentX << ", " << currentY << ")" << std::endl;
@@ -185,10 +192,9 @@ void movePlayer(float deltaX, float deltaY) {
       // Calculate the new position after potential unstuck operation
     float newX = x + deltaX;
     float newY = y + deltaY;
-    
-    // Check if the combined movement would collide with any collidable element or map block
+      // Check if the combined movement would collide with any collidable element or map block
     bool collisionWithElement = wouldCollideWithElement(newX, newY, 0.2f);
-    bool collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap);
+    bool collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, playerNonTraversableBlocks);
     bool canMove = !(collisionWithElement || collisionWithMapBlock);
     
     // If we can't move diagonally, try to move in single directions (sliding along walls)
@@ -200,16 +206,15 @@ void movePlayer(float deltaX, float deltaY) {
         // Try moving only horizontally
         float testX = x + deltaX;
         float testY = y; // Keep Y the same
-        
-        bool horizontalCollision = wouldCollideWithElement(testX, testY, 0.2f) || 
-                                  wouldCollideWithMapBlock(testX, testY, gameMap);
+          bool horizontalCollision = wouldCollideWithElement(testX, testY, 0.2f) || 
+                                  wouldCollideWithMapBlock(testX, testY, gameMap, playerNonTraversableBlocks);
         
         // Try moving only vertically
         float testX2 = x; // Keep X the same
         float testY2 = y + deltaY;
         
         bool verticalCollision = wouldCollideWithElement(testX2, testY2, 0.2f) || 
-                                wouldCollideWithMapBlock(testX2, testY2, gameMap);
+                                wouldCollideWithMapBlock(testX2, testY2, gameMap, playerNonTraversableBlocks);
         
         // If horizontal movement is possible
         if (!horizontalCollision) {
@@ -292,10 +297,9 @@ bool getPlayerPosition(float& x, float& y) {
 void teleportPlayer(float x, float y) {
     float targetX = x;
     float targetY = y;
-    
-    // Check for collision at the teleport destination
+      // Check for collision at the teleport destination
     bool collisionWithElement = wouldCollideWithElement(targetX, targetY, 0.2f);
-    bool collisionWithMapBlock = wouldCollideWithMapBlock(targetX, targetY, gameMap);
+    bool collisionWithMapBlock = wouldCollideWithMapBlock(targetX, targetY, gameMap, playerNonTraversableBlocks);
     
     if (collisionWithElement || collisionWithMapBlock) {
         // Log the collision type for debugging
@@ -340,9 +344,8 @@ void teleportPlayer(float x, float y) {
                 for (int i = 0; i < 4; i++) {
                     float testX = testPoints[i][0];
                     float testY = testPoints[i][1];
-                    
-                    if (!wouldCollideWithElement(testX, testY, 0.2f) && 
-                        !wouldCollideWithMapBlock(testX, testY, gameMap)) {
+                      if (!wouldCollideWithElement(testX, testY, 0.2f) && 
+                        !wouldCollideWithMapBlock(testX, testY, gameMap, playerNonTraversableBlocks)) {
                         targetX = testX;
                         targetY = testY;
                         foundSafe = true;
@@ -377,10 +380,9 @@ void teleportPlayer(float x, float y) {
     
     // Directly set player position without affecting animation
     elementsManager.changeElementCoordinates("player1", targetX, targetY);
-    
-    // Double-check that the player isn't still stuck somehow
+      // Double-check that the player isn't still stuck somehow
     if (wouldCollideWithElement(targetX, targetY, 0.2f) || 
-        wouldCollideWithMapBlock(targetX, targetY, gameMap)) {
+        wouldCollideWithMapBlock(targetX, targetY, gameMap, playerNonTraversableBlocks)) {
         std::cout << "WARNING: Player still in collision after teleport attempt!" << std::endl;
         
         // Run the safety check to force a resolution
@@ -410,10 +412,9 @@ bool ensurePlayerNotStuck(const Map& gameMap) {
         // Player doesn't exist, nothing to do
         return false;
     }
-    
-    // Check if player is in a collision state
+      // Check if player is in a collision state    
     bool hasElementCollision = wouldCollideWithElement(x, y, 0.2f);
-    bool hasMapBlockCollision = wouldCollideWithMapBlock(x, y, gameMap);
+    bool hasMapBlockCollision = wouldCollideWithMapBlock(x, y, gameMap, playerNonTraversableBlocks);
     
     if (hasElementCollision || hasMapBlockCollision) {
         // Log what we're colliding with for easier debugging
@@ -442,9 +443,8 @@ bool ensurePlayerNotStuck(const Map& gameMap) {
             // First try the center of the map
             x = 10.0f;
             y = 10.0f;
-            
-            // Ensure the target position is actually safe
-            if (!wouldCollideWithElement(x, y, 0.2f) && !wouldCollideWithMapBlock(x, y, gameMap)) {
+              // Ensure the target position is actually safe
+            if (!wouldCollideWithElement(x, y, 0.2f) && !wouldCollideWithMapBlock(x, y, gameMap, playerNonTraversableBlocks)) {
                 elementsManager.changeElementCoordinates("player1", x, y);
                 std::cout << "Emergency recovery: Player teleported to (" << x << ", " << y << ")" << std::endl;
                 return true;
@@ -454,7 +454,7 @@ bool ensurePlayerNotStuck(const Map& gameMap) {
                     for (int testY = 5; testY < 15; testY += 5) {
                         x = static_cast<float>(testX);
                         y = static_cast<float>(testY);
-                        if (!wouldCollideWithElement(x, y, 0.2f) && !wouldCollideWithMapBlock(x, y, gameMap)) {
+                        if (!wouldCollideWithElement(x, y, 0.2f) && !wouldCollideWithMapBlock(x, y, gameMap, playerNonTraversableBlocks)) {
                             elementsManager.changeElementCoordinates("player1", x, y);
                             std::cout << "Last resort recovery: Player teleported to (" << x << ", " << y << ")" << std::endl;
                             return true;

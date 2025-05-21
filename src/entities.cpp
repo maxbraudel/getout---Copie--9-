@@ -13,9 +13,7 @@ static std::vector<EntityInfo> entityTypes;
 static void initializeEntityTypes() {
     if (!entityTypes.empty()) {
         return; // Already initialized
-    }
-
-    // Antagonist entity configuration
+    }    // Antagonist entity configuration
     EntityInfo antagonist;
     antagonist.typeName = "antagonist";
     antagonist.textureName = ElementTextureName::ANTAGONIST1;
@@ -41,7 +39,18 @@ static void initializeEntityTypes() {
     // Collision settings
     antagonist.canCollide = true;
     antagonist.collisionRadius = 0.4f;
-      // Add to the list
+    
+    // Define non-traversable blocks for antagonist
+    // Antagonists cannot walk on water blocks
+    antagonist.nonTraversableBlocks = {
+        TextureName::WATER_0,
+        TextureName::WATER_1,
+        TextureName::WATER_2,
+        TextureName::WATER_3,
+        TextureName::WATER_4
+    };
+      
+    // Add to the list
     entityTypes.push_back(antagonist);
 
     
@@ -268,8 +277,7 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
         std::cerr << "Error getting position for entity: " << instanceName << std::endl;
         return false;
     }
-    
-    // Validate target coordinates are within grid bounds
+      // Validate target coordinates are within grid bounds
     if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE ||
         currentX < 0 || currentX >= GRID_SIZE || currentY < 0 || currentY >= GRID_SIZE) {
         std::cerr << "Invalid movement coordinates. Start (" << currentX << "," << currentY 
@@ -277,14 +285,15 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
         return false;
     }
     
-    // Generate a path using A* pathfinding
+    // Generate a path using A* pathfinding with entity-specific non-traversable blocks
     std::vector<std::pair<float, float>> path = findPath(
         currentX, 
         currentY, 
         x, 
         y, 
         gameMap,
-        config->collisionRadius
+        config->collisionRadius,
+        config->nonTraversableBlocks
     );
     
     // Check if a path was found
@@ -486,12 +495,11 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
     float safeX = currentX;
     float safeY = currentY;
     bool wasStuck = false;
-    
-    // Only check collisions if this entity type can collide
+      // Only check collisions if this entity type can collide
     if (config.canCollide) {
         // Try to find a safe position for the entity if it's currently stuck
         if (wouldCollideWithElement(safeX, safeY, config.collisionRadius) || 
-            wouldCollideWithMapBlock(safeX, safeY, gameMap)) {
+            wouldCollideWithMapBlock(safeX, safeY, gameMap, config.nonTraversableBlocks)) {
             wasStuck = findSafePosition(safeX, safeY, config.collisionRadius, gameMap);
             
             if (wasStuck) {
@@ -640,15 +648,14 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
     
     // Check for collisions before moving the entity
     bool canMove = true;
-    
-    if (config.canCollide) {
+      if (config.canCollide) {
         // Calculate the new position after movement
         float newX = currentX + moveDx;
         float newY = currentY + moveDy;
         
         // Check if the new position would collide with any collidable element or map block
         bool collisionWithElement = wouldCollideWithElement(newX, newY, config.collisionRadius);
-        bool collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap);
+        bool collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
         
         if (collisionWithElement || collisionWithMapBlock) {
             // Collision detected, don't move but keep trying to reach the target
@@ -657,7 +664,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
             newX = currentX;
             newY = currentY + moveDy;
             collisionWithElement = wouldCollideWithElement(newX, newY, config.collisionRadius);
-            collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap);
+            collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
             
             if (!collisionWithElement && !collisionWithMapBlock) {
                 moveDx = 0; // Only move in Y
@@ -675,7 +682,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                 newX = currentX + moveDx;
                 newY = currentY;
                 collisionWithElement = wouldCollideWithElement(newX, newY, config.collisionRadius);
-                collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap);
+                collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
                 
                 if (!collisionWithElement && !collisionWithMapBlock) {
                     moveDy = 0; // Only move in X
@@ -711,14 +718,14 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                             elementsManager.changeElementAnimationStatus(elementName, false);
                             elementsManager.changeElementSpriteFrame(elementName, 0);
                             return;
-                        }
-                        
+                        }                        
                         // Recalculate the path from the current position
                         std::vector<std::pair<float, float>> newPath = findPath(
                             curX, curY,
                             entity.targetX, entity.targetY,
                             gameMap,
-                            config.collisionRadius
+                            config.collisionRadius,
+                            config.nonTraversableBlocks
                         );                        // Check if a new path was found
                         if (!newPath.empty()) {
                             entity.path = newPath;

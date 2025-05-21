@@ -7,6 +7,9 @@
 #include <string>
 #include <set>
 
+// Forward declaration
+struct EntityConfiguration;
+
 // Forward declaration of playerDebugMode from player.cpp
 extern bool playerDebugMode;
 
@@ -15,6 +18,9 @@ bool wouldCollideWithElement(float x, float y, float playerRadius = 0.2f);
 
 // Function to check if a position would collide with a non-traversable block
 bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap);
+
+// Overloaded function that checks block collision using entity-specific non-traversable blocks
+bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap, const std::set<TextureName>& entityNonTraversableBlocks);
 
 // Get the names of all elements with collision enabled
 std::vector<std::string> getCollidableElementNames();
