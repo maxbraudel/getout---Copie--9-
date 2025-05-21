@@ -1,11 +1,12 @@
 #include "player.h"
 #include "elementsOnMap.h"
 #include "collision.h"
+#include "map.h" // For gameMap access
 #include <iostream>
 #include <cmath>
 
-// Global variables for player state
-static bool playerDebugMode = false;
+// Global variables for player state - 'extern' in collision.h
+bool playerDebugMode = false;
 
 // Create a player character at the specified position
 void createPlayer(float x, float y) {
@@ -65,12 +66,20 @@ void movePlayer(float deltaX, float deltaY) {
     float newX = x + deltaX;
     float newY = y + deltaY;
     
-    // Check if the new position would collide with any collidable element
+    // Check if the new position would collide with any collidable element or map block
     // Using a smaller player radius for better player movement
-    if (wouldCollideWithElement(newX, newY, 0.2f)) {
+    bool collisionWithElement = wouldCollideWithElement(newX, newY, 0.2f);
+    bool collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap);
+    
+    if (collisionWithElement || collisionWithMapBlock) {
         // Collision detected, don't move, but still update animation and direction
         if (playerDebugMode) {
-            std::cout << "Player collision detected at position (" << newX << ", " << newY << ")" << std::endl;
+            if (collisionWithElement) {
+                std::cout << "Player collision with element at position (" << newX << ", " << newY << ")" << std::endl;
+            }
+            if (collisionWithMapBlock) {
+                std::cout << "Player collision with map block at position (" << newX << ", " << newY << ")" << std::endl;
+            }
         }
     } else {
         // No collision, move the player
@@ -112,8 +121,18 @@ bool getPlayerPosition(float& x, float& y) {
 // Function to teleport the player to a specific position
 void teleportPlayer(float x, float y) {
     // Check for collision at the teleport destination
-    if (wouldCollideWithElement(x, y, 0.2f)) {
-        std::cout << "Cannot teleport player to (" << x << ", " << y << ") - position is occupied by a collidable element." << std::endl;
+    bool collisionWithElement = wouldCollideWithElement(x, y, 0.2f);
+    bool collisionWithMapBlock = wouldCollideWithMapBlock(x, y, gameMap);
+    
+    if (collisionWithElement || collisionWithMapBlock) {
+        std::cout << "Cannot teleport player to (" << x << ", " << y << ") - ";
+        if (collisionWithElement) {
+            std::cout << "position is occupied by a collidable element";
+        }
+        if (collisionWithMapBlock) {
+            std::cout << (collisionWithElement ? " and " : "") << "position has a non-traversable map block";
+        }
+        std::cout << "." << std::endl;
         return;
     }
     
