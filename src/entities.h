@@ -69,6 +69,9 @@ public:
       // Move an entity to specific coordinates (will walk there)
     bool moveEntity(const std::string& instanceName, float x, float y);
     
+    // Teleport an entity to specific coordinates immediately (handles collisions)
+    bool teleportEntity(const std::string& instanceName, float x, float y);
+    
     // Walk an entity to specific coordinates
     bool walkEntityToCoordinates(const std::string& instanceName, float x, float y, WalkType walkType = WalkType::NORMAL);
     
@@ -80,6 +83,13 @@ public:
     
     // Update all entities (called once per frame)
     void update(double deltaTime);
+    
+    // Function to ensure no entities are stuck in collision areas
+    // Should be called at the beginning of each game frame
+    bool ensureEntityNotStuck(const std::string& instanceName);
+    
+    // Function to check if all entities are in safe positions, moving them if needed
+    void ensureAllEntitiesNotStuck();
     
 private:
     std::map<std::string, EntityConfiguration> configurations;

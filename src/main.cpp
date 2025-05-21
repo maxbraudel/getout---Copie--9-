@@ -112,6 +112,26 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 std::cout << "No non-traversable blocks found to test collision recovery" << std::endl;
             }
         }
+        // Test entity collision handling by attempting to put an entity in water
+        else if (key == GLFW_KEY_E) {
+            // Find a water tile in the grid
+            bool waterFound = false;
+            for (int x = 0; x < GRID_SIZE && !waterFound; x++) {
+                for (int y = 0; y < GRID_SIZE && !waterFound; y++) {
+                    TextureName blockType = gameMap.getBlockNameByCoordinates(x, y);
+                    if (isBlockNonTraversable(blockType)) {
+                        // Found a non-traversable block (water), try to teleport entity near it
+                        std::cout << "Testing entity collision recovery - attempting to teleport antagonist to water at ("
+                                << x << ", " << y << ")" << std::endl;
+                        entitiesManager.teleportEntity("antagonist1", x + 0.5f, y + 0.5f); // Center of the block
+                        waterFound = true;
+                    }
+                }
+            }
+            if (!waterFound) {
+                std::cout << "No non-traversable blocks found to test entity collision recovery" << std::endl;
+            }
+        }
         // Toggle player animation
         else if (key == GLFW_KEY_T) {
             static bool isAnimating = true;
@@ -419,6 +439,9 @@ int main() {
 					getPlayerPosition(playerX, playerY);
 					std::cout << "Player position adjusted to safe position: (" << playerX << ", " << playerY << ")" << std::endl;
 				}
+				
+				// Also check all entities for collision issues
+				entitiesManager.ensureAllEntitiesNotStuck();
 			}
 		}
 		
