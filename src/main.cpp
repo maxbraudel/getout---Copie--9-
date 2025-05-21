@@ -11,6 +11,7 @@
 #include "camera.h" // Added include for camera management
 #include "globals.h" // Added include for global variables
 #include "collision.h" // Added include for collision detection
+#include "debug.h" // Added include for debugging features
 #include <ctime> // For time(0) to seed random number generator
 #include <cmath> // For sqrt function
 #include <algorithm> // For std::min and std::max
@@ -487,18 +488,14 @@ int main() {
       // Toggle grid lines with F2
         static bool lastFrameGridKeyState = false;
         if (keyPressedStates[GLFW_KEY_F2] && !lastFrameGridKeyState) {
-            showGridLines = !showGridLines;
-            std::cout << "Grid lines " << (showGridLines ? "enabled" : "disabled") << std::endl;
+            showGridLines = !showGridLines;        std::cout << "Grid lines " << (showGridLines ? "enabled" : "disabled") << std::endl;
         }
         lastFrameGridKeyState = keyPressedStates[GLFW_KEY_F2];
         
-        // Toggle anchor point visualization with F5
-        static bool lastFrameAnchorPointKeyState = false;
-        if (keyPressedStates[GLFW_KEY_F5] && !lastFrameAnchorPointKeyState) {
-            elementsManager.toggleAnchorPointVisualization();
-        }
-        lastFrameAnchorPointKeyState = keyPressedStates[GLFW_KEY_F5];
-          // Print elements list when F4 is pressed
+        // Handle debug key functionalities (F5 for anchor points, F7 for collision boxes)
+        handleDebugKeys(elementsManager, keyPressedStates);
+        
+        // Print elements list when F4 is pressed
         static bool lastFrameDebugElementsState = false;
         if (keyPressedStates[GLFW_KEY_F4] && !lastFrameDebugElementsState) {
             std::cout << "\n--- Current Elements List ---" << std::endl;

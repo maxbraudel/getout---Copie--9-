@@ -1,4 +1,5 @@
 #include "elementsOnMap.h"
+#include "debug.h"
 #include <iostream>
 #include <algorithm> // Added for std::find_if
 
@@ -821,30 +822,23 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         
         // Unbind texture
         glBindTexture(GL_TEXTURE_2D, 0);
-        glDisable(GL_TEXTURE_2D);
-          // Draw anchor point indicator if visualization is enabled
+        glDisable(GL_TEXTURE_2D);        // Draw anchor point indicator if visualization is enabled
         if (showAnchorPoints) {
-            // Draw a small crosshair to indicate the anchor point
-            glColor4f(1.0f, 0.0f, 0.0f, 1.0f);  // Red color
-            glLineWidth(3.0f);
-            
             // Calculate the actual position of the anchor point
             float anchorPosX = anchorX;
             float anchorPosY = anchorY;
             
-            // Draw horizontal line at the actual anchor position
-            glBegin(GL_LINES);
-            glVertex2f(anchorPosX - 0.02f, anchorPosY);
-            glVertex2f(anchorPosX + 0.02f, anchorPosY);
-            glEnd();
-            
-            // Draw vertical line at the actual anchor position
-            glBegin(GL_LINES);
-            glVertex2f(anchorPosX, anchorPosY - 0.02f);
-            glVertex2f(anchorPosX, anchorPosY + 0.02f);
-            glEnd();
-            
-            glLineWidth(1.0f);  // Reset line width
+            // Draw the anchor point using the debug function
+            drawAnchorPoint(anchorPosX, anchorPosY);
+        }
+          // Draw collision box if visualization is enabled and this element has collision
+        if (isShowingCollisionBoxes() && element.hasCollision) {
+            // Scale the collision radius to match the grid cell dimensions
+            float scaledRadius = element.collisionRadius * cellWidth;
+            // Draw the collision box centered on the anchor point
+            // The anchor point is at (anchorX, anchorY) before the -anchorX, -anchorY translation,
+            // so in the current coordinate system, we need to draw at (anchorX, anchorY)
+            drawCollisionBox(anchorX, anchorY, scaledRadius);
         }
         
         // Restore matrix state
