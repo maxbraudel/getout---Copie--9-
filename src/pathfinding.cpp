@@ -65,7 +65,7 @@ std::vector<std::pair<float, float>> findPath(
             
             while (pathNode != nullptr) {
                 // Convert grid coordinates back to world coordinates (center of the cell)
-                path.push_back({pathNode->x + 0.5f, pathNode->y + 0.5f});
+                path.push_back({pathNode->x + 0.0f, pathNode->y + 0.0f});
                 pathNode = pathNode->parent;
             }
             

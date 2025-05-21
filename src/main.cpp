@@ -405,15 +405,15 @@ int main() {
     antagonistConfig.typeName = "antagonist";
     antagonistConfig.textureName = ElementTextureName::ANTAGONIST1;
     antagonistConfig.scale = 1.5f;
-    antagonistConfig.defaultSpriteSheetPhase = 0;
+    antagonistConfig.defaultSpriteSheetPhase = 2;
     antagonistConfig.defaultSpriteSheetFrame = 0;
     antagonistConfig.defaultAnimationSpeed = 11.0f;
     
     // Define sprite phases for different directions
     antagonistConfig.spritePhaseWalkUp = 0;    // Adjust based on your spritesheet layout
-    antagonistConfig.spritePhaseWalkDown = 1;  // Adjust based on your spritesheet layout
+    antagonistConfig.spritePhaseWalkDown = 3;  // Adjust based on your spritesheet layout
     antagonistConfig.spritePhaseWalkLeft = 2;  // Adjust based on your spritesheet layout
-    antagonistConfig.spritePhaseWalkRight = 3; // Adjust based on your spritesheet layout
+    antagonistConfig.spritePhaseWalkRight = 1; // Adjust based on your spritesheet layout
     
     // Define walking speeds
     antagonistConfig.normalWalkingSpeed = 4.0f;

@@ -112,6 +112,8 @@ private:
     
     // Update entity walking (internal method)
     void updateEntityWalking(Entity& entity, const EntityConfiguration& config, double deltaTime);
+      // Handle waypoint arrival - added to improve movement precision
+    bool handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY);
     
     // Calculate element name for an entity instance
     std::string getElementName(const std::string& instanceName) const {
