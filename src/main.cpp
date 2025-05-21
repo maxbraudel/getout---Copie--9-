@@ -365,7 +365,6 @@ int main() {
 		return -1;
 	}
 		// Create a single player character at position (10, 10)
-	createPlayer(10.0f, 10.0f);
 	
 	// Only print final elements list before game loop
 	// std::cout << "\n--- Elements after player creation ---" << std::endl;

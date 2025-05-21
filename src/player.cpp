@@ -2,6 +2,7 @@
 #include "elementsOnMap.h"
 #include "collision.h"
 #include "map.h" // For gameMap access
+#include "globals.h" // Added for GRID_SIZE
 #include <iostream>
 #include <cmath>
 
@@ -17,7 +18,7 @@ void createPlayer(float x, float y) {
     // Check for a safe starting position regardless
     float safeX = x;
     float safeY = y;
-    bool needsSafePosition = false;
+    bool needsSafePosition = true;
     
     // Check if the target position is in a collision area
     if (wouldCollideWithElement(safeX, safeY, 0.2f) || 
@@ -110,24 +111,73 @@ void movePlayer(float deltaX, float deltaY) {
             }
             x = currentX;
             y = currentY;
-        } 
-        else {
+        }        else {
             // Failed to find a safe position - try with a larger radius search
             // This is a more aggressive attempt to get the player unstuck
             std::cout << "WARNING: Player is stuck in collision and standard recovery failed." << std::endl;
-            std::cout << "Attempting emergency teleport to a known safe location..." << std::endl;
+            std::cout << "Attempting emergency teleport to find a safe location..." << std::endl;
             
-            // Try to teleport to the center of the map or another known safe location
-            currentX = 10.0f;
-            currentY = 10.0f;
+            // Scan the entire map if needed to find a safe position
+            // Try first at logical starting points like (10,10) and then expand search
             
-            // Make sure this location is actually safe
-            if (!wouldCollideWithElement(currentX, currentY, 0.2f) && 
-                !wouldCollideWithMapBlock(currentX, currentY, gameMap)) {
-                elementsManager.changeElementCoordinates("player1", currentX, currentY);
-                std::cout << "Player emergency teleported to (" << currentX << ", " << currentY << ")" << std::endl;
-                x = currentX;
-                y = currentY;
+            // Start with potential safe locations rather than just the center
+            std::vector<std::pair<float, float>> safeLocations = {
+                {10.0f, 10.0f},  // Center area
+                {20.0f, 20.0f},  // Another likely safe spot
+                {15.0f, 15.0f},  // Another region
+                {5.0f, 5.0f}     // Near the start
+            };
+            
+            bool foundSafe = false;
+            for (const auto& location : safeLocations) {
+                currentX = location.first;
+                currentY = location.second;
+                
+                // Make sure this location is actually safe
+                if (!wouldCollideWithElement(currentX, currentY, 0.2f) && 
+                    !wouldCollideWithMapBlock(currentX, currentY, gameMap)) {
+                    elementsManager.changeElementCoordinates("player1", currentX, currentY);
+                    std::cout << "Player emergency teleported to (" << currentX << ", " << currentY << ")" << std::endl;
+                    x = currentX;
+                    y = currentY;
+                    wasStuck = true;
+                    foundSafe = true;
+                    break;
+                }
+            }
+            
+            // If still stuck, use a grid search over large areas of the map
+            if (!foundSafe) {
+                std::cout << "Initial safe locations failed, scanning map grid..." << std::endl;
+                
+                // Grid search with larger step size for efficiency
+                for (int gridX = 0; gridX < GRID_SIZE && !foundSafe; gridX += 5) {
+                    for (int gridY = 0; gridY < GRID_SIZE && !foundSafe; gridY += 5) {
+                        // Center of the block
+                        currentX = gridX + 0.5f;
+                        currentY = gridY + 0.5f;
+                        
+                        // Check if position is safe
+                        if (!wouldCollideWithElement(currentX, currentY, 0.2f) && 
+                            !wouldCollideWithMapBlock(currentX, currentY, gameMap)) {
+                            // Found a safe position
+                            elementsManager.changeElementCoordinates("player1", currentX, currentY);
+                            std::cout << "Player emergency teleported to (" << currentX << ", " << currentY << ")" << std::endl;
+                            x = currentX;
+                            y = currentY;
+                            wasStuck = true;
+                            foundSafe = true;
+                        }
+                    }
+                }
+            }
+            
+            // If for some extreme reason all failed, force the player to a position and disable collisions temporarily
+            if (!foundSafe) {
+                std::cout << "CRITICAL: All safe position searches failed! Forcing player to center of map." << std::endl;
+                elementsManager.changeElementCoordinates("player1", 10.0f, 10.0f);
+                x = 10.0f;
+                y = 10.0f;
                 wasStuck = true;
             }
         }

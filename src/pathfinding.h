@@ -10,7 +10,7 @@
 #include <cmath>
 
 // Minimum allowed distance between waypoints to reduce path zigzagging
-const float MINIMUM_DISTANCE_BETWEEN_WAYPOINTS = 10.0f;
+const float MINIMUM_DISTANCE_BETWEEN_WAYPOINTS = 2.0f;
 
 // A structure to represent a node in the pathfinding grid
 struct Node {

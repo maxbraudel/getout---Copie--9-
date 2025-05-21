@@ -307,12 +307,11 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
         std::cout << "Player found stuck in collision at (" << x << ", " << y 
                   << "), attempting to find safe position..." << std::endl;
     }
-    
-    // Try to find a safe position by checking in a spiral pattern around the current position
+      // Try to find a safe position by checking in a spiral pattern around the current position
     // This is more efficient than checking in a grid and handles both element and map block collisions
     
     const float step = 0.1f;  // Step size for each potential position check
-    const float maxDistance = 5.0f; // Increased maximum distance to check for safe position
+    const float maxDistance = 15.0f; // Increased maximum distance to check for safe position (was 5.0f)
     float distance = step;
       // Try to find a safe position by spiraling outward
     while (distance <= maxDistance) {
@@ -343,37 +342,75 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
         // Increase distance for next search ring
         distance += step;
     }
-    
-    // If no safe position found in spiral search, try a grid search as fallback
+      // If no safe position found in spiral search, try a grid search as fallback
     // This helps in cases where the map has complex collision patterns
     if (playerDebugMode) {
-        std::cout << "Spiral search failed, trying grid search..." << std::endl;
+        std::cout << "Spiral search failed, trying grid search with expanded distance..." << std::endl;
     }
     
+    // Increase max distance for the grid search to find positions farther away if needed
+    const float expandedMaxDistance = maxDistance * 1.5f;
+    
     // Try a grid search in a square around the player
-    for (float dx = -maxDistance; dx <= maxDistance; dx += step) {
-        for (float dy = -maxDistance; dy <= maxDistance; dy += step) {
-            // Skip points we've already checked in the spiral (approximately)
-            if (std::sqrt(dx*dx + dy*dy) <= maxDistance - step) {
-                continue;
-            }
-            
-            float testX = x + dx;
-            float testY = y + dy;
-            
-            // Check if this position is safe
-            if (!wouldCollideWithElement(testX, testY, playerRadius) && 
-                !wouldCollideWithMapBlock(testX, testY, gameMap)) {
-                // Found a safe position, update coordinates and return
-                if (playerDebugMode) {
-                    std::cout << "Grid search found safe position at (" << testX << ", " << testY 
-                              << "), moved player " << std::sqrt(dx*dx + dy*dy) << " units" << std::endl;
+    // Use an adaptive step size that gets larger as we move farther from the player
+    // for better performance while still maintaining precision near the player
+    for (float searchDist = maxDistance; searchDist <= expandedMaxDistance; searchDist += maxDistance * 0.5f) {
+        // Step size increases with distance
+        float adaptiveStep = step * (1.0f + searchDist / 5.0f);
+        
+        // Search at this particular distance
+        for (float dx = -searchDist; dx <= searchDist; dx += adaptiveStep) {
+            for (float dy = -searchDist; dy <= searchDist; dy += adaptiveStep) {
+                // Only check points near the perimeter of this search distance
+                float pointDist = std::sqrt(dx*dx + dy*dy);
+                if (pointDist < searchDist - adaptiveStep || pointDist > searchDist + adaptiveStep) {
+                    continue;
                 }
                 
-                x = testX;
-                y = testY;
-                return true; // Position was adjusted
+                float testX = x + dx;
+                float testY = y + dy;
+                
+                // Check if this position is safe
+                if (!wouldCollideWithElement(testX, testY, playerRadius) && 
+                    !wouldCollideWithMapBlock(testX, testY, gameMap)) {
+                    // Found a safe position, update coordinates and return
+                    if (playerDebugMode) {
+                        std::cout << "Grid search found safe position at (" << testX << ", " << testY 
+                                  << "), moved player " << pointDist << " units" << std::endl;
+                    }
+                    
+                    x = testX;
+                    y = testY;
+                    return true; // Position was adjusted
+                }
             }
+        }
+    }
+    
+    // Final attempt - try random positions across the map within the grid bounds
+    if (playerDebugMode) {
+        std::cout << "Grid search failed, attempting random position search..." << std::endl;
+    }
+    
+    // Try a limited number of random positions to avoid infinite loop
+    const int MAX_RANDOM_ATTEMPTS = 100;
+    for (int attempt = 0; attempt < MAX_RANDOM_ATTEMPTS; attempt++) {
+        // Generate random coordinates within the grid
+        float testX = 1.0f + static_cast<float>(rand() % (GRID_SIZE - 2));
+        float testY = 1.0f + static_cast<float>(rand() % (GRID_SIZE - 2));
+        
+        // Check if this position is safe
+        if (!wouldCollideWithElement(testX, testY, playerRadius) && 
+            !wouldCollideWithMapBlock(testX, testY, gameMap)) {
+            // Found a safe position, update coordinates and return
+            if (playerDebugMode) {
+                std::cout << "Random search found safe position at (" << testX << ", " << testY 
+                          << "), teleported player" << std::endl;
+            }
+            
+            x = testX;
+            y = testY;
+            return true; // Position was adjusted
         }
     }
     

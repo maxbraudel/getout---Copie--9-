@@ -22,6 +22,10 @@ std::vector<std::string> getCollidableElementNames();
 // Reset the elements cache when new elements are added or removed
 void resetCollisionCache();
 
+// Spatial partitioning for collision optimization
+void updateSpatialGrid();
+std::vector<std::string> getNearbyElements(float x, float y, float radius);
+
 // Set of non-traversable block types (water, lava, etc.)
 extern std::set<TextureName> nonTraversableBlocks;
 
