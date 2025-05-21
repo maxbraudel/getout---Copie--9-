@@ -34,7 +34,7 @@ include_directories(third_party/glbasimac/)
 set(CMAKE_COLOR_MAKEFILE ON)
 
 # Main executable
-add_executable(${PROJECT_NAME} src/main.cpp src/map.cpp src/terrainGeneration.cpp src/elementsOnMap.cpp src/player.cpp src/camera.cpp src/globals.cpp src/collision.cpp src/debug.cpp src/entities.cpp)
+add_executable(${PROJECT_NAME} src/main.cpp src/map.cpp src/terrainGeneration.cpp src/elementsOnMap.cpp src/player.cpp src/camera.cpp src/globals.cpp src/collision.cpp src/debug.cpp src/entities.cpp src/pathfinding.cpp)
 target_link_libraries(${PROJECT_NAME} ${ALL_LIBRARIES})
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 11

@@ -142,6 +142,50 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         else if (key == GLFW_KEY_F3) {
             togglePlayerDebugMode();
         }
+        // Test pathfinding by making entities move around obstacles
+        else if (key == GLFW_KEY_P) {
+            // Get player position as reference point
+            float playerX, playerY;
+            if (getPlayerPosition(playerX, playerY)) {
+                // Find a water area and make the entity path around it
+                bool pathCreated = false;
+                
+                for (int x = 0; x < GRID_SIZE && !pathCreated; x++) {
+                    for (int y = 0; y < GRID_SIZE && !pathCreated; y++) {
+                        TextureName blockType = gameMap.getBlockNameByCoordinates(x, y);
+                        if (isBlockNonTraversable(blockType)) {
+                            // Found a non-traversable block (water)
+                            // Create a position on the opposite side of the water from the player
+                            float diffX = playerX - x;
+                            float diffY = playerY - y;
+                            float distance = std::sqrt(diffX * diffX + diffY * diffY);
+                            
+                            if (distance < 10.0f) { // Only if water is somewhat close to player
+                                // Calculate a target position on the other side of the water
+                                float targetX = x - diffX * 2.0f;
+                                float targetY = y - diffY * 2.0f;
+                                
+                                // Make sure target is within grid bounds
+                                targetX = std::max(0.0f, std::min(static_cast<float>(GRID_SIZE - 1), targetX));
+                                targetY = std::max(0.0f, std::min(static_cast<float>(GRID_SIZE - 1), targetY));
+                                
+                                // Make the entity walk to the target using pathfinding
+                                std::cout << "Testing pathfinding - entity will navigate around water at ("
+                                        << x << ", " << y << ") to reach (" << targetX << ", " << targetY << ")" << std::endl;
+                                entitiesManager.walkEntityWithPathfinding("antagonist1", targetX, targetY);
+                                pathCreated = true;
+                            }
+                        }
+                    }
+                }
+                
+                if (!pathCreated) {
+                    // If no suitable water was found, just make the entity move to player's position
+                    std::cout << "No suitable obstacles found. Making entity follow the player instead." << std::endl;
+                    entitiesManager.walkEntityWithPathfinding("antagonist1", playerX, playerY);
+                }
+            }
+        }
         // List all elements when F4 is pressed
         else if (key == GLFW_KEY_F4) {
             std::cout << "\n--- Current Elements List ---" << std::endl;

@@ -1,6 +1,7 @@
 #include "entities.h"
 #include "collision.h"
 #include "map.h" // Adding for gameMap access
+#include "pathfinding.h"
 #include <iostream>
 #include <cmath>
 
@@ -115,9 +116,8 @@ bool EntitiesManager::moveEntity(const std::string& instanceName, float x, float
         return false;
     }
     
-    // Instead of direct movement, use walkEntityToCoordinates
-    // This converts the moveEntity function to create a walking path rather than teleport
-    return walkEntityToCoordinates(instanceName, x, y, entity->walkType);
+    // Use walkEntityWithPathfinding instead of walkEntityToCoordinates for intelligent movement
+    return walkEntityWithPathfinding(instanceName, x, y, entity->walkType);
 }
 
 bool EntitiesManager::walkEntityToCoordinates(const std::string& instanceName, float x, float y, WalkType walkType) {
@@ -158,6 +158,72 @@ bool EntitiesManager::walkEntityToCoordinates(const std::string& instanceName, f
     return true;
 }
 
+bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName, float x, float y, WalkType walkType) {
+    // Get the entity
+    Entity* entity = getEntity(instanceName);
+    if (!entity) {
+        std::cerr << "Entity not found: " << instanceName << std::endl;
+        return false;
+    }
+    
+    // Get the configuration
+    const EntityConfiguration* config = getConfiguration(entity->typeName);
+    if (!config) {
+        std::cerr << "Entity configuration not found: " << entity->typeName << std::endl;
+        return false;
+    }
+    
+    // Get current position
+    std::string elementName = getElementName(instanceName);
+    float currentX, currentY;
+    if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
+        std::cerr << "Error getting position for entity: " << instanceName << std::endl;
+        return false;
+    }
+    
+    // Generate a path using A* pathfinding
+    std::vector<std::pair<float, float>> path = findPath(
+        currentX, 
+        currentY, 
+        x, 
+        y, 
+        gameMap,
+        config->collisionRadius
+    );
+    
+    // Check if a path was found
+    if (path.empty()) {
+        std::cout << "No valid path found for entity " << instanceName << " to reach (" 
+                  << x << ", " << y << ")" << std::endl;
+        return false;
+    }
+    
+    // Store the path in the entity
+    entity->path = path;
+    entity->currentPathIndex = 0;
+    entity->isWalking = true;
+    entity->walkType = walkType;
+    entity->usePathfinding = true;
+    
+    // Set the final destination
+    entity->targetX = x;
+    entity->targetY = y;
+    
+    // Enable animation
+    elementsManager.changeElementAnimationStatus(elementName, true);
+    
+    // Set the animation speed based on walk type
+    float animationSpeed = (walkType == WalkType::NORMAL) ? 
+                          config->normalWalkingAnimationSpeed : 
+                          config->sprintWalkingAnimationSpeed;
+    elementsManager.changeElementAnimationSpeed(elementName, animationSpeed);
+    
+    std::cout << "Entity " << instanceName << " found path with " << path.size() 
+              << " waypoints to (" << x << ", " << y << ")" << std::endl;
+    
+    return true;
+}
+
 bool EntitiesManager::stopEntityWalk(const std::string& instanceName) {
     // Get the entity
     Entity* entity = getEntity(instanceName);
@@ -168,6 +234,12 @@ bool EntitiesManager::stopEntityWalk(const std::string& instanceName) {
     
     // Stop walking
     entity->isWalking = false;
+    
+    // Clear any active path
+    if (entity->usePathfinding) {
+        entity->path.clear();
+        entity->currentPathIndex = 0;
+    }
     
     // Get the element name
     std::string elementName = getElementName(instanceName);
@@ -261,6 +333,20 @@ Entity* EntitiesManager::getEntity(const std::string& instanceName) {
     return nullptr;
 }
 
+bool EntitiesManager::getNextPathWaypoint(Entity& entity, float& nextX, float& nextY) {
+    // If the entity has no path or has reached the end of its path
+    if (entity.path.empty() || entity.currentPathIndex >= entity.path.size()) {
+        return false;
+    }
+    
+    // Get the next waypoint in the path
+    const auto& waypoint = entity.path[entity.currentPathIndex];
+    nextX = waypoint.first;
+    nextY = waypoint.second;
+    
+    return true;
+}
+
 void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfiguration& config, double deltaTime) {
     // Get the element name
     std::string elementName = getElementName(entity.instanceName);
@@ -299,15 +385,72 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         }
     }
     
-    // Calculate distance to target
-    float dx = entity.targetX - currentX;
-    float dy = entity.targetY - currentY;
-    float distance = std::sqrt(dx * dx + dy * dy);
+    // Variables for movement
+    float targetX, targetY;
+    float dx, dy, distance;
+    
+    // Handle pathfinding movement if enabled for this entity
+    if (entity.usePathfinding && !entity.path.empty()) {
+        // Get the next waypoint from the path
+        if (entity.currentPathIndex >= entity.path.size()) {
+            // We've reached the end of the path, target the final destination
+            targetX = entity.targetX;
+            targetY = entity.targetY;
+        } else {
+            // Get the next waypoint
+            const auto& waypoint = entity.path[entity.currentPathIndex];
+            targetX = waypoint.first;
+            targetY = waypoint.second;
+        }
+        
+        // Calculate distance to current waypoint
+        dx = targetX - currentX;
+        dy = targetY - currentY;
+        distance = std::sqrt(dx * dx + dy * dy);
+        
+        // Check if we've reached the current waypoint
+        float waypointThreshold = 0.1f;
+        if (distance <= waypointThreshold && entity.currentPathIndex < entity.path.size()) {
+            // Move to the next waypoint
+            entity.currentPathIndex++;
+            
+            // Check if we've reached the end of the path
+            if (entity.currentPathIndex >= entity.path.size()) {
+                // We've completed all waypoints, now target the exact final destination
+                targetX = entity.targetX;
+                targetY = entity.targetY;
+                // Recalculate distance
+                dx = targetX - currentX;
+                dy = targetY - currentY;
+                distance = std::sqrt(dx * dx + dy * dy);
+            } else {
+                // Update to the new waypoint
+                const auto& newWaypoint = entity.path[entity.currentPathIndex];
+                targetX = newWaypoint.first;
+                targetY = newWaypoint.second;
+                // Recalculate distance
+                dx = targetX - currentX;
+                dy = targetY - currentY;
+                distance = std::sqrt(dx * dx + dy * dy);
+            }
+        }
+    } else {
+        // No pathfinding, move directly toward the target
+        targetX = entity.targetX;
+        targetY = entity.targetY;
+        
+        // Calculate distance to target
+        dx = targetX - currentX;
+        dy = targetY - currentY;
+        distance = std::sqrt(dx * dx + dy * dy);
+    }
     
     // Stop if we're close enough to the target
     float stopThreshold = 0.1f; // Stop when within 0.1 distance units
-    if (distance <= stopThreshold) {
-        // We've reached the target
+    if (distance <= stopThreshold && 
+        ((!entity.usePathfinding) || 
+        (entity.usePathfinding && entity.currentPathIndex >= entity.path.size()))) {
+        // We've reached the final target
         entity.isWalking = false;
         
         // Snap to exact target position
@@ -318,6 +461,12 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         
         // Reset to frame 0 (standing frame)
         elementsManager.changeElementSpriteFrame(elementName, 0);
+        
+        // Clear the path
+        if (entity.usePathfinding) {
+            entity.path.clear();
+            entity.currentPathIndex = 0;
+        }
         
         std::cout << "Entity " << entity.instanceName << " reached target (" 
                   << entity.targetX << ", " << entity.targetY << ")" << std::endl;
@@ -406,12 +555,42 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                     canMove = true;
                 }
             }
-            
-            if (!canMove) {
-                // Try to find an alternative path around the obstacle
-                // For now, we'll just stop and try again next frame
-                std::cout << "Entity " << entity.instanceName << " encountered obstacle at (" 
-                          << newX << ", " << newY << ")" << std::endl;
+              if (!canMove) {
+                // Entity is stuck, let's try to recalculate the path if using pathfinding
+                if (entity.usePathfinding) {
+                    std::cout << "Entity " << entity.instanceName << " encountered obstacle at (" 
+                              << newX << ", " << newY << "), recalculating path..." << std::endl;
+                    
+                    // Get current position
+                    float curX, curY;
+                    if (elementsManager.getElementPosition(elementName, curX, curY)) {
+                        // Recalculate the path from the current position
+                        std::vector<std::pair<float, float>> newPath = findPath(
+                            curX, curY,
+                            entity.targetX, entity.targetY,
+                            gameMap,
+                            config.collisionRadius
+                        );
+                        
+                        // Check if a new path was found
+                        if (!newPath.empty()) {
+                            entity.path = newPath;
+                            entity.currentPathIndex = 0;
+                            std::cout << "Found new path with " << newPath.size() << " waypoints" << std::endl;
+                        } else {
+                            // No path found, stop walking
+                            entity.isWalking = false;
+                            elementsManager.changeElementAnimationStatus(elementName, false);
+                            elementsManager.changeElementSpriteFrame(elementName, 0);
+                            std::cout << "No valid path found for entity " << entity.instanceName 
+                                      << ", stopping movement" << std::endl;
+                        }
+                    }
+                } else {
+                    // Not using pathfinding, just stop and try again next frame
+                    std::cout << "Entity " << entity.instanceName << " encountered obstacle at (" 
+                              << newX << ", " << newY << ")" << std::endl;
+                }
             }
         }
     }

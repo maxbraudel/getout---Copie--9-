@@ -1,10 +1,12 @@
 #pragma once
 
 #include "elementsOnMap.h"
+#include "map.h"
 #include <string>
 #include <vector>
 #include <map>
 #include <cmath> // For distance calculations
+#include <utility> // For std::pair
 
 // Enum for walk types
 enum class WalkType {
@@ -53,6 +55,11 @@ struct Entity {
     
     // Direction tracking
     int lastDirection = 1; // 0 = Up, 1 = Down, 2 = Left, 3 = Right
+    
+    // Pathfinding data
+    bool usePathfinding = true; // Whether to use pathfinding for movement
+    std::vector<std::pair<float, float>> path; // Current path from pathfinding
+    size_t currentPathIndex = 0; // Current position in the path
 };
 
 // EntitiesManager - Manages all entities in the game
@@ -71,9 +78,11 @@ public:
     
     // Teleport an entity to specific coordinates immediately (handles collisions)
     bool teleportEntity(const std::string& instanceName, float x, float y);
-    
-    // Walk an entity to specific coordinates
+      // Walk an entity to specific coordinates
     bool walkEntityToCoordinates(const std::string& instanceName, float x, float y, WalkType walkType = WalkType::NORMAL);
+    
+    // Walk an entity to specific coordinates using pathfinding
+    bool walkEntityWithPathfinding(const std::string& instanceName, float x, float y, WalkType walkType = WalkType::NORMAL);
     
     // Stop an entity's walking
     bool stopEntityWalk(const std::string& instanceName);
@@ -92,12 +101,14 @@ public:
     void ensureAllEntitiesNotStuck();
     
 private:
-    std::map<std::string, EntityConfiguration> configurations;
-    std::map<std::string, Entity> entities;
+    std::map<std::string, EntityConfiguration> configurations;    std::map<std::string, Entity> entities;
     
     // Helper methods
     const EntityConfiguration* getConfiguration(const std::string& typeName) const;
     Entity* getEntity(const std::string& instanceName);
+    
+    // Get the next waypoint from the entity's path
+    bool getNextPathWaypoint(Entity& entity, float& nextX, float& nextY);
     
     // Update entity walking (internal method)
     void updateEntityWalking(Entity& entity, const EntityConfiguration& config, double deltaTime);
