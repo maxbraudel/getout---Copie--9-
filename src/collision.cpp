@@ -454,3 +454,28 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
     
     return false; // Couldn't adjust position
 }
+
+// Helper function to print information about a position's collision status
+void debugCollisionStatus(float x, float y, float collisionRadius) {
+    // Check if there's a collision
+    bool hasElementCollision = wouldCollideWithElement(x, y, collisionRadius);
+    
+    if (hasElementCollision) {
+        // Get nearby collidable elements
+        std::vector<std::string> nearbyElements = getNearbyElements(x, y, collisionRadius + 1.0f);
+        
+        std::cout << "Collision detected at (" << x << ", " << y << ") with radius " << collisionRadius << std::endl;
+        std::cout << "Nearby elements: ";
+        
+        for (const auto& elementName : nearbyElements) {
+            float elementX, elementY;
+            if (elementsManager.getElementPosition(elementName, elementX, elementY)) {
+                float distance = std::sqrt(std::pow(x - elementX, 2) + std::pow(y - elementY, 2));
+                std::cout << elementName << " (distance: " << distance << "), ";
+            }
+        }
+        std::cout << std::endl;
+    } else {
+        std::cout << "No collision at (" << x << ", " << y << ") with radius " << collisionRadius << std::endl;
+    }
+}

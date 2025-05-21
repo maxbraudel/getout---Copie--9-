@@ -73,6 +73,9 @@ std::vector<std::pair<int, int>> getNeighbors(int x, int y, float collisionRadiu
 // This reduces zigzagging and makes movement smoother
 void simplifyPath(std::vector<std::pair<float, float>>& path);
 
+// Check if a path is clear of element collisions
+bool isPathClear(const std::vector<std::pair<float, float>>& path, float collisionRadius);
+
 // Overloaded function that uses entity-specific non-traversable blocks
 std::vector<std::pair<int, int>> getNeighbors(int x, int y, float collisionRadius, const Map& gameMap, const std::set<TextureName>& nonTraversableBlocks);
 

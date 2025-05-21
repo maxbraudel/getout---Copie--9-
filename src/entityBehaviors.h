@@ -24,6 +24,11 @@ struct EntityBehaviorState {
     float targetX;
     float targetY;
     
+    // Movement tracking for stuck detection
+    float lastX;
+    float lastY;
+    float lastPositionChangeTime;
+    
     // Default constructor (required for std::map)
     EntityBehaviorState() 
         : instanceName("")
@@ -32,7 +37,10 @@ struct EntityBehaviorState {
         , nextActionDelay(0.0f)
         , isActive(true)
         , targetX(0.0f)
-        , targetY(0.0f) {}
+        , targetY(0.0f)
+        , lastX(0.0f)
+        , lastY(0.0f)
+        , lastPositionChangeTime(0.0f) {}
     
     // Parameterized constructor
     EntityBehaviorState(const std::string& instance, const std::string& type) 
@@ -42,7 +50,10 @@ struct EntityBehaviorState {
         , nextActionDelay(0.0f)
         , isActive(true)
         , targetX(0.0f)
-        , targetY(0.0f) {}
+        , targetY(0.0f)
+        , lastX(0.0f)
+        , lastY(0.0f)
+        , lastPositionChangeTime(0.0f) {}
 };
 
 // Type alias for behavior function

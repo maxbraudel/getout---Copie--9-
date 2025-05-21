@@ -2,6 +2,7 @@
 #include "entities.h"
 #include "globals.h" // For GRID_SIZE
 #include "map.h" // For accessing block types
+#include "collision.h" // For wouldCollideWithElement and findSafePosition
 #include <iostream>
 #include <cmath>
 #include <algorithm>
@@ -186,6 +187,16 @@ bool EntityBehaviorManager::getRandomPositionNearOnBlockTypes(const std::string&
     int startY = std::max(0, static_cast<int>(currentY) - blockRadius);
     int endY = std::min(GRID_SIZE - 1, static_cast<int>(currentY) + blockRadius);
     
+    // Get the entity configuration to find its collision radius
+    float collisionRadius = 0.4f; // Default
+    auto* config = entitiesManager.getConfiguration("antagonist");
+    if (config) {
+        collisionRadius = config->collisionRadius;
+    }
+      // Increase collision check radius significantly to stay further from obstacles
+    float safetyBuffer = 0.4f; // Increased from 0.2f for better clearance
+    float safeCollisionRadius = collisionRadius + safetyBuffer;
+    
     for (int gridY = startY; gridY <= endY; gridY++) {
         for (int gridX = startX; gridX <= endX; gridX++) {
             // Calculate distance from current position to this grid cell
@@ -202,15 +213,26 @@ bool EntityBehaviorManager::getRandomPositionNearOnBlockTypes(const std::string&
                 bool isTargetType = std::find(targetBlockTypes.begin(), targetBlockTypes.end(), blockType) != targetBlockTypes.end();
                 
                 if (isTargetType) {
-                    // Add the position to our valid positions (with a small random offset to avoid grid alignment)
-                    std::uniform_real_distribution<float> smallOffset(-0.3f, 0.3f);
+                    // Calculate position with a small random offset to avoid grid alignment
+                    // Reduced offset range to keep positions more centered in safe cells
+                    std::uniform_real_distribution<float> smallOffset(-0.2f, 0.2f);
                     float offsetX = smallOffset(rng);
                     float offsetY = smallOffset(rng);
                     
-                    validPositions.push_back(std::make_pair(
-                        static_cast<float>(gridX) + offsetX,
-                        static_cast<float>(gridY) + offsetY
-                    ));
+                    float posX = static_cast<float>(gridX) + offsetX;
+                    float posY = static_cast<float>(gridY) + offsetY;
+                    
+                    // First check map block collisions - faster check
+                    if (!wouldCollideWithMapBlock(posX, posY, gameMap)) {
+                        // Then check element collisions with increased safety radius
+                        if (!wouldCollideWithElement(posX, posY, safeCollisionRadius)) {
+                            // Perform a check for nearby collision elements to ensure we're not too close
+                            std::vector<std::string> nearbyElements = getNearbyElements(posX, posY, safeCollisionRadius * 1.5f);
+                            if (nearbyElements.empty()) {
+                                validPositions.push_back(std::make_pair(posX, posY));
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -244,6 +266,17 @@ void EntityBehaviorManager::antagonistBehavior(EntityBehaviorState& state, float
     
     // Periodically select a new target, regardless of whether the previous target was reached
     if (currentTime - state.lastActionTime >= state.nextActionDelay) {
+        // Get the entity configuration to find its collision radius
+        float collisionRadius = 0.4f; // Default collision radius for antagonist
+        auto* config = entitiesManager.getConfiguration("antagonist");
+        if (config) {
+            collisionRadius = config->collisionRadius;
+        }
+        
+        // Add extra safety margin to collision radius for path planning
+        float safetyMargin = 0.4f;
+        float pathPlanningRadius = collisionRadius + safetyMargin;
+        
         // Get a random position near the entity on a whitelisted block type
         float newTargetX, newTargetY;
         if (manager.getRandomPositionNearOnBlockTypes(state.instanceName, newTargetX, newTargetY, 10.0f)) {
@@ -251,7 +284,53 @@ void EntityBehaviorManager::antagonistBehavior(EntityBehaviorState& state, float
             state.targetX = newTargetX;
             state.targetY = newTargetY;
             
-            // Move the entity to the new target, interrupting any current movement
+            // Check if target position has element collisions using the expanded radius
+            if (wouldCollideWithElement(state.targetX, state.targetY, pathPlanningRadius) || 
+                wouldCollideWithMapBlock(state.targetX, state.targetY, gameMap)) {
+                
+                // If collision detected, try to find a position nearby that doesn't have collisions
+                float safeX = state.targetX;
+                float safeY = state.targetY;
+                
+                // Try to find a safe position using our enhanced collision detection radius
+                if (!findSafePosition(safeX, safeY, pathPlanningRadius, gameMap)) {
+                    // If we couldn't find a safe position, try again with a different random position
+                    // and a smaller radius to search closer to the entity
+                    bool foundSafePos = false;
+                    
+                    // Try three different random positions with different radii
+                    for (float tryRadius = 8.0f; tryRadius >= 4.0f && !foundSafePos; tryRadius -= 2.0f) {
+                        if (manager.getRandomPositionNearOnBlockTypes(state.instanceName, safeX, safeY, tryRadius)) {
+                            // Verify this new position is actually safe
+                            if (!wouldCollideWithElement(safeX, safeY, pathPlanningRadius) && 
+                                !wouldCollideWithMapBlock(safeX, safeY, gameMap)) {
+                                state.targetX = safeX;
+                                state.targetY = safeY;
+                                foundSafePos = true;
+                                
+                                std::cout << "Entity " << state.instanceName << " found safe position at reduced radius " 
+                                          << tryRadius << std::endl;
+                            }
+                        }
+                    }
+                    
+                    // If all attempts failed, don't move the entity this time
+                    if (!foundSafePos) {
+                        // Reset the action timer but with a shorter delay before next attempt
+                        state.lastActionTime = currentTime;
+                        state.nextActionDelay = manager.getRandomDelay(1.0f, 3.0f); // Shorter delay before trying again
+                        
+                        std::cout << "Entity " << state.instanceName << " couldn't find safe position, will try again in " 
+                                  << state.nextActionDelay << " seconds" << std::endl;
+                        return;
+                    }
+                } else {
+                    // Use the adjusted safe position
+                    state.targetX = safeX;
+                    state.targetY = safeY;
+                }
+            }
+              // Move the entity to the new target, interrupting any current movement
             manager.moveEntityTo(state.instanceName, state.targetX, state.targetY);
             
             // Set time for next action
@@ -262,6 +341,35 @@ void EntityBehaviorManager::antagonistBehavior(EntityBehaviorState& state, float
             std::cout << "Entity " << state.instanceName << " moving to new target: (" 
                       << state.targetX << ", " << state.targetY << ") - Next change in "
                       << state.nextActionDelay << " seconds" << std::endl;
+        } else {
+            // If we couldn't get a random position at all, try again with a shorter delay
+            state.lastActionTime = currentTime;
+            state.nextActionDelay = manager.getRandomDelay(1.0f, 3.0f);
+            
+            std::cout << "Entity " << state.instanceName << " couldn't find any valid position, will try again in " 
+                      << state.nextActionDelay << " seconds" << std::endl;
+        }
+    }
+    
+    // Check if entity is stuck and hasn't moved for a while
+    float currentX, currentY;
+    if (manager.getEntityPosition(state.instanceName, currentX, currentY)) {
+        // If entity has been in same position for too long and should be moving
+        if (currentTime - state.lastPositionChangeTime > 3.0f && 
+            !manager.hasEntityReachedTarget(state.instanceName)) {
+            
+            std::cout << "Entity " << state.instanceName << " appears to be stuck, attempting to find new path..." << std::endl;
+            
+            // Force an immediate action to pick a new path
+            state.lastActionTime = 0.0f;
+            state.nextActionDelay = 0.0f;
+        }
+        
+        // Update the last position change time if the entity has moved
+        if (std::abs(currentX - state.lastX) > 0.01f || std::abs(currentY - state.lastY) > 0.01f) {
+            state.lastPositionChangeTime = currentTime;
+            state.lastX = currentX;
+            state.lastY = currentY;
         }
     }
     

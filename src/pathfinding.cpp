@@ -66,7 +66,8 @@ std::vector<std::pair<float, float>> findPath(
             std::vector<std::pair<float, float>> path;
             Node* pathNode = current;
             
-            while (pathNode != nullptr) {            // Convert grid coordinates back to world coordinates (center of the cell)
+            while (pathNode != nullptr) {
+                // Convert grid coordinates back to world coordinates (center of the cell)
                 path.push_back({pathNode->x + 0.0f, pathNode->y + 0.0f});
                 pathNode = pathNode->parent;
             }
@@ -174,6 +175,47 @@ std::vector<std::pair<float, float>> findPath(
         std::cout << "Invalid path coordinates. Start (" << startX << "," << startY 
                  << ") or goal (" << goalX << "," << goalY << ") are out of bounds." << std::endl;
         return {};
+    }
+    
+    // Check if the goal position is valid - if not, try to find a valid position nearby
+    if (!isPositionValid(goalGridX, goalGridY, collisionRadius, gameMap, nonTraversableBlocks)) {
+        // Goal is invalid, try to find a valid position nearby
+        const int searchRadius = 3; // Look up to 3 cells away
+        bool foundValidGoal = false;
+        
+        // Try positions in concentric squares around the goal until a valid one is found
+        for (int radius = 1; radius <= searchRadius && !foundValidGoal; radius++) {
+            for (int offsetY = -radius; offsetY <= radius && !foundValidGoal; offsetY++) {
+                for (int offsetX = -radius; offsetX <= radius && !foundValidGoal; offsetX++) {
+                    // Skip positions that aren't on the perimeter of the current square
+                    if (std::abs(offsetX) != radius && std::abs(offsetY) != radius) continue;
+                    
+                    int testX = goalGridX + offsetX;
+                    int testY = goalGridY + offsetY;
+                    
+                    // Check bounds and validity
+                    if (testX >= 0 && testX < GRID_SIZE && testY >= 0 && testY < GRID_SIZE &&
+                        isPositionValid(testX, testY, collisionRadius, gameMap, nonTraversableBlocks)) {
+                        // Found a valid position - update the goal
+                        goalGridX = testX;
+                        goalGridY = testY;
+                        foundValidGoal = true;
+                        
+                        std::cout << "Adjusted goal position from (" << goalX << "," << goalY 
+                                << ") to (" << goalGridX << "," << goalGridY 
+                                << ") to avoid collision" << std::endl;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // If no valid goal position found, return an empty path
+        if (!foundValidGoal) {
+            std::cout << "No valid goal position found near (" << goalX << "," << goalY 
+                     << "). Pathfinding failed." << std::endl;
+            return {};
+        }
     }
     
     // Initialize the open and closed sets
@@ -305,13 +347,16 @@ bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap) {
         // std::cout << "Warning: Coordinates (" << x << ", " << y << ") are outside the grid bounds" << std::endl;
         return false;
     }
+      // Convert grid coordinates to world coordinates (center of the cell)
+    float worldX = x + 0.5f;
+    float worldY = y + 0.5f;
     
-    // Convert grid coordinates to world coordinates (center of the cell)
-    float worldX = x + 0.0f;
-    float worldY = y + 0.0f;
+    // Add a safety buffer to the collision radius for better pathfinding
+    float safetyBuffer = 0.2f;
+    float pathfindingRadius = collisionRadius + safetyBuffer;
     
     // Check if this position would collide with any collision
-    bool collisionWithElement = wouldCollideWithElement(worldX, worldY, collisionRadius);
+    bool collisionWithElement = wouldCollideWithElement(worldX, worldY, pathfindingRadius);
     bool collisionWithMapBlock = wouldCollideWithMapBlock(worldX, worldY, gameMap);
     
     return !collisionWithElement && !collisionWithMapBlock;
@@ -323,15 +368,21 @@ bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap, co
     if (x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) {
         return false;
     }
+      // Convert grid coordinates to world coordinates (center of the cell)
+    float worldX = x + 0.5f;
+    float worldY = y + 0.5f;
     
-    // Convert grid coordinates to world coordinates (center of the cell)
-    float worldX = x + 0.0f;
-    float worldY = y + 0.0f;
+    // Add a safety buffer to the collision radius for better pathfinding
+    float safetyBuffer = 0.2f;
+    float pathfindingRadius = collisionRadius + safetyBuffer;
     
-    // Check if this position would collide with any collision
-    bool collisionWithElement = wouldCollideWithElement(worldX, worldY, collisionRadius);
+    // Check if this position would collide with any element (trees, etc)
+    bool collisionWithElement = wouldCollideWithElement(worldX, worldY, pathfindingRadius);
+    
+    // Check if this position would collide with a non-traversable map block
     bool collisionWithMapBlock = wouldCollideWithMapBlock(worldX, worldY, gameMap, nonTraversableBlocks);
     
+    // Return true only if there are no collisions
     return !collisionWithElement && !collisionWithMapBlock;
 }
 
@@ -460,16 +511,77 @@ void simplifyPath(std::vector<std::pair<float, float>>& path) {
             float dotProduct = prevDirection.first * currentDirection.first + 
                               prevDirection.second * currentDirection.second;
             // If dot product is less than 0.9 (angles differ by more than ~25 degrees)
-            significantDirectionChange = (dotProduct < 0.9f);
+            // Use a more conservative 0.95 instead of 0.9 to make paths less angular
+            significantDirectionChange = (dotProduct < 0.95f);
         }
         
+        // Use a smaller threshold to retain more waypoints
         if (isLastWaypoint || cumulativeDistance >= MINIMUM_DISTANCE_BETWEEN_WAYPOINTS || significantDirectionChange) {
-            simplifiedPath.push_back(path[i]);
-            cumulativeDistance = 0.0f; // Reset accumulator
-            prevDirection = currentDirection; // Remember this direction
+            // Check if there would be a collision in the simplified path
+            bool hasCollision = false;
+            if (simplifiedPath.size() > 0 && !isLastWaypoint) {
+                const auto& lastPoint = simplifiedPath.back();
+                // Check a few intermediate points along the straight line for collisions
+                const int numChecks = 5;
+                for (int j = 1; j < numChecks; j++) {
+                    float t = static_cast<float>(j) / numChecks;
+                    float checkX = lastPoint.first + t * (path[i].first - lastPoint.first);
+                    float checkY = lastPoint.second + t * (path[i].second - lastPoint.second);
+                    
+                    // If any intermediate point has a collision, we need to keep more waypoints
+                    if (wouldCollideWithElement(checkX, checkY, 0.4f)) {
+                        hasCollision = true;
+                        break;
+                    }
+                }
+            }
+            
+            // If there's a collision or other reason to keep this waypoint
+            if (isLastWaypoint || significantDirectionChange || hasCollision) {
+                simplifiedPath.push_back(path[i]);
+                cumulativeDistance = 0.0f; // Reset accumulator
+                prevDirection = currentDirection; // Remember this direction
+            }
         }
     }
     
     // Replace the original path with the simplified one
     path = simplifiedPath;
+}
+
+// Check if a path is clear of element collisions
+bool isPathClear(const std::vector<std::pair<float, float>>& path, float collisionRadius) {
+    if (path.size() < 2) {
+        return true; // Path with 0 or 1 points is always clear
+    }
+    
+    // Check each segment of the path
+    for (size_t i = 0; i < path.size() - 1; i++) {
+        const auto& start = path[i];
+        const auto& end = path[i+1];
+        
+        // Calculate distance between points
+        float dx = end.first - start.first;
+        float dy = end.second - start.second;
+        float distance = std::sqrt(dx * dx + dy * dy);
+        
+        // If points are very close, just check the endpoints
+        if (distance < 0.1f) {
+            continue;
+        }
+        
+        // Check 5 intermediate points along the segment
+        int numChecks = std::min(5, static_cast<int>(distance * 2.0f));
+        for (int j = 1; j < numChecks; j++) {
+            float t = static_cast<float>(j) / numChecks;
+            float x = start.first + dx * t;
+            float y = start.second + dy * t;
+            
+            if (wouldCollideWithElement(x, y, collisionRadius)) {
+                return false; // Collision detected
+            }
+        }
+    }
+    
+    return true; // No collisions detected
 }
