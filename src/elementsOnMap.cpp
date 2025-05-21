@@ -22,10 +22,11 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     ElementTextureInfo coconutTree1Texture;
     coconutTree1Texture.name = ElementTextureName::COCONUT_TREE_1;
     coconutTree1Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_1.png";
-    coconutTree1Texture.type = ElementTextureType::STATIC;
-    coconutTree1Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
+    coconutTree1Texture.type = ElementTextureType::STATIC;    coconutTree1Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree1Texture.anchorOffsetX = -0.3f; // X offset
     coconutTree1Texture.anchorOffsetY = 0.2f; // No Y offset
+    coconutTree1Texture.hasCollision = false;  // Enable collision for this tree
+    coconutTree1Texture.collisionRadius = 0.3f; // Set collision radius
     textures.push_back(coconutTree1Texture);    ElementTextureInfo coconutTree2Texture;
     coconutTree2Texture.name = ElementTextureName::COCONUT_TREE_2;
     coconutTree2Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_2.png";
@@ -33,13 +34,16 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     coconutTree2Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree2Texture.anchorOffsetX = 0.0f; // No offset
     coconutTree2Texture.anchorOffsetY = 0.8f; // No offset
+    coconutTree2Texture.hasCollision = true;  // Enable collision for this tree
+    coconutTree2Texture.collisionRadius = 0.3f; // Set collision radius
     textures.push_back(coconutTree2Texture);    ElementTextureInfo coconutTree3Texture;
     coconutTree3Texture.name = ElementTextureName::COCONUT_TREE_3;
     coconutTree3Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_3.png";
-    coconutTree3Texture.type = ElementTextureType::STATIC;
-    coconutTree3Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
+    coconutTree3Texture.type = ElementTextureType::STATIC;    coconutTree3Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree3Texture.anchorOffsetX = 0.3f; // No offset
     coconutTree3Texture.anchorOffsetY = 0.4f; // No offset
+    coconutTree3Texture.hasCollision = true;  // Enable collision for this tree
+    coconutTree3Texture.collisionRadius = 0.3f; // Set collision radius
     textures.push_back(coconutTree3Texture);
     
     // Sprite sheet texture for character
@@ -51,6 +55,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     characterTexture.spriteHeight = 48; // Assuming 32px height for each sprite frame
     characterTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Player stands on ground
     characterTexture.anchorOffsetY = 2.0f; // No offset
+    characterTexture.hasCollision = true; // No collision for player (we don't want player to collide with itself)
     // We need to add the BOTTOM_CENTER enum value
     textures.push_back(characterTexture);
     
@@ -212,12 +217,16 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
     // Handle anchor point - check if we need to use the texture's default
     if (anchorPoint == AnchorPoint::USE_TEXTURE_DEFAULT) {
         // Look up the texture's default anchor point
-        bool found = false;
-        for (const auto& texInfo : elementTexturesToLoad) {
+        bool found = false;        for (const auto& texInfo : elementTexturesToLoad) {
             if (texInfo.name == textureName) {
                 element.anchorPoint = texInfo.anchorPoint;
                 element.anchorOffsetX = texInfo.anchorOffsetX + anchorOffsetX; // Add custom offset to default
                 element.anchorOffsetY = texInfo.anchorOffsetY + anchorOffsetY; // Add custom offset to default
+                
+                // Copy collision properties from the texture definition
+                element.hasCollision = texInfo.hasCollision;
+                element.collisionRadius = texInfo.collisionRadius;
+                
                 found = true;
                 break;
             }

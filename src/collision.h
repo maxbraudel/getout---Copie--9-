@@ -5,13 +5,13 @@
 #include <vector>
 #include <string>
 
-// Function to check if a position would collide with a tree
-bool wouldCollideWithTree(float x, float y, float collisionRadius = 0.4f);
+// Function to check if a position would collide with any collidable element
+bool wouldCollideWithElement(float x, float y, float playerRadius = 0.2f);
 
-// Get the names of all coconut trees in the game
-std::vector<std::string> getTreeElementNames();
+// Get the names of all elements with collision enabled
+std::vector<std::string> getCollidableElementNames();
 
-// Reset the trees cache when new trees are added
-void resetTreesCache();
+// Reset the elements cache when new elements are added or removed
+void resetCollisionCache();
 
 #endif // COLLISION_H

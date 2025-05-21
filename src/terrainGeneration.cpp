@@ -1,6 +1,6 @@
 #include "terrainGeneration.h"
 #include "map.h" // For TextureName enum and gameMap
-#include "collision.h" // For tree collision detection
+#include "collision.h" // For collision detection
 #include <vector>
 #include <queue>
 #include <map>
@@ -328,12 +328,11 @@ void placeTerrainElements(
                 otherCount++;
             }
         }
-    }
-      // Concise summary of terrain generation results
+    }    // Concise summary of terrain generation results
     std::cout << "Terrain blocks: " << sandCount << " sand, " << grassCount << " grass, " 
               << waterCount << " water blocks" << std::endl;
     std::cout << "Placed " << bushCount << " coconut trees (near water only)" << std::endl;
     
-    // Reset the tree cache to ensure collision detection uses up-to-date information
-    resetTreesCache();
+    // Reset the collision cache to ensure collision detection uses up-to-date information
+    resetCollisionCache();
 }

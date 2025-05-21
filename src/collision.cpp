@@ -5,52 +5,68 @@
 #include <vector>
 #include <string>
 
-// Cache for tree element names
-static std::vector<std::string> treeElementNames;
-static bool treesInitialized = false;
+// Cache for collidable element names
+static std::vector<std::string> collidableElementNames;
+static bool collisionCacheInitialized = false;
 
-// Function to get all tree element names in the game
-std::vector<std::string> getTreeElementNames() {
-    if (!treesInitialized) {
-        // First time initialization - find all tree elements
-        treeElementNames.clear();
+// Function to get all collidable element names in the game
+std::vector<std::string> getCollidableElementNames() {
+    if (!collisionCacheInitialized) {
+        // First time initialization - find all collidable elements
+        collidableElementNames.clear();
         
-        // Get all elements and filter for coconut trees
+        // Get all elements and filter for those with collision enabled
         // This is expensive, so we cache the results
         const auto& elements = elementsManager.getElements();
         for (const auto& element : elements) {
-            // Check if the element is a coconut tree by texture name
-            if (element.textureName == ElementTextureName::COCONUT_TREE_1 ||
-                element.textureName == ElementTextureName::COCONUT_TREE_2 ||
-                element.textureName == ElementTextureName::COCONUT_TREE_3) {
-                
-                treeElementNames.push_back(element.instanceName);
+            // Check if the element has collision enabled
+            if (element.hasCollision) {
+                collidableElementNames.push_back(element.instanceName);
             }
         }
         
-        treesInitialized = true;
-        std::cout << "Initialized collision system with " << treeElementNames.size() << " trees." << std::endl;
+        collisionCacheInitialized = true;
+        std::cout << "Initialized collision system with " << collidableElementNames.size() << " collidable elements." << std::endl;
     }
     
-    return treeElementNames;
+    return collidableElementNames;
 }
 
-// Function to check if a position would collide with a tree
-bool wouldCollideWithTree(float x, float y, float collisionRadius) {
-    // Get all tree element names (cached after first call)
-    std::vector<std::string> trees = getTreeElementNames();
+// Function to check if a position would collide with a collidable element
+bool wouldCollideWithElement(float x, float y, float playerRadius) {
+    // Get all collidable element names (cached after first call)
+    std::vector<std::string> collidables = getCollidableElementNames();
     
-    // Check distance to each tree
-    for (const auto& treeName : trees) {
-        float treeX, treeY;
-        if (elementsManager.getElementPosition(treeName, treeX, treeY)) {
-            // Calculate distance between player and tree
-            float dx = x - treeX;
-            float dy = y - treeY;
+    // Check distance to each collidable element
+    for (const auto& elementName : collidables) {
+        float elementX, elementY;
+        if (elementsManager.getElementPosition(elementName, elementX, elementY)) {
+            // Get the collision radius for this specific element
+            float elementRadius = 0.4f; // Default value
+            
+            // Find the element to get its actual collision radius
+            const auto& elements = elementsManager.getElements();
+            for (const auto& element : elements) {
+                if (element.instanceName == elementName) {
+                    elementRadius = element.collisionRadius;
+                    break;
+                }
+            }
+            
+            // Calculate distance between player and element
+            float dx = x - elementX;
+            float dy = y - elementY;
             float distanceSquared = dx*dx + dy*dy;
             
-            // If distance is less than collision radius, we have a collision
-            if (distanceSquared < collisionRadius * collisionRadius) {
+            // Combined radius for collision detection
+            float combinedRadius = playerRadius + elementRadius;
+            
+            // If distance is less than combined radius, we have a collision
+            if (distanceSquared < combinedRadius * combinedRadius) {
+                // Debug info about collision
+                std::cout << "Collision detected with " << elementName 
+                          << " at distance " << std::sqrt(distanceSquared)
+                          << " (combined radius: " << combinedRadius << ")" << std::endl;
                 return true; // Collision detected
             }
         }
@@ -60,7 +76,7 @@ bool wouldCollideWithTree(float x, float y, float collisionRadius) {
     return false;
 }
 
-// Reset the trees cache when new trees are added
-void resetTreesCache() {
-    treesInitialized = false;
+// Reset the elements cache when new elements are added
+void resetCollisionCache() {
+    collisionCacheInitialized = false;
 }

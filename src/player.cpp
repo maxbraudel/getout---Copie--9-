@@ -62,16 +62,16 @@ void movePlayer(float deltaX, float deltaY) {
         elementsManager.listElements();
         return;
     }
-    
-    // Calculate the new position
+      // Calculate the new position
     float newX = x + deltaX;
     float newY = y + deltaY;
     
-    // Check if the new position would collide with a tree
-    if (wouldCollideWithTree(newX, newY)) {
+    // Check if the new position would collide with any collidable element
+    // Using a smaller player radius for better player movement
+    if (wouldCollideWithElement(newX, newY, 0.2f)) {
         // Collision detected, don't move, but still update animation and direction
         if (playerDebugMode) {
-            std::cout << "Player collision with tree at position (" << newX << ", " << newY << ")" << std::endl;
+            std::cout << "Player collision detected at position (" << newX << ", " << newY << ")" << std::endl;
         }
     } else {
         // No collision, move the player
@@ -113,8 +113,8 @@ bool getPlayerPosition(float& x, float& y) {
 // Function to teleport the player to a specific position
 void teleportPlayer(float x, float y) {
     // Check for collision at the teleport destination
-    if (wouldCollideWithTree(x, y)) {
-        std::cout << "Cannot teleport player to (" << x << ", " << y << ") - position is occupied by a tree." << std::endl;
+    if (wouldCollideWithElement(x, y, 0.2f)) {
+        std::cout << "Cannot teleport player to (" << x << ", " << y << ") - position is occupied by a collidable element." << std::endl;
         return;
     }
     

@@ -93,15 +93,23 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         else if (key == GLFW_KEY_F4) {
             std::cout << "\n--- Current Elements List ---" << std::endl;
             elementsManager.listElements();
-        }
-        // Print detailed element positions when F6 is pressed
+        }        // Print detailed element positions when F6 is pressed
         else if (key == GLFW_KEY_F6) {
             elementsManager.printElementPositions();
         }
-        // Show tree collision information
+        // Show collision information
         else if (key == GLFW_KEY_F7) {
+            // Display all collidable elements
+            std::vector<std::string> collidables = getCollidableElementNames();
+            std::cout << "\n--- Collidable Elements (" << collidables.size() << " total) ---" << std::endl;
+            for (const auto& name : collidables) {
+                float x, y;
+                elementsManager.getElementPosition(name, x, y);
+                std::cout << name << " at position (" << x << ", " << y << ")" << std::endl;
+            }
+        }        else if (key == GLFW_KEY_F7) {
             // Get all tree names
-            std::vector<std::string> trees = getTreeElementNames();
+            std::vector<std::string> trees = getCollidableElementNames();
             std::cout << "\n--- Tree Collision System ---" << std::endl;
             std::cout << "Total trees for collision detection: " << trees.size() << std::endl;
             // Display player position and check nearby trees

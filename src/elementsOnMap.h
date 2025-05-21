@@ -48,6 +48,8 @@ struct ElementTextureInfo {
     AnchorPoint anchorPoint = AnchorPoint::CENTER; // Default anchor point for this texture
     float anchorOffsetX = 0.0f;                    // Default X offset from anchor point
     float anchorOffsetY = 0.0f;                    // Default Y offset from anchor point
+    bool hasCollision = false;                     // Whether this element has collision detection
+    float collisionRadius = 0.4f;                  // Radius for collision detection if enabled
 };
 
 // Struct to hold placed element information
@@ -74,6 +76,10 @@ struct PlacedElement {
     float animationSpeed = 10.0f; // Frames per second for animation
     float currentFrameTime = 0.0f; // Time accumulator for animation
     int numFramesInPhase = 0;     // Number of frames in current animation phase (calculated)
+    
+    // Collision properties
+    bool hasCollision = false;    // Whether this element has collision detection
+    float collisionRadius = 0.4f; // Radius for collision detection if enabled
 };
 
 // Main class to handle elements on the map
