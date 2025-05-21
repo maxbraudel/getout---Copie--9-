@@ -76,7 +76,7 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
         config->defaultSpriteSheetFrame,
         false,  // not animated initially
         config->defaultAnimationSpeed,
-        AnchorPoint::BOTTOM_CENTER  // Default anchor for entities
+        AnchorPoint::USE_TEXTURE_DEFAULT
     );
     
     // Add the entity to our entities map
