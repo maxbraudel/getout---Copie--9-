@@ -302,7 +302,7 @@ int main() {
     EntityConfiguration antagonistConfig;
     antagonistConfig.typeName = "antagonist";
     antagonistConfig.textureName = ElementTextureName::ANTAGONIST1;
-    antagonistConfig.scale = 1.0f;
+    antagonistConfig.scale = 1.5f;
     antagonistConfig.defaultSpriteSheetPhase = 0;
     antagonistConfig.defaultSpriteSheetFrame = 0;
     antagonistConfig.defaultAnimationSpeed = 5.0f;

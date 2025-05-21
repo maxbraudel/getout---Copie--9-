@@ -66,9 +66,8 @@ public:
     
     // Place a new entity on the map
     bool placeEntity(const std::string& instanceName, const std::string& typeName, float x, float y);
-    
-    // Move an entity by a delta
-    bool moveEntity(const std::string& instanceName, float deltaX, float deltaY);
+      // Move an entity to specific coordinates (will walk there)
+    bool moveEntity(const std::string& instanceName, float x, float y);
     
     // Walk an entity to specific coordinates
     bool walkEntityToCoordinates(const std::string& instanceName, float x, float y, WalkType walkType = WalkType::NORMAL);

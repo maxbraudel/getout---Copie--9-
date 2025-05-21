@@ -58,7 +58,7 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
     return true;
 }
 
-bool EntitiesManager::moveEntity(const std::string& instanceName, float deltaX, float deltaY) {
+bool EntitiesManager::moveEntity(const std::string& instanceName, float x, float y) {
     // Get the entity
     Entity* entity = getEntity(instanceName);
     if (!entity) {
@@ -83,43 +83,9 @@ bool EntitiesManager::moveEntity(const std::string& instanceName, float deltaX, 
         return false;
     }
     
-    // Calculate new position
-    float newX = currentX + deltaX;
-    float newY = currentY + deltaY;
-    
-    // Check collision if enabled
-    if (config->canCollide && wouldCollideWithElement(newX, newY, config->collisionRadius)) {
-        std::cout << "Entity " << instanceName << " would collide at (" << newX << ", " << newY << ")" << std::endl;
-        return false;
-    }
-    
-    // Update direction based on movement
-    if (deltaX != 0.0f || deltaY != 0.0f) {
-        // Determine the primary direction (up, down, left, right)
-        if (std::abs(deltaX) > std::abs(deltaY)) {
-            // Horizontal movement dominates
-            entity->lastDirection = (deltaX > 0) ? 3 : 2;  // 3 = right, 2 = left
-        } else {
-            // Vertical movement dominates
-            entity->lastDirection = (deltaY > 0) ? 0 : 1;  // 0 = up, 1 = down
-        }
-        
-        // Set the appropriate sprite phase based on direction
-        int phase;
-        switch (entity->lastDirection) {
-            case 0: phase = config->spritePhaseWalkUp; break;
-            case 1: phase = config->spritePhaseWalkDown; break;
-            case 2: phase = config->spritePhaseWalkLeft; break;
-            case 3: phase = config->spritePhaseWalkRight; break;
-            default: phase = config->defaultSpriteSheetPhase; break;
-        }
-        
-        // Change the sprite phase
-        elementsManager.changeElementSpritePhase(elementName, phase);
-    }
-    
-    // Move the element
-    return elementsManager.moveElement(elementName, deltaX, deltaY);
+    // Instead of direct movement, use walkEntityToCoordinates
+    // This converts the moveEntity function to create a walking path rather than teleport
+    return walkEntityToCoordinates(instanceName, x, y, entity->walkType);
 }
 
 bool EntitiesManager::walkEntityToCoordinates(const std::string& instanceName, float x, float y, WalkType walkType) {
