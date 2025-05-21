@@ -63,14 +63,16 @@ std::vector<std::pair<float, float>> findPath(
             std::vector<std::pair<float, float>> path;
             Node* pathNode = current;
             
-            while (pathNode != nullptr) {
-                // Convert grid coordinates back to world coordinates (center of the cell)
+            while (pathNode != nullptr) {            // Convert grid coordinates back to world coordinates (center of the cell)
                 path.push_back({pathNode->x + 0.0f, pathNode->y + 0.0f});
                 pathNode = pathNode->parent;
             }
             
             // Reverse the path so it goes from start to goal
             std::reverse(path.begin(), path.end());
+            
+            // Simplify the path to reduce zigzagging and make movement smoother
+            simplifyPath(path);
             
             // Clean up all allocated nodes
             for (auto& pair : allNodes) {
@@ -159,8 +161,8 @@ bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap) {
     }
     
     // Convert grid coordinates to world coordinates (center of the cell)
-    float worldX = x + 0.5f;
-    float worldY = y + 0.5f;
+    float worldX = x + 0.0f;
+    float worldY = y + 0.0f;
     
     // Check if this position would collide with any collision
     bool collisionWithElement = wouldCollideWithElement(worldX, worldY, collisionRadius);
@@ -206,7 +208,61 @@ std::vector<std::pair<int, int>> getNeighbors(int x, int y, float collisionRadiu
         if (isPositionValid(nx, ny, collisionRadius, gameMap)) {
             neighbors.push_back({nx, ny});
         }
+    }    
+    return neighbors;
+}
+
+// Simplify a path by removing unnecessary waypoints
+void simplifyPath(std::vector<std::pair<float, float>>& path) {
+    if (path.size() <= 2) {
+        // Path is already as simple as it can be
+        return;
     }
     
-    return neighbors;
+    std::vector<std::pair<float, float>> simplifiedPath;
+    simplifiedPath.push_back(path[0]); // Always keep the start point
+    
+    float cumulativeDistance = 0.0f;
+    std::pair<float, float> prevDirection = {0.0f, 0.0f};
+    
+    // Loop through the path, skipping waypoints based on MINIMUM_DISTANCE_BETWEEN_WAYPOINTS
+    for (size_t i = 1; i < path.size(); ++i) {
+        // Calculate distance and direction to next waypoint
+        float dx = path[i].first - path[i-1].first;
+        float dy = path[i].second - path[i-1].second;
+        float segmentDistance = std::sqrt(dx * dx + dy * dy);
+        
+        // Normalize the direction vector
+        float dirX = (segmentDistance > 0.0001f) ? dx / segmentDistance : 0.0f;
+        float dirY = (segmentDistance > 0.0001f) ? dy / segmentDistance : 0.0f;
+        std::pair<float, float> currentDirection = {dirX, dirY};
+        
+        // Add the distance to our cumulative distance
+        cumulativeDistance += segmentDistance;
+        
+        // Always include the last waypoint in the path
+        bool isLastWaypoint = (i == path.size() - 1);
+        
+        // Check if we should include this waypoint based on:
+        // 1. Accumulated distance exceeds minimum
+        // 2. Significant direction change (avoid zigzag)
+        // 3. It's the last waypoint (always include)
+        bool significantDirectionChange = false;
+        if (prevDirection.first != 0.0f || prevDirection.second != 0.0f) {
+            // Calculate dot product to measure direction similarity
+            float dotProduct = prevDirection.first * currentDirection.first + 
+                              prevDirection.second * currentDirection.second;
+            // If dot product is less than 0.9 (angles differ by more than ~25 degrees)
+            significantDirectionChange = (dotProduct < 0.9f);
+        }
+        
+        if (isLastWaypoint || cumulativeDistance >= MINIMUM_DISTANCE_BETWEEN_WAYPOINTS || significantDirectionChange) {
+            simplifiedPath.push_back(path[i]);
+            cumulativeDistance = 0.0f; // Reset accumulator
+            prevDirection = currentDirection; // Remember this direction
+        }
+    }
+    
+    // Replace the original path with the simplified one
+    path = simplifiedPath;
 }

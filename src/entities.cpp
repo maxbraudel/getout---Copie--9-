@@ -461,64 +461,24 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
             if (entity.currentPathIndex >= entity.path.size()) {
                 // We've completed all waypoints, now target the exact final destination
                 targetX = entity.targetX;
-                targetY = entity.targetY;
-                // Recalculate distance
+                targetY = entity.targetY;                // Recalculate distance
                 dx = targetX - currentX;
                 dy = targetY - currentY;
                 distance = std::sqrt(dx * dx + dy * dy);
                 
-                // Immediately update direction for final approach
-                // Set direction directly based on actual movement vector
-                if (std::abs(dx) > std::abs(dy)) {
-                    // Horizontal movement
-                    entity.lastDirection = (dx > 0) ? 3 : 2;  // 3 = right, 2 = left
-                } else {
-                    // Vertical movement
-                    entity.lastDirection = (dy > 0) ? 0 : 1;  // 0 = up, 1 = down
-                }
-                
-                // Set the appropriate sprite phase based on direction
-                int phase;
-                switch (entity.lastDirection) {
-                    case 0: phase = config.spritePhaseWalkUp; break;
-                    case 1: phase = config.spritePhaseWalkDown; break;
-                    case 2: phase = config.spritePhaseWalkLeft; break;
-                    case 3: phase = config.spritePhaseWalkRight; break;
-                    default: phase = config.defaultSpriteSheetPhase; break;
-                }
-                
-                elementsManager.changeElementSpritePhase(elementName, phase);
+                // Handle the waypoint arrival with the smooth direction transition
+                handleWaypointArrival(entity, elementName, config, currentX, currentY);
             } else {
                 // Update to the new waypoint
                 const auto& newWaypoint = entity.path[entity.currentPathIndex];
                 targetX = newWaypoint.first;
-                targetY = newWaypoint.second;
-                // Recalculate distance
+                targetY = newWaypoint.second;                // Recalculate distance
                 dx = targetX - currentX;
                 dy = targetY - currentY;
                 distance = std::sqrt(dx * dx + dy * dy);
                 
-                // Immediately update direction for the new waypoint
-                // Set direction directly based on actual movement vector
-                if (std::abs(dx) > std::abs(dy)) {
-                    // Horizontal movement
-                    entity.lastDirection = (dx > 0) ? 3 : 2;  // 3 = right, 2 = left
-                } else {
-                    // Vertical movement
-                    entity.lastDirection = (dy > 0) ? 0 : 1;  // 0 = up, 1 = down
-                }
-                
-                // Set the appropriate sprite phase based on direction
-                int phase;
-                switch (entity.lastDirection) {
-                    case 0: phase = config.spritePhaseWalkUp; break;
-                    case 1: phase = config.spritePhaseWalkDown; break;
-                    case 2: phase = config.spritePhaseWalkLeft; break;
-                    case 3: phase = config.spritePhaseWalkRight; break;
-                    default: phase = config.defaultSpriteSheetPhase; break;
-                }
-                
-                elementsManager.changeElementSpritePhase(elementName, phase);
+                // Handle the waypoint arrival with smooth direction transition
+                handleWaypointArrival(entity, elementName, config, currentX, currentY);
             }
         }
     } else {
@@ -763,14 +723,12 @@ bool EntitiesManager::ensureEntityNotStuck(const std::string& instanceName) {
     // Get the entity
     Entity* entity = getEntity(instanceName);
     if (!entity) {
-        std::cerr << "Entity not found: " << instanceName << std::endl;
         return false;
     }
     
     // Get the configuration for this entity type
     const EntityConfiguration* config = getConfiguration(entity->typeName);
     if (!config) {
-        std::cerr << "Entity configuration not found: " << entity->typeName << std::endl;
         return false;
     }
     
@@ -785,11 +743,9 @@ bool EntitiesManager::ensureEntityNotStuck(const std::string& instanceName) {
     // Get current position
     float x, y;
     if (!elementsManager.getElementPosition(elementName, x, y)) {
-        std::cerr << "Error getting position for entity: " << instanceName << std::endl;
         return false;
     }
-    
-    // Check if entity is in a collision state
+      // Check if entity is in a collision state
     if (wouldCollideWithElement(x, y, config->collisionRadius) || 
         wouldCollideWithMapBlock(x, y, gameMap)) {
         
@@ -797,13 +753,25 @@ bool EntitiesManager::ensureEntityNotStuck(const std::string& instanceName) {
         if (findSafePosition(x, y, config->collisionRadius, gameMap)) {
             // Found a safe position, move entity there
             elementsManager.changeElementCoordinates(elementName, x, y);
-            std::cout << "Safety check: Entity " << instanceName << " was stuck in collision, moved to safe position: (" 
-                      << x << ", " << y << ")" << std::endl;
+            
+            // Only log this in debug mode once every 10 seconds to reduce spam
+            static float lastStuckDebugTime = 0.0f;
+            float currentTime = static_cast<float>(glfwGetTime());
+            if (playerDebugMode && currentTime - lastStuckDebugTime > 10.0f) {
+                lastStuckDebugTime = currentTime;
+                std::cout << "Entity " << instanceName << " was stuck, moved to safe position: (" 
+                        << x << ", " << y << ")" << std::endl;
+            }
             return true; // Position was adjusted
         } else {
-            // Could not find a safe position
-            std::cout << "Warning: Entity " << instanceName << " is stuck in collision at (" << x << ", " << y 
-                      << ") and no safe position could be found!" << std::endl;
+            // Could not find a safe position - only log in debug mode with throttling
+            static float lastFailedDebugTime = 0.0f;
+            float currentTime = static_cast<float>(glfwGetTime());
+            if (playerDebugMode && currentTime - lastFailedDebugTime > 15.0f) {
+                lastFailedDebugTime = currentTime;
+                std::cout << "Warning: Entity " << instanceName << " is stuck at (" << x << ", " << y 
+                          << ") and no safe position could be found!" << std::endl;
+            }
         }
     }
     
@@ -812,9 +780,44 @@ bool EntitiesManager::ensureEntityNotStuck(const std::string& instanceName) {
 
 // Function to check if all entities are in safe positions, moving them if needed
 void EntitiesManager::ensureAllEntitiesNotStuck() {
-    // Iterate through all entities and check if they're stuck
+    // Track when we last checked each entity to avoid checking too frequently
+    static std::map<std::string, float> lastCheckTimes;
+    static float lastGlobalCheckTime = 0.0f;
+    
+    // Only run this check every 3.0 seconds to avoid performance impact
+    float currentTime = static_cast<float>(glfwGetTime());
+    if (currentTime - lastGlobalCheckTime < 3.0f) {
+        return; // Skip this check if not enough time has passed
+    }
+    
+    lastGlobalCheckTime = currentTime;
+    
+    // Count how many entities we actually check
+    int entityChecksPerformed = 0;
+    
+    // Iterate through all entities and check if they're stuck, but throttle checks
     for (auto& pair : entities) {
-        ensureEntityNotStuck(pair.first);
+        const std::string& entityName = pair.first;
+        
+        // Only check each entity at most once every several seconds
+        auto it = lastCheckTimes.find(entityName);
+        if (it != lastCheckTimes.end() && currentTime - it->second < 5.0f) {
+            continue; // Skip this entity if checked recently
+        }
+        
+        // Update the last check time for this entity
+        lastCheckTimes[entityName] = currentTime;
+        
+        // Check and unstick if needed
+        if (ensureEntityNotStuck(entityName)) {
+            // Entity was adjusted, count it 
+            entityChecksPerformed++;
+        }
+    }
+      // Only print debug info if we performed any entity checks
+    if (entityChecksPerformed > 0 && playerDebugMode) {
+        std::cout << "Safety check: " << entityChecksPerformed 
+                  << " entities repositioned during collision check" << std::endl;
     }
 }
 
@@ -894,5 +897,83 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
     entity->targetY = targetY;
     
     std::cout << "Entity " << instanceName << " teleported to (" << targetX << ", " << targetY << ")" << std::endl;
+    return true;
+}
+
+// Handle waypoint arrival with direction smoothing
+bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY) {
+    // If entity has no remaining path, return
+    if (entity.currentPathIndex >= entity.path.size()) {
+        return false;
+    }
+    
+    // Get the waypoint we're moving towards
+    const auto& waypoint = entity.path[entity.currentPathIndex];
+    float targetX = waypoint.first;
+    float targetY = waypoint.second;
+    
+    // Calculate direction vector to next waypoint
+    float dx = targetX - currentX;
+    float dy = targetY - currentY;
+    float distance = std::sqrt(dx * dx + dy * dy);
+    
+    // Normalize direction vector
+    float dirX = 0.0f;
+    float dirY = 0.0f;
+    if (distance > 0.0001f) {
+        dirX = dx / distance;
+        dirY = dy / distance;
+    }
+    
+    // Store this as our current segment direction
+    std::pair<float, float> currentDirection = {dirX, dirY};
+    
+    // Calculate if there's a significant direction change
+    bool significantDirectionChange = false;
+    
+    // Check if we have a previous direction to compare with
+    if (entity.lastSegmentDirection.first != 0.0f || entity.lastSegmentDirection.second != 0.0f) {
+        // Use dot product to determine how different the directions are
+        float dotProduct = entity.lastSegmentDirection.first * currentDirection.first +
+                          entity.lastSegmentDirection.second * currentDirection.second;
+        
+        // A dot product < 0.7 indicates an angle > ~45 degrees
+        significantDirectionChange = (dotProduct < 0.7f);
+    }
+    
+    // Determine new sprite direction
+    int newDirection;
+    
+    // If this is a significant change in direction, update sprite direction immediately
+    if (significantDirectionChange) {
+        // Use the main direction component for sprite direction
+        if (std::abs(dirX) > std::abs(dirY)) {
+            // Horizontal movement dominates
+            newDirection = (dirX > 0) ? 3 : 2;  // 3 = right, 2 = left
+        } else {
+            // Vertical movement dominates
+            newDirection = (dirY > 0) ? 0 : 1;  // 0 = up, 1 = down
+        }
+        
+        // Update entity direction
+        entity.lastDirection = newDirection;
+        
+        // Update the sprite phase
+        int phase;
+        switch (entity.lastDirection) {
+            case 0: phase = config.spritePhaseWalkUp; break;
+            case 1: phase = config.spritePhaseWalkDown; break;
+            case 2: phase = config.spritePhaseWalkLeft; break;
+            case 3: phase = config.spritePhaseWalkRight; break;
+            default: phase = config.defaultSpriteSheetPhase; break;
+        }
+        
+        // Change the sprite phase
+        elementsManager.changeElementSpritePhase(elementName, phase);
+    }
+    
+    // Update the last segment direction
+    entity.lastSegmentDirection = currentDirection;
+    
     return true;
 }

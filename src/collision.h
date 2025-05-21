@@ -39,4 +39,9 @@ std::ostream& operator<<(std::ostream& os, const TextureName& blockType);
 // Returns true if the player position was adjusted, false if no adjustment was necessary
 bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap);
 
+// Spatial partitioning functions for collision optimization
+int getSpatialGridIndex(float x, float y);
+void updateSpatialGrid();
+std::vector<std::string> getNearbyElements(float x, float y, float radius);
+
 #endif // COLLISION_H

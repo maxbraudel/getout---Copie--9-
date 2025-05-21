@@ -7,13 +7,17 @@
 const double FRAMERATE_IN_SECONDS = 1. / 60.; // 60 FPS
 
 // Grid properties
-const int GRID_SIZE = 100;
+const int GRID_SIZE = 300;
 const float PLAYER_BASE_SPEED = 4.0f;   // Base speed of player movement (grid units per second)
 const float PLAYER_SPRINT_SPEED = 6.0f; // Sprint speed when shift is held (grid units per second)
 
 // Terrain generation parameters
-float islandFeatureSize = 0.1f; // Controls the size of islands. Smaller values = smaller islands
-float seaFeatureSize = 0.016f;  // Controls the size of sea areas
+/* float islandFeatureSize = 0.1f; // Controls the size of islands. Smaller values = smaller islands
+float seaFeatureSize = 0.016f;  // Controls the size of sea areas */
+
+// Terrain generation parameters
+float islandFeatureSize = 1.0f; // Controls the size of islands. Smaller values = smaller islands
+float seaFeatureSize = 0.1f;  // Controls the size of sea areas
 
 // Rendering parameters
 float gridLineWidth = 1.0f;

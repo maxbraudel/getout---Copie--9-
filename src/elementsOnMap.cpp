@@ -26,7 +26,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     coconutTree1Texture.type = ElementTextureType::STATIC;    coconutTree1Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree1Texture.anchorOffsetX = -0.3f; // X offset
     coconutTree1Texture.anchorOffsetY = 0.2f; // No Y offset
-    coconutTree1Texture.hasCollision = false;  // Enable collision for this tree
+    coconutTree1Texture.hasCollision = true;  // Enable collision for this tree
     coconutTree1Texture.collisionRadius = 0.4f; // Set collision radius
     textures.push_back(coconutTree1Texture);    ElementTextureInfo coconutTree2Texture;
     coconutTree2Texture.name = ElementTextureName::COCONUT_TREE_2;
@@ -65,7 +65,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     antagonistTexture.spriteWidth = 32;  // Assuming 32px width for each sprite frame
     antagonistTexture.spriteHeight = 48; // Assuming 48px height for each sprite frame
     antagonistTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Default anchor - can be changed in config
-    antagonistTexture.anchorOffsetY = 1.0f; // Y offset
+    antagonistTexture.anchorOffsetY = 0.2f; // Y offset
     antagonistTexture.hasCollision = false; // Enable collision for player
     textures.push_back(antagonistTexture);
     

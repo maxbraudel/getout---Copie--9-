@@ -9,6 +9,9 @@
 #include <functional>
 #include <cmath>
 
+// Minimum allowed distance between waypoints to reduce path zigzagging
+const float MINIMUM_DISTANCE_BETWEEN_WAYPOINTS = 10.0f;
+
 // A structure to represent a node in the pathfinding grid
 struct Node {
     int x;
@@ -49,6 +52,13 @@ bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap);
 // Calculate the heuristic value (estimated cost to goal)
 // Using Euclidean distance for natural movement
 float calculateHeuristic(int x1, int y1, int x2, int y2);
+
+// Get all valid neighbors for a position with collision checking
+std::vector<std::pair<int, int>> getNeighbors(int x, int y, float collisionRadius, const Map& gameMap);
+
+// Simplify a path by removing unnecessary waypoints
+// This reduces zigzagging and makes movement smoother
+void simplifyPath(std::vector<std::pair<float, float>>& path);
 
 // Get all valid neighbors for a position with diagonal movement
 std::vector<std::pair<int, int>> getNeighbors(int x, int y, float collisionRadius, const Map& gameMap);

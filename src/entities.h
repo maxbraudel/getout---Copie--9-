@@ -52,14 +52,15 @@ struct Entity {
     float targetX = 0.0f;
     float targetY = 0.0f;
     WalkType walkType = WalkType::NORMAL;
-    
-    // Direction tracking
+      // Direction tracking
     int lastDirection = 1; // 0 = Up, 1 = Down, 2 = Left, 3 = Right
+    float directionChangeTime = 0.0f; // Time accumulator for direction change smoothing
     
     // Pathfinding data
     bool usePathfinding = true; // Whether to use pathfinding for movement
     std::vector<std::pair<float, float>> path; // Current path from pathfinding
     size_t currentPathIndex = 0; // Current position in the path
+    std::pair<float, float> lastSegmentDirection = {0.0f, 0.0f}; // Last major direction for path smoothing
 };
 
 // EntitiesManager - Manages all entities in the game

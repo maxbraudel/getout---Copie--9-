@@ -1,10 +1,13 @@
 #include "collision.h"
 #include "elementsOnMap.h"
+#include "globals.h"  // Added for GRID_SIZE
+#include "GLFW/glfw3.h" // Added for glfwGetTime
 #include <cmath>
 #include <iostream>
 #include <vector>
 #include <string>
 #include <set>
+#include <unordered_map>  // Added for spatial partitioning
 
 // Define M_PI if not already defined (needed for angle calculations)
 #ifndef M_PI
@@ -14,6 +17,17 @@
 // Cache for collidable element names
 static std::vector<std::string> collidableElementNames;
 static bool collisionCacheInitialized = false;
+
+// Spatial partitioning grid for more efficient collision detection
+// This divides the game world into a grid of cells, and only checks collisions
+// with elements in the same or neighboring cells
+const int SPATIAL_GRID_SIZE = 10; // Size of each spatial grid cell
+static std::unordered_map<int, std::vector<std::string>> spatialGrid;
+static bool spatialGridInitialized = false;
+static float lastSpatialGridUpdateTime = 0.0f;
+
+// Last time debug messages were printed to reduce spam
+static float lastCollisionDebugTime = 0.0f;
 
 // Define the set of non-traversable blocks
 std::set<TextureName> nonTraversableBlocks = {
@@ -60,12 +74,17 @@ void printNonTraversableBlocks() {
 
 // Function to get all collidable element names in the game
 std::vector<std::string> getCollidableElementNames() {
-    if (!collisionCacheInitialized) {
-        // First time initialization - find all collidable elements
+    static float lastCacheUpdateTime = 0.0f;
+    static bool firstInit = true;
+    
+    // Only update cache periodically to improve performance
+    float currentTime = static_cast<float>(glfwGetTime());
+    if (!collisionCacheInitialized || currentTime - lastCacheUpdateTime > 2.0f) {
+        // Update the cache when it's stale or needs initializing
         collidableElementNames.clear();
+        lastCacheUpdateTime = currentTime;
         
         // Get all elements and filter for those with collision enabled
-        // This is expensive, so we cache the results
         const auto& elements = elementsManager.getElements();
         for (const auto& element : elements) {
             // Check if the element has collision enabled
@@ -75,28 +94,52 @@ std::vector<std::string> getCollidableElementNames() {
         }
         
         collisionCacheInitialized = true;
-        std::cout << "Initialized collision system with " << collidableElementNames.size() << " collidable elements." << std::endl;
         
-        // Log non-traversable blocks
-        std::cout << "Non-traversable block types: ";
-        for (const auto& blockType : nonTraversableBlocks) {
-            std::cout << static_cast<int>(blockType) << " ";
+        // Only print this message on first initialization to reduce log spam
+        if (firstInit) {
+            std::cout << "Initialized collision system with " << collidableElementNames.size() << " collidable elements." << std::endl;
+            firstInit = false;
         }
-        std::cout << std::endl;
     }
     
     return collidableElementNames;
 }
 
+// Define a constant maximum collision range to optimize element checks
+const float MAX_COLLISION_CHECK_RANGE = 3.0f; // Only check elements within this range
+
 // Function to check if a position would collide with a collidable element
 bool wouldCollideWithElement(float x, float y, float playerRadius) {
-    // Get all collidable element names (cached after first call)
-    std::vector<std::string> collidables = getCollidableElementNames();
+    // Make sure the spatial grid is up to date
+    if (!spatialGridInitialized) {
+        updateSpatialGrid();
+    }
     
-    // Check distance to each collidable element
-    for (const auto& elementName : collidables) {
+    // Get only nearby elements instead of checking all elements
+    std::vector<std::string> nearbyElements = getNearbyElements(x, y, playerRadius + MAX_COLLISION_CHECK_RANGE);
+    
+    // Collision detection counters for performance monitoring
+    static int collisionCheckCount = 0;
+    static int collisionHitCount = 0;
+    
+    // Check distance to each nearby element
+    for (const auto& elementName : nearbyElements) {
         float elementX, elementY;
         if (elementsManager.getElementPosition(elementName, elementX, elementY)) {
+            // Count how many collision checks we're performing
+            collisionCheckCount++;
+            
+            // Quick distance check
+            float dx = x - elementX;
+            float dy = y - elementY;
+            float distanceSquared = dx*dx + dy*dy;
+            
+            // Skip elements that are clearly too far away (optimization)
+            float maxCheckRange = MAX_COLLISION_CHECK_RANGE + playerRadius;
+            if (distanceSquared > maxCheckRange * maxCheckRange) {
+                continue;
+            }
+            
             // Get the collision radius for this specific element
             float elementRadius = 0.4f; // Default value
             
@@ -109,20 +152,34 @@ bool wouldCollideWithElement(float x, float y, float playerRadius) {
                 }
             }
             
-            // Calculate distance between player and element
-            float dx = x - elementX;
-            float dy = y - elementY;
-            float distanceSquared = dx*dx + dy*dy;
-            
             // Combined radius for collision detection
             float combinedRadius = playerRadius + elementRadius;
             
             // If distance is less than combined radius, we have a collision
             if (distanceSquared < combinedRadius * combinedRadius) {
-                // Debug info about collision
-                std::cout << "Collision detected with " << elementName 
-                          << " at distance " << std::sqrt(distanceSquared)
-                          << " (combined radius: " << combinedRadius << ")" << std::endl;
+                // Count how many actual collisions we're detecting
+                collisionHitCount++;
+                
+                // Only print collision debug info when playerDebugMode is on and throttle the messages
+                float currentTime = static_cast<float>(glfwGetTime());
+                if (playerDebugMode && currentTime - lastCollisionDebugTime > 2.0f) {
+                    lastCollisionDebugTime = currentTime;
+                    std::cout << "Collision with " << elementName 
+                              << " at distance " << std::sqrt(distanceSquared)
+                              << " (combined radius: " << combinedRadius << ")" << std::endl;
+                    
+                    // Print performance stats occasionally
+                    std::cout << "Collision efficiency: " << collisionHitCount << " hits from " 
+                              << collisionCheckCount << " checks ("
+                              << (collisionCheckCount > 0 ? (100.0f * collisionHitCount / collisionCheckCount) : 0)
+                              << "% hit rate)" << std::endl;
+                    
+                    // Reset counters periodically
+                    if (collisionCheckCount > 1000) {
+                        collisionCheckCount = 0;
+                        collisionHitCount = 0;
+                    }
+                }
                 return true; // Collision detected
             }
         }
@@ -135,6 +192,73 @@ bool wouldCollideWithElement(float x, float y, float playerRadius) {
 // Reset the elements cache when new elements are added
 void resetCollisionCache() {
     collisionCacheInitialized = false;
+    spatialGridInitialized = false;
+}
+
+// Get spatial grid cell index from world coordinates
+int getSpatialGridIndex(float x, float y) {
+    int gridX = static_cast<int>(x) / SPATIAL_GRID_SIZE;
+    int gridY = static_cast<int>(y) / SPATIAL_GRID_SIZE;
+    // Use a simple hash function to convert 2D grid coordinates to a 1D index
+    return gridX * 1000 + gridY; // This should be sufficient for our grid size
+}
+
+// Update the spatial partitioning grid
+void updateSpatialGrid() {
+    float currentTime = static_cast<float>(glfwGetTime());
+    
+    // Only update every 0.5 seconds to avoid performance impact
+    if (spatialGridInitialized && currentTime - lastSpatialGridUpdateTime < 0.5f) {
+        return;
+    }
+    
+    lastSpatialGridUpdateTime = currentTime;
+    spatialGrid.clear();
+    
+    // Get all collidable elements
+    const auto& collidables = getCollidableElementNames();
+    
+    // Place each element in the appropriate grid cell
+    for (const auto& elementName : collidables) {
+        float x, y;
+        if (elementsManager.getElementPosition(elementName, x, y)) {
+            int index = getSpatialGridIndex(x, y);
+            spatialGrid[index].push_back(elementName);
+        }
+    }
+    
+    spatialGridInitialized = true;
+}
+
+// Get all elements in the vicinity of a position
+std::vector<std::string> getNearbyElements(float x, float y, float radius) {
+    std::vector<std::string> result;
+    
+    // Make sure the spatial grid is up to date
+    if (!spatialGridInitialized) {
+        updateSpatialGrid();
+    }
+    
+    // Calculate the grid cell range that could contain elements within the radius
+    int cellRadius = static_cast<int>(radius / SPATIAL_GRID_SIZE) + 1;
+    int centerCellX = static_cast<int>(x) / SPATIAL_GRID_SIZE;
+    int centerCellY = static_cast<int>(y) / SPATIAL_GRID_SIZE;
+    
+    // Check all cells in the vicinity
+    for (int cellX = centerCellX - cellRadius; cellX <= centerCellX + cellRadius; cellX++) {
+        for (int cellY = centerCellY - cellRadius; cellY <= centerCellY + cellRadius; cellY++) {
+            int index = cellX * 1000 + cellY;
+            
+            // Get all elements in this grid cell
+            auto it = spatialGrid.find(index);
+            if (it != spatialGrid.end()) {
+                // Add elements from this cell to the result
+                result.insert(result.end(), it->second.begin(), it->second.end());
+            }
+        }
+    }
+    
+    return result;
 }
 
 // Function to check if a position would collide with a non-traversable map block
@@ -143,13 +267,24 @@ bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap) {
     int gridX = static_cast<int>(x);
     int gridY = static_cast<int>(y);
     
+    // Skip invalid coordinates 
+    if (gridX < 0 || gridX >= GRID_SIZE || gridY < 0 || gridY >= GRID_SIZE) {
+        return true; // Treat out-of-bounds as collision
+    }
+    
     // Get the texture type at these coordinates
     TextureName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
     
     // Check if this block type is in our set of non-traversable blocks
     if (nonTraversableBlocks.find(blockType) != nonTraversableBlocks.end()) {
-        if (playerDebugMode) {
-            std::cout << "Map block collision detected at (" << x << ", " << y 
+        // Throttle debug output much more aggressively
+        static int mapCollisionCounter = 0;
+        static float lastMapDebugTime = 0.0f;
+        float currentTime = static_cast<float>(glfwGetTime());
+        
+        if (playerDebugMode && currentTime - lastMapDebugTime > 5.0f) {
+            lastMapDebugTime = currentTime;
+            std::cout << "Map block collision at (" << x << ", " << y 
                       << ") - Block type: " << static_cast<int>(blockType) << std::endl;
         }
         return true; // Collision detected with non-traversable block

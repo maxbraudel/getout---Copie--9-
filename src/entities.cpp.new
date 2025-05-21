@@ -1,0 +1,77 @@
+// Handle waypoint arrival with direction smoothing
+bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY) {
+    // If entity has no remaining path, return
+    if (entity.currentPathIndex >= entity.path.size()) {
+        return false;
+    }
+    
+    // Get the waypoint we're moving towards
+    const auto& waypoint = entity.path[entity.currentPathIndex];
+    float targetX = waypoint.first;
+    float targetY = waypoint.second;
+    
+    // Calculate direction vector to next waypoint
+    float dx = targetX - currentX;
+    float dy = targetY - currentY;
+    float distance = std::sqrt(dx * dx + dy * dy);
+    
+    // Normalize direction vector
+    float dirX = 0.0f;
+    float dirY = 0.0f;
+    if (distance > 0.0001f) {
+        dirX = dx / distance;
+        dirY = dy / distance;
+    }
+    
+    // Store this as our current segment direction
+    std::pair<float, float> currentDirection = {dirX, dirY};
+    
+    // Calculate if there's a significant direction change
+    bool significantDirectionChange = false;
+    
+    // Check if we have a previous direction to compare with
+    if (entity.lastSegmentDirection.first != 0.0f || entity.lastSegmentDirection.second != 0.0f) {
+        // Use dot product to determine how different the directions are
+        float dotProduct = entity.lastSegmentDirection.first * currentDirection.first +
+                          entity.lastSegmentDirection.second * currentDirection.second;
+        
+        // A dot product < 0.7 indicates an angle > ~45 degrees
+        significantDirectionChange = (dotProduct < 0.7f);
+    }
+    
+    // Determine new sprite direction
+    int newDirection;
+    
+    // If this is a significant change in direction, update sprite direction immediately
+    if (significantDirectionChange) {
+        // Use the main direction component for sprite direction
+        if (std::abs(dirX) > std::abs(dirY)) {
+            // Horizontal movement dominates
+            newDirection = (dirX > 0) ? 3 : 2;  // 3 = right, 2 = left
+        } else {
+            // Vertical movement dominates
+            newDirection = (dirY > 0) ? 0 : 1;  // 0 = up, 1 = down
+        }
+        
+        // Update entity direction
+        entity.lastDirection = newDirection;
+        
+        // Update the sprite phase
+        int phase;
+        switch (entity.lastDirection) {
+            case 0: phase = config.spritePhaseWalkUp; break;
+            case 1: phase = config.spritePhaseWalkDown; break;
+            case 2: phase = config.spritePhaseWalkLeft; break;
+            case 3: phase = config.spritePhaseWalkRight; break;
+            default: phase = config.defaultSpriteSheetPhase; break;
+        }
+        
+        // Change the sprite phase
+        elementsManager.changeElementSpritePhase(elementName, phase);
+    }
+    
+    // Update the last segment direction
+    entity.lastSegmentDirection = currentDirection;
+    
+    return true;
+}

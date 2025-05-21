@@ -372,33 +372,26 @@ int main() {
 	// elementsManager.listElements();
 		// Generate the terrain first - this will be our base map
 	std::cout << "Generating terrain..." << std::endl;
-	std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.7f);
+	std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.65f);
 	// Apply the generated terrain - this is more efficient than placing blocks and then overwriting them
 	std::cout << "Placing generated terrain..." << std::endl;
 	gameMap.placeBlocks(generatedMap);	
 	
 	// Now add a few specific blocks (only if you need to override the terrain)
 	// These are placed after the terrain generation, so they will override any blocks at the same positions
-	std::map<std::pair<int, int>, TextureName> specialBlocks;
+	/* std::map<std::pair<int, int>, TextureName> specialBlocks;
 	specialBlocks[{0, 0}] = TextureName::SAND; // Special block at top-left
 	specialBlocks[{5, 5}] = TextureName::SAND; // Special block at position
 	gameMap.placeBlocks(specialBlocks);
 		// Update the generated map with special blocks to keep it in sync with the actual map
 	for (const auto& pair : specialBlocks) {
 		generatedMap[pair.first] = pair.second;
-	}
+	} */
 	
 	std::cout << "Map generation complete." << std::endl;
 		// Automatically place terrain elements (bushes on sand blocks) with 1/50 chance
 	// Instead of creating a separate map, we'll use the gameMap directly to ensure we see the actual blocks
 	placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);
-	// Place additional decorative elements on the map with unique names using texture-defined anchor points
-  	// Note: The coordinate system has (0,0) at bottom-left, with Y increasing upward
-	elementsManager.placeElement("test1", ElementTextureName::COCONUT_TREE_1, 5.0f, 1.0f, 1.0f,
-                               0.0f, 0, 0, false, 10.0f); // Using default anchor point from texture
-    
-    // Demonstrate moving an element
-    elementsManager.changeElementCoordinates("bush2", 30.0f, 30.0f);  // Move bush2 to a new position
     
     // Configure and place the antagonist entity
     EntityConfiguration antagonistConfig;
@@ -429,9 +422,9 @@ int main() {
     entitiesManager.addConfiguration(antagonistConfig);
     
     // Place the antagonist entity at coordinates (1, 1)
-    entitiesManager.placeEntity("antagonist1", "antagonist", 1.0f, 1.0f);
+    entitiesManager.placeEntity("antagonist1", "antagonist", 10.0f, 10.0f);
 
-    entitiesManager.moveEntity("antagonist1", 10.0f, 10.0f); // Move the antagonist entity to a new position
+    entitiesManager.moveEntity("antagonist1", 20.0f, 20.0f); // Move the antagonist entity to a new position
     
 	// Only show elements count rather than full list for cleaner output
 	std::cout << "Game ready with " << elementsManager.getElementsCount() << " elements placed" << std::endl;
@@ -457,7 +450,7 @@ int main() {
 		
         // Update entities (handle movement and animations)
         entitiesManager.update(deltaTime);
-        		// First check if the player exists before processing movements
+      		// First check if the player exists before processing movements
 		float playerX, playerY;
 		bool playerExists = elementsManager.getElementPosition("player1", playerX, playerY);
 		
@@ -468,14 +461,14 @@ int main() {
 			createPlayer(10.0f, 10.0f);
 			playerExists = true;
 		}
-				// Safety check - make sure the player is never stuck in collision areas
+						// Safety check - make sure the player is never stuck in collision areas
 		// This is important in case the player somehow ends up in a collision area
-		// (e.g., if a map is loaded with player already in a collision block)
+		// Throttled to only check periodically to avoid performance impact
 		if (playerExists) {
 			static float lastCollisionCheckTime = 0.0f;
-			// Check for collisions more frequently (every 0.2 seconds) to catch any stuck situations quickly
-			if (currentTime - lastCollisionCheckTime > 0.2f) {
-				// Periodically run the collision check to ensure player isn't stuck
+			// Reduced frequency: check for collisions every 3.0 seconds instead of 1.0
+			if (currentTime - lastCollisionCheckTime > 3.0f) {
+				// Run the collision check to ensure player isn't stuck
 				lastCollisionCheckTime = currentTime;
 				
 				if (ensurePlayerNotStuck(gameMap)) {
@@ -484,8 +477,8 @@ int main() {
 					std::cout << "Player position adjusted to safe position: (" << playerX << ", " << playerY << ")" << std::endl;
 				}
 				
-				// Also check all entities for collision issues
-				entitiesManager.ensureAllEntitiesNotStuck();
+				// We don't need to check entities here as they're already checked in entitiesManager.update()
+				// entitiesManager.ensureAllEntitiesNotStuck();
 			}
 		}
 		
