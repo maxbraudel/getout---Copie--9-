@@ -17,7 +17,6 @@ static bool collisionCacheInitialized = false;
 
 // Define the set of non-traversable blocks
 std::set<TextureName> nonTraversableBlocks = {
-    TextureName::WATER_0,
     TextureName::WATER_1,
     TextureName::WATER_2,
     TextureName::WATER_3,

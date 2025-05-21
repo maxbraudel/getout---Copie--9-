@@ -132,47 +132,96 @@ void movePlayer(float deltaX, float deltaY) {
             }
         }
     }
-    
-    // Calculate the new position after potential unstuck operation
+      // Calculate the new position after potential unstuck operation
     float newX = x + deltaX;
     float newY = y + deltaY;
     
-    // Check if the new position would collide with any collidable element or map block
-    // Using a smaller player radius for better player movement
+    // Check if the combined movement would collide with any collidable element or map block
     bool collisionWithElement = wouldCollideWithElement(newX, newY, 0.2f);
     bool collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap);
+    bool canMove = !(collisionWithElement || collisionWithMapBlock);
     
-    if (collisionWithElement || collisionWithMapBlock) {
-        // Collision detected, don't move, but still update animation and direction
-        if (playerDebugMode) {
-            if (collisionWithElement) {
-                std::cout << "Player collision with element at position (" << newX << ", " << newY << ")" << std::endl;
-            }
-            if (collisionWithMapBlock) {
-                std::cout << "Player collision with map block at position (" << newX << ", " << newY << ")" << std::endl;
+    // If we can't move diagonally, try to move in single directions (sliding along walls)
+    float actualDeltaX = 0;
+    float actualDeltaY = 0;
+    bool movedPartially = false;
+    
+    if (!canMove && (deltaX != 0 && deltaY != 0)) {
+        // Try moving only horizontally
+        float testX = x + deltaX;
+        float testY = y; // Keep Y the same
+        
+        bool horizontalCollision = wouldCollideWithElement(testX, testY, 0.2f) || 
+                                  wouldCollideWithMapBlock(testX, testY, gameMap);
+        
+        // Try moving only vertically
+        float testX2 = x; // Keep X the same
+        float testY2 = y + deltaY;
+        
+        bool verticalCollision = wouldCollideWithElement(testX2, testY2, 0.2f) || 
+                                wouldCollideWithMapBlock(testX2, testY2, gameMap);
+        
+        // If horizontal movement is possible
+        if (!horizontalCollision) {
+            actualDeltaX = deltaX;
+            movedPartially = true;
+            
+            if (playerDebugMode) {
+                std::cout << "Player can slide horizontally by " << deltaX << std::endl;
             }
         }
-    } else {
-        // No collision, move the player
-        elementsManager.moveElement("player1", deltaX, deltaY);
+        
+        // If vertical movement is possible
+        if (!verticalCollision) {
+            actualDeltaY = deltaY;
+            movedPartially = true;
+            
+            if (playerDebugMode) {
+                std::cout << "Player can slide vertically by " << deltaY << std::endl;
+            }
+        }
+    } else if (canMove) {
+        // If we can move diagonally, use the original deltas
+        actualDeltaX = deltaX;
+        actualDeltaY = deltaY;
+        movedPartially = true;
     }
     
-    // Enable animation when moving
-    elementsManager.changeElementAnimationStatus("player1", true);
+    if (movedPartially) {
+        // Move the player with the possible movement deltas
+        elementsManager.moveElement("player1", actualDeltaX, actualDeltaY);
+        
+        // Enable animation since player is moving (at least partially)
+        elementsManager.changeElementAnimationStatus("player1", true);
+    } else {
+        // No movement in any direction, disable animation
+        if (playerDebugMode) {
+            std::cout << "Player cannot move in any direction from (" << x << ", " << y << ")" << std::endl;
+        }
+        
+        // Disable animation since player can't move at all
+        elementsManager.changeElementAnimationStatus("player1", false);
+        
+        // Set to standing frame
+        elementsManager.changeElementSpriteFrame("player1", 0);
+    }
+      // Change the player's facing direction based on attempted movement direction
+    // Use actualDeltaX/Y if we're moving partially, otherwise use requested deltaX/Y for facing
+    float directionDeltaX = movedPartially ? actualDeltaX : deltaX;
+    float directionDeltaY = movedPartially ? actualDeltaY : deltaY;
     
-    // Also change the player's facing direction based on movement
-    if (deltaX > 0 && std::abs(deltaX) > std::abs(deltaY)) {
+    if (directionDeltaX > 0 && std::abs(directionDeltaX) > std::abs(directionDeltaY)) {
         // Moving right (and right movement is dominant)
-        elementsManager.changeElementSpritePhase("player1", 1); // Assuming 2 is the right-facing animation
-    } else if (deltaX < 0 && std::abs(deltaX) > std::abs(deltaY)) {
+        elementsManager.changeElementSpritePhase("player1", 1); // Right-facing animation
+    } else if (directionDeltaX < 0 && std::abs(directionDeltaX) > std::abs(directionDeltaY)) {
         // Moving left (and left movement is dominant)
-        elementsManager.changeElementSpritePhase("player1", 2); // Assuming 1 is the left-facing animation
-    } else if (deltaY > 0) {
+        elementsManager.changeElementSpritePhase("player1", 2); // Left-facing animation
+    } else if (directionDeltaY > 0) {
         // Moving up (or up movement is dominant)
-        elementsManager.changeElementSpritePhase("player1", 0); // Assuming 3 is the up-facing animation
-    } else if (deltaY < 0) {
+        elementsManager.changeElementSpritePhase("player1", 0); // Up-facing animation
+    } else if (directionDeltaY < 0) {
         // Moving down (or down movement is dominant)
-        elementsManager.changeElementSpritePhase("player1", 3); // Assuming 0 is the down-facing animation
+        elementsManager.changeElementSpritePhase("player1", 3); // Down-facing animation
     }
 
     // Display player position in debug mode
