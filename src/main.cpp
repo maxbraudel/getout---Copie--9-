@@ -13,6 +13,7 @@
 #include "collision.h" // Added include for collision detection
 #include "debug.h" // Added include for debugging features
 #include "entities.h" // Added include for entity management
+#include "entityBehaviors.h" // Added include for entity behaviors
 #include <ctime> // For time(0) to seed random number generator
 #include <cmath> // For sqrt function
 #include <algorithm> // For std::min and std::max
@@ -192,7 +193,32 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             elementsManager.listElements();
         }        // Print detailed element positions when F6 is pressed
         else if (key == GLFW_KEY_F6) {
-            elementsManager.printElementPositions();        }        // Toggle sand as non-traversable
+            elementsManager.printElementPositions();
+        }
+        // Toggle AI behavior for enemies with H key
+        else if (key == GLFW_KEY_H) {
+            static bool aiEnabled = true;
+            aiEnabled = !aiEnabled;
+            
+            // Create local copies of entity instances for safety
+            std::vector<std::string> antagonists = {"antagonist1"};
+            
+            // Toggle behavior for all antagonists
+            for (const auto& instanceName : antagonists) {
+                // If disabling, unregister from behavior system
+                if (!aiEnabled) {
+                    entityBehaviorManager.unregisterEntity(instanceName);
+                    std::cout << "AI behavior disabled for " << instanceName << std::endl;
+                } else {
+                    // If enabling, register with behavior system
+                    entityBehaviorManager.registerEntity(instanceName, "antagonist");
+                    std::cout << "AI behavior enabled for " << instanceName << std::endl;
+                }
+            }
+            
+            std::cout << "Enemy AI behavior " << (aiEnabled ? "enabled" : "disabled") << std::endl;
+        }
+        // Toggle sand as non-traversable
         else if (key == GLFW_KEY_B) {
             static bool sandIsBlocked = false;
             sandIsBlocked = !sandIsBlocked;
@@ -390,38 +416,19 @@ int main() {
 	std::cout << "Map generation complete." << std::endl;
 		// Automatically place terrain elements (bushes on sand blocks) with 1/50 chance
 	// Instead of creating a separate map, we'll use the gameMap directly to ensure we see the actual blocks
-	placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);
+	placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);    // Initialize entity configurations from predefined types in entities.cpp
+    entitiesManager.initializeEntityConfigurations();
     
-    // Configure and place the antagonist entity
-    EntityConfiguration antagonistConfig;
-    antagonistConfig.typeName = "antagonist";
-    antagonistConfig.textureName = ElementTextureName::ANTAGONIST1;
-    antagonistConfig.scale = 1.5f;
-    antagonistConfig.defaultSpriteSheetPhase = 2;
-    antagonistConfig.defaultSpriteSheetFrame = 0;
-    antagonistConfig.defaultAnimationSpeed = 11.0f;
+    // Initialize entity behavior system
+    entityBehaviorManager.initialize();
     
-    // Define sprite phases for different directions
-    antagonistConfig.spritePhaseWalkUp = 0;    // Adjust based on your spritesheet layout
-    antagonistConfig.spritePhaseWalkDown = 3;  // Adjust based on your spritesheet layout
-    antagonistConfig.spritePhaseWalkLeft = 2;  // Adjust based on your spritesheet layout
-    antagonistConfig.spritePhaseWalkRight = 1; // Adjust based on your spritesheet layout
+    // Place the antagonist entity at coordinates (10, 10)
+    entitiesManager.placeEntityByType("antagonist1", "antagonist", 10.0f, 10.0f);
     
-    // Define walking speeds
-    antagonistConfig.normalWalkingSpeed = 4.0f;
-    antagonistConfig.normalWalkingAnimationSpeed = 11.0f;
-    antagonistConfig.sprintWalkingSpeed = 10.0f;
-    antagonistConfig.sprintWalkingAnimationSpeed = 12.0f;
+    // Register the antagonist with the behavior system
+    entityBehaviorManager.registerEntity("antagonist1", "antagonist");
     
-    // Collision settings
-    antagonistConfig.canCollide = true;
-    antagonistConfig.collisionRadius = 0.4f;
-    
-    // Add the configuration to the entities manager
-    entitiesManager.addConfiguration(antagonistConfig);
-    
-    // Place the antagonist entity at coordinates (1, 1)
-    entitiesManager.placeEntity("antagonist1", "antagonist", 10.0f, 10.0f);
+    entitiesManager.moveEntity("antagonist1", 20.0f, 20.0f); // Move the antagonist entity to a new position
 
     entitiesManager.moveEntity("antagonist1", 20.0f, 20.0f); // Move the antagonist entity to a new position
     
@@ -445,10 +452,11 @@ int main() {
 		
 		// Process keyboard input for player movement
 		float playerMoveX = 0.0f;
-		float playerMoveY = 0.0f;
-		
-        // Update entities (handle movement and animations)
+		float playerMoveY = 0.0f;        // Update entities (handle movement and animations)
         entitiesManager.update(deltaTime);
+        
+        // Update entity behaviors
+        entityBehaviorManager.update(deltaTime);
       		// First check if the player exists before processing movements
 		float playerX, playerY;
 		bool playerExists = elementsManager.getElementPosition("player1", playerX, playerY);

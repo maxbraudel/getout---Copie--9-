@@ -6,11 +6,59 @@
 #include <iostream>
 #include <cmath>
 
+// Static vector of predefined entity types
+static std::vector<EntityInfo> entityTypes;
+
+// Function to initialize entity types
+static void initializeEntityTypes() {
+    if (!entityTypes.empty()) {
+        return; // Already initialized
+    }
+
+    // Antagonist entity configuration
+    EntityInfo antagonist;
+    antagonist.typeName = "antagonist";
+    antagonist.textureName = ElementTextureName::ANTAGONIST1;
+    antagonist.scale = 1.5f;
+    
+    // Default sprite configuration
+    antagonist.defaultSpriteSheetPhase = 2;
+    antagonist.defaultSpriteSheetFrame = 0;
+    antagonist.defaultAnimationSpeed = 11.0f;
+    
+    // Walking animation phases
+    antagonist.spritePhaseWalkUp = 0;
+    antagonist.spritePhaseWalkDown = 3;
+    antagonist.spritePhaseWalkLeft = 2;
+    antagonist.spritePhaseWalkRight = 1;
+    
+    // Movement speeds
+    antagonist.normalWalkingSpeed = 1.5f;
+    antagonist.normalWalkingAnimationSpeed = 4.0f;
+    antagonist.sprintWalkingSpeed = 10.0f;
+    antagonist.sprintWalkingAnimationSpeed = 12.0f;
+    
+    // Collision settings
+    antagonist.canCollide = true;
+    antagonist.collisionRadius = 0.4f;
+      // Add to the list
+    entityTypes.push_back(antagonist);
+
+    
+    // Add to the list    
+    // Add more entity types here as needed
+}
+
 // Global instance definition
 EntitiesManager entitiesManager;
 
 // Forward declaration for gameMap access (defined in main.cpp)
 extern Map gameMap;
+
+// Static method to get element name from instance name
+std::string EntitiesManager::getElementName(const std::string& instanceName) {
+    return "entity_" + instanceName;
+}
 
 EntitiesManager::EntitiesManager() {
     // Constructor
@@ -20,10 +68,49 @@ EntitiesManager::~EntitiesManager() {
     // Destructor - nothing special to clean up
 }
 
+void EntitiesManager::initializeEntityConfigurations() {
+    // Initialize the predefined entity types if they haven't been initialized yet
+    initializeEntityTypes();
+    
+    // Add all predefined entity configurations
+    for (const auto& entityInfo : entityTypes) {
+        EntityConfiguration config(entityInfo);
+        addConfiguration(config);
+    }
+    std::cout << "Initialized " << entityTypes.size() << " predefined entity configurations" << std::endl;
+}
+
+const EntityConfiguration* EntitiesManager::getConfiguration(const std::string& typeName) const {
+    auto it = configurations.find(typeName);
+    if (it != configurations.end()) {
+        return &(it->second);
+    }
+    return nullptr;
+}
+
 void EntitiesManager::addConfiguration(const EntityConfiguration& config) {
     // Add or replace the configuration
     configurations[config.typeName] = config;
     std::cout << "Added entity configuration: " << config.typeName << std::endl;
+}
+
+bool EntitiesManager::placeEntityByType(const std::string& instanceName, const std::string& typeName, float x, float y) {
+    // Find the entity type in our predefined list
+    for (const auto& entityInfo : entityTypes) {
+        if (entityInfo.typeName == typeName) {
+            // Create configuration from the entity info
+            EntityConfiguration config(entityInfo);
+            // Add the configuration if it doesn't exist yet
+            if (!getConfiguration(typeName)) {
+                addConfiguration(config);
+            }
+            // Place the entity
+            return placeEntity(instanceName, typeName, x, y);
+        }
+    }
+    
+    std::cerr << "Entity type not found: " << typeName << std::endl;
+    return false;
 }
 
 bool EntitiesManager::placeEntity(const std::string& instanceName, const std::string& typeName, float x, float y) {
@@ -291,9 +378,7 @@ bool EntitiesManager::changeEntityWalkingState(const std::string& instanceName, 
                               config->normalWalkingAnimationSpeed : 
                               config->sprintWalkingAnimationSpeed;
         elementsManager.changeElementAnimationSpeed(elementName, animationSpeed);
-    }
-    
-    std::cout << "Entity " << instanceName << " walk type changed to " 
+    }      std::cout << "Entity " << instanceName << " walk type changed to " 
               << ((walkType == WalkType::NORMAL) ? "normal" : "sprint") << std::endl;
     return true;
 }
@@ -325,14 +410,6 @@ void EntitiesManager::update(double deltaTime) {
 }
 
 // Private helper methods
-
-const EntityConfiguration* EntitiesManager::getConfiguration(const std::string& typeName) const {
-    auto it = configurations.find(typeName);
-    if (it != configurations.end()) {
-        return &(it->second);
-    }
-    return nullptr;
-}
 
 Entity* EntitiesManager::getEntity(const std::string& instanceName) {
     auto it = entities.find(instanceName);

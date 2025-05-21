@@ -14,6 +14,34 @@ enum class WalkType {
     SPRINT
 };
 
+// Struct to hold predefined entity types information
+struct EntityInfo {
+    std::string typeName;
+    ElementTextureName textureName;
+    float scale;
+    
+    // Sprite configuration
+    int defaultSpriteSheetPhase;
+    int defaultSpriteSheetFrame;
+    float defaultAnimationSpeed;
+    
+    // Walking animation phases
+    int spritePhaseWalkUp;
+    int spritePhaseWalkDown;
+    int spritePhaseWalkLeft;
+    int spritePhaseWalkRight;
+    
+    // Movement speeds
+    float normalWalkingSpeed;
+    float normalWalkingAnimationSpeed;
+    float sprintWalkingSpeed;
+    float sprintWalkingAnimationSpeed;
+    
+    // Collision settings
+    bool canCollide;
+    float collisionRadius;
+};
+
 // Struct to hold entity configuration
 struct EntityConfiguration {
     std::string typeName;
@@ -40,6 +68,32 @@ struct EntityConfiguration {
     // Collision settings
     bool canCollide = true;
     float collisionRadius = 0.4f;
+    
+    // Constructor to create from EntityInfo
+    EntityConfiguration() = default;
+    
+    EntityConfiguration(const EntityInfo& info) {
+        typeName = info.typeName;
+        textureName = info.textureName;
+        scale = info.scale;
+        
+        defaultSpriteSheetPhase = info.defaultSpriteSheetPhase;
+        defaultSpriteSheetFrame = info.defaultSpriteSheetFrame;
+        defaultAnimationSpeed = info.defaultAnimationSpeed;
+        
+        spritePhaseWalkUp = info.spritePhaseWalkUp;
+        spritePhaseWalkDown = info.spritePhaseWalkDown;
+        spritePhaseWalkLeft = info.spritePhaseWalkLeft;
+        spritePhaseWalkRight = info.spritePhaseWalkRight;
+        
+        normalWalkingSpeed = info.normalWalkingSpeed;
+        normalWalkingAnimationSpeed = info.normalWalkingAnimationSpeed;
+        sprintWalkingSpeed = info.sprintWalkingSpeed;
+        sprintWalkingAnimationSpeed = info.sprintWalkingAnimationSpeed;
+        
+        canCollide = info.canCollide;
+        collisionRadius = info.collisionRadius;
+    }
 };
 
 // Struct to hold entity instance data
@@ -69,12 +123,23 @@ public:
     EntitiesManager();
     ~EntitiesManager();
     
+    // Initialize entities from predefined configurations
+    void initializeEntityConfigurations();
+      // Get a configuration by type name
+    const EntityConfiguration* getConfiguration(const std::string& typeName) const;
+    
     // Add a new entity configuration
     void addConfiguration(const EntityConfiguration& config);
     
     // Place a new entity on the map
     bool placeEntity(const std::string& instanceName, const std::string& typeName, float x, float y);
-      // Move an entity to specific coordinates (will walk there)
+      // Helper method to get element name from entity instance name
+    static std::string getElementName(const std::string& instanceName);
+    
+    // Place a predefined entity by type
+    bool placeEntityByType(const std::string& instanceName, const std::string& typeName, float x, float y);
+    
+    // Move an entity to specific coordinates (will walk there)
     bool moveEntity(const std::string& instanceName, float x, float y);
     
     // Teleport an entity to specific coordinates immediately (handles collisions)
@@ -103,9 +168,7 @@ public:
     
 private:
     std::map<std::string, EntityConfiguration> configurations;    std::map<std::string, Entity> entities;
-    
-    // Helper methods
-    const EntityConfiguration* getConfiguration(const std::string& typeName) const;
+      // Helper methods
     Entity* getEntity(const std::string& instanceName);
     
     // Get the next waypoint from the entity's path
@@ -115,11 +178,6 @@ private:
     void updateEntityWalking(Entity& entity, const EntityConfiguration& config, double deltaTime);
       // Handle waypoint arrival - added to improve movement precision
     bool handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY);
-    
-    // Calculate element name for an entity instance
-    std::string getElementName(const std::string& instanceName) const {
-        return "entity_" + instanceName;
-    }
 };
 
 // Global instance
