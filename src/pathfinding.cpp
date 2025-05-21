@@ -368,12 +368,13 @@ bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap, co
     if (x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) {
         return false;
     }
-      // Convert grid coordinates to world coordinates (center of the cell)
+    
+    // Convert grid coordinates to world coordinates (center of the cell)
     float worldX = x + 0.5f;
     float worldY = y + 0.5f;
     
     // Add a safety buffer to the collision radius for better pathfinding
-    float safetyBuffer = 0.2f;
+    float safetyBuffer = 0.3f; // Increased from 0.2f for better obstacle avoidance
     float pathfindingRadius = collisionRadius + safetyBuffer;
     
     // Check if this position would collide with any element (trees, etc)
@@ -382,8 +383,38 @@ bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap, co
     // Check if this position would collide with a non-traversable map block
     bool collisionWithMapBlock = wouldCollideWithMapBlock(worldX, worldY, gameMap, nonTraversableBlocks);
     
-    // Return true only if there are no collisions
-    return !collisionWithElement && !collisionWithMapBlock;
+    // Also check nearby elements to make sure we're not too close to obstacles
+    std::vector<std::string> nearbyElements = getNearbyElements(worldX, worldY, pathfindingRadius * 1.2f);
+    bool tooCloseToObstacle = false;
+    
+    for (const auto& elementName : nearbyElements) {
+        float elementX, elementY;
+        if (elementsManager.getElementPosition(elementName, elementX, elementY)) {
+            float dx = worldX - elementX;
+            float dy = worldY - elementY;
+            float distanceSquared = dx*dx + dy*dy;
+            
+            // Get the element's collision radius
+            float elementRadius = 0.4f; // Default
+            const auto& elements = elementsManager.getElements();
+            for (const auto& element : elements) {
+                if (element.instanceName == elementName) {
+                    elementRadius = element.collisionRadius;
+                    break;
+                }
+            }
+            
+            // Check if we're too close to this element
+            float minDistanceSquared = (pathfindingRadius + elementRadius + 0.1f) * (pathfindingRadius + elementRadius + 0.1f);
+            if (distanceSquared < minDistanceSquared) {
+                tooCloseToObstacle = true;
+                break;
+            }
+        }
+    }
+    
+    // Return true only if there are no collisions and we're not too close to obstacles
+    return !collisionWithElement && !collisionWithMapBlock && !tooCloseToObstacle;
 }
 
 // Get all valid neighbors for a position with diagonal movement

@@ -445,15 +445,113 @@ bool EntitiesManager::getNextPathWaypoint(Entity& entity, float& nextX, float& n
 void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfiguration& config, double deltaTime) {
     // Get the element name
     std::string elementName = getElementName(entity.instanceName);
-    
-    // Get current position
+      // Get current position
     float currentX, currentY;
     if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
         std::cerr << "Error getting position for entity: " << entity.instanceName << std::endl;
         entity.isWalking = false; // Stop walking due to error
         return;
     }
-      // Function to update entity direction and sprite phase - defined at top so it's available throughout the function
+    
+    // Check if the entity is stuck by tracking movement progress over time
+    float currentTime = static_cast<float>(glfwGetTime());
+    
+    // Initialize last position if this is the first update
+    if (entity.lastPositionX == 0.0f && entity.lastPositionY == 0.0f) {
+        entity.lastPositionX = currentX;
+        entity.lastPositionY = currentY;
+        entity.lastPositionChangeTime = currentTime;
+        entity.stuckCheckTime = currentTime;
+    }
+    
+    // Check for stuck entity periodically
+    if (currentTime - entity.stuckCheckTime > 3.0f) {
+        // Check if the entity has moved significantly
+        float distanceMoved = std::sqrt(
+            std::pow(currentX - entity.lastPositionX, 2) +
+            std::pow(currentY - entity.lastPositionY, 2)
+        );
+        
+        // If entity hasn't moved much in 3 seconds, it might be stuck
+        if (distanceMoved < 0.2f) {
+            // Increment stuck counter
+            entity.stuckCount++;
+            
+            std::cout << "Entity " << entity.instanceName << " may be stuck. Distance moved: " 
+                      << distanceMoved << " in " << (currentTime - entity.stuckCheckTime) 
+                      << " seconds. Stuck count: " << entity.stuckCount << std::endl;
+            
+            // If stuck more than 3 times, try to unstick more aggressively
+            if (entity.stuckCount >= 3) {
+                std::cout << "Entity " << entity.instanceName 
+                          << " appears to be stuck. Attempting to teleport to a safe position..." << std::endl;
+                
+                // Try to find a completely different safe position
+                float safeX = currentX;
+                float safeY = currentY;
+                float safetyBuffer = 0.4f;
+                float safeRadius = config.collisionRadius + safetyBuffer;
+                
+                // First try with findSafePosition
+                if (findSafePosition(safeX, safeY, safeRadius, gameMap, config.nonTraversableBlocks)) {
+                    // Found a safe position, teleport entity there
+                    elementsManager.changeElementCoordinates(elementName, safeX, safeY);
+                    std::cout << "Teleported stuck entity to safe position: (" 
+                              << safeX << ", " << safeY << ")" << std::endl;
+                    
+                    // Update current position
+                    currentX = safeX;
+                    currentY = safeY;
+                    
+                    // Recalculate path if using pathfinding
+                    if (entity.usePathfinding) {
+                        std::vector<std::pair<float, float>> newPath = findPath(
+                            currentX, currentY,
+                            entity.targetX, entity.targetY,
+                            gameMap,
+                            safeRadius,
+                            config.nonTraversableBlocks
+                        );
+                        
+                        if (!newPath.empty()) {
+                            entity.path = newPath;
+                            entity.currentPathIndex = 0;
+                            std::cout << "Calculated new path for unstuck entity with " 
+                                      << newPath.size() << " waypoints" << std::endl;
+                        } else {
+                            // No path found, stop moving
+                            entity.isWalking = false;
+                            elementsManager.changeElementAnimationStatus(elementName, false);
+                            elementsManager.changeElementSpriteFrame(elementName, 0);
+                            std::cout << "Could not find path for unstuck entity. Stopping movement." << std::endl;
+                        }
+                    }
+                    
+                    // Reset stuck detection
+                    entity.stuckCount = 0;
+                } else {
+                    // Could not find safe position, more drastic measures may be needed
+                    std::cout << "WARNING: Could not find safe position for stuck entity " 
+                              << entity.instanceName << ". Stopping movement." << std::endl;
+                    
+                    // Stop the entity's movement since we can't unstick it
+                    entity.isWalking = false;
+                    elementsManager.changeElementAnimationStatus(elementName, false);
+                    elementsManager.changeElementSpriteFrame(elementName, 0);
+                }
+            }
+        } else {
+            // Entity has moved, reset stuck counter
+            entity.stuckCount = 0;
+        }
+        
+        // Reset for next check
+        entity.lastPositionX = currentX;
+        entity.lastPositionY = currentY;
+        entity.stuckCheckTime = currentTime;
+    }
+      
+    // Function to update entity direction and sprite phase - defined at top so it's available throughout the function
     auto updateDirectionAndSprite = [&](float dirX, float dirY) {
         // Only process if there's actual movement
         if (dirX == 0 && dirY == 0) {
@@ -494,15 +592,19 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
     // This handles the case where the entity somehow got stuck in a collision area
     float safeX = currentX;
     float safeY = currentY;
-    bool wasStuck = false;
-      // Only check collisions if this entity type can collide
+    bool wasStuck = false;      // Only check collisions if this entity type can collide
     if (config.canCollide) {
         // Try to find a safe position for the entity if it's currently stuck
-        if (wouldCollideWithElement(safeX, safeY, config.collisionRadius) || 
-            wouldCollideWithMapBlock(safeX, safeY, gameMap, config.nonTraversableBlocks)) {
-            wasStuck = findSafePosition(safeX, safeY, config.collisionRadius, gameMap);
+        bool collisionWithElement = wouldCollideWithElement(safeX, safeY, config.collisionRadius);
+        bool collisionWithMapBlock = wouldCollideWithMapBlock(safeX, safeY, gameMap, config.nonTraversableBlocks);
+        
+        if (collisionWithElement || collisionWithMapBlock) {
+            // Add safety buffer for better collision avoidance
+            float safetyBuffer = 0.2f;
+            float safeRadius = config.collisionRadius + safetyBuffer;
             
-            if (wasStuck) {
+            // Try to find a safe position with entity-specific non-traversable blocks
+            if (findSafePosition(safeX, safeY, safeRadius, gameMap, config.nonTraversableBlocks)) {
                 // Entity was stuck and we found a safe position, teleport it there
                 elementsManager.changeElementCoordinates(elementName, safeX, safeY);
                 std::cout << "Entity " << entity.instanceName << " was stuck in collision, moved to safe position: (" 
@@ -511,6 +613,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                 // Update our local position variable
                 currentX = safeX;
                 currentY = safeY;
+                wasStuck = true;
             }
         }
     }
@@ -647,8 +750,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
     elementsManager.changeElementSpritePhase(elementName, phase);
     
     // Check for collisions before moving the entity
-    bool canMove = true;
-      if (config.canCollide) {
+    bool canMove = true;      if (config.canCollide) {
         // Calculate the new position after movement
         float newX = currentX + moveDx;
         float newY = currentY + moveDy;
@@ -659,42 +761,80 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         
         if (collisionWithElement || collisionWithMapBlock) {
             // Collision detected, don't move but keep trying to reach the target
-            canMove = false;            // Try to find a safe path by testing intermediate positions
-            // First check moving only in Y direction (vertical movement)
-            newX = currentX;
-            newY = currentY + moveDy;
-            collisionWithElement = wouldCollideWithElement(newX, newY, config.collisionRadius);
-            collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
+            canMove = false;
             
-            if (!collisionWithElement && !collisionWithMapBlock) {
-                moveDx = 0; // Only move in Y
+            // Try to find a safe position directly
+            float safeX = newX;
+            float safeY = newY;
+            
+            // Add some safety buffer for better collision avoidance
+            float safetyBuffer = 0.2f;
+            float safeRadius = config.collisionRadius + safetyBuffer;
+            
+            // Try to find a safe position that takes into account entity-specific blocks
+            if (findSafePosition(safeX, safeY, safeRadius, gameMap, config.nonTraversableBlocks)) {
+                // Found a safe position, use it instead
+                moveDx = safeX - currentX;
+                moveDy = safeY - currentY;
                 canMove = true;
-                // Force update sprite direction based on Y movement only
-                // Use direct value to ensure correct sprite direction
-                int verticalDirection = (moveDy > 0) ? 0 : 1; // 0 = up, 1 = down
-                entity.lastDirection = verticalDirection;
                 
-                // Set sprite phase directly based on direction
-                int phase = (verticalDirection == 0) ? config.spritePhaseWalkUp : config.spritePhaseWalkDown;
+                // Update direction based on actual movement
+                float actualDx = safeX - currentX;
+                float actualDy = safeY - currentY;
+                
+                if (std::abs(actualDx) > std::abs(actualDy)) {
+                    // Horizontal movement dominates
+                    entity.lastDirection = (actualDx > 0) ? 3 : 2;  // 3 = right, 2 = left
+                } else {
+                    // Vertical movement dominates
+                    entity.lastDirection = (actualDy > 0) ? 0 : 1;  // 0 = up, 1 = down
+                }
+                
+                // Set sprite phase based on updated direction
+                int phase;
+                switch (entity.lastDirection) {
+                    case 0: phase = config.spritePhaseWalkUp; break;
+                    case 1: phase = config.spritePhaseWalkDown; break;
+                    case 2: phase = config.spritePhaseWalkLeft; break;
+                    case 3: phase = config.spritePhaseWalkRight; break;
+                    default: phase = config.defaultSpriteSheetPhase; break;
+                }
                 elementsManager.changeElementSpritePhase(elementName, phase);
             } else {
-                // Then check moving only in X direction (horizontal movement)
-                newX = currentX + moveDx;
-                newY = currentY;
+                // If we couldn't find a safe position, try alternative movement directions
+                
+                // Try moving only in Y direction (vertical movement)
+                newX = currentX;
+                newY = currentY + moveDy;
                 collisionWithElement = wouldCollideWithElement(newX, newY, config.collisionRadius);
                 collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
                 
                 if (!collisionWithElement && !collisionWithMapBlock) {
-                    moveDy = 0; // Only move in X
+                    moveDx = 0; // Only move in Y
                     canMove = true;
-                    // Force update sprite direction based on X movement only
-                    // Use direct value to ensure correct sprite direction
-                    int horizontalDirection = (moveDx > 0) ? 3 : 2; // 3 = right, 2 = left
-                    entity.lastDirection = horizontalDirection;
+                    // Force update sprite direction based on Y movement only
+                    entity.lastDirection = (moveDy > 0) ? 0 : 1; // 0 = up, 1 = down
                     
                     // Set sprite phase directly based on direction
-                    int phase = (horizontalDirection == 3) ? config.spritePhaseWalkRight : config.spritePhaseWalkLeft;
+                    int phase = (entity.lastDirection == 0) ? config.spritePhaseWalkUp : config.spritePhaseWalkDown;
                     elementsManager.changeElementSpritePhase(elementName, phase);
+                } else {
+                    // Then check moving only in X direction (horizontal movement)
+                    newX = currentX + moveDx;
+                    newY = currentY;
+                    collisionWithElement = wouldCollideWithElement(newX, newY, config.collisionRadius);
+                    collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
+                    
+                    if (!collisionWithElement && !collisionWithMapBlock) {
+                        moveDy = 0; // Only move in X
+                        canMove = true;
+                        // Force update sprite direction based on X movement only
+                        entity.lastDirection = (moveDx > 0) ? 3 : 2; // 3 = right, 2 = left
+                        
+                        // Set sprite phase directly based on direction
+                        int phase = (entity.lastDirection == 3) ? config.spritePhaseWalkRight : config.spritePhaseWalkLeft;
+                        elementsManager.changeElementSpritePhase(elementName, phase);
+                    }
                 }
             }if (!canMove) {
                 // Entity is stuck, let's try to recalculate the path if using pathfinding
@@ -702,7 +842,27 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                     std::cout << "Entity " << entity.instanceName << " encountered obstacle at (" 
                               << newX << ", " << newY << "), recalculating path..." << std::endl;
                     
-                    // Get current position
+                    // Try to find a safe position first before recalculating
+                    float safeX = currentX;
+                    float safeY = currentY;
+                    float safetyBuffer = 0.3f;
+                    float safeRadius = config.collisionRadius + safetyBuffer;
+                    
+                    // Try with the entity-specific non-traversable blocks
+                    bool foundSafePos = findSafePosition(safeX, safeY, safeRadius, gameMap, config.nonTraversableBlocks);
+                    
+                    if (foundSafePos) {
+                        // Found a safe position, teleport there
+                        elementsManager.changeElementCoordinates(elementName, safeX, safeY);
+                        std::cout << "Found safe position at (" << safeX << ", " << safeY 
+                                  << "), moving entity there before recalculating path" << std::endl;
+                        
+                        // Update current position
+                        currentX = safeX;
+                        currentY = safeY;
+                    }
+                    
+                    // Get current position (which might have been updated)
                     float curX, curY;
                     if (elementsManager.getElementPosition(elementName, curX, curY)) {
                         // Validate coordinates before pathfinding
@@ -718,15 +878,19 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                             elementsManager.changeElementAnimationStatus(elementName, false);
                             elementsManager.changeElementSpriteFrame(elementName, 0);
                             return;
-                        }                        
+                        }
                         // Recalculate the path from the current position
+                        // Use an enlarged collision radius for safer paths
+                        float pathPlanningRadius = config.collisionRadius + 0.3f;
                         std::vector<std::pair<float, float>> newPath = findPath(
                             curX, curY,
                             entity.targetX, entity.targetY,
                             gameMap,
-                            config.collisionRadius,
+                            pathPlanningRadius,
                             config.nonTraversableBlocks
-                        );                        // Check if a new path was found
+                        );
+                        
+                        // Check if a new path was found
                         if (!newPath.empty()) {
                             entity.path = newPath;
                             entity.currentPathIndex = 0;
@@ -739,7 +903,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                                 float dirX = nextX - curX;
                                 float dirY = nextY - curY;
                                 
-                                // Set direction directly based on actual movement vector to first waypoint
+                                // Set direction based on movement vector to first waypoint
                                 if (std::abs(dirX) > std::abs(dirY)) {
                                     // Horizontal movement
                                     entity.lastDirection = (dirX > 0) ? 3 : 2;  // 3 = right, 2 = left
@@ -748,7 +912,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                                     entity.lastDirection = (dirY > 0) ? 0 : 1;  // 0 = up, 1 = down
                                 }
                                 
-                                // Set the appropriate sprite phase based on direction
+                                // Set the sprite based on the direction
                                 int phase;
                                 switch (entity.lastDirection) {
                                     case 0: phase = config.spritePhaseWalkUp; break;
@@ -757,16 +921,53 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                                     case 3: phase = config.spritePhaseWalkRight; break;
                                     default: phase = config.defaultSpriteSheetPhase; break;
                                 }
-                                
                                 elementsManager.changeElementSpritePhase(elementName, phase);
                             }
+                            
+                            // Make sure we're moving next frame
+                            canMove = true;
+                            return; // Skip the rest of this update cycle, we'll calculate movement next frame
                         } else {
-                            // No path found, stop walking
-                            entity.isWalking = false;
-                            elementsManager.changeElementAnimationStatus(elementName, false);
-                            elementsManager.changeElementSpriteFrame(elementName, 0);
-                            std::cout << "No valid path found for entity " << entity.instanceName 
-                                      << ", stopping movement" << std::endl;
+                            // No path found, try with an alternative approach
+                            // Find a safe position near the target first
+                            float safeTargetX = entity.targetX;
+                            float safeTargetY = entity.targetY;
+                            
+                            // Try to find a safe position near the target
+                            if (findSafePosition(safeTargetX, safeTargetY, pathPlanningRadius, gameMap, config.nonTraversableBlocks)) {
+                                // Found a safe position near the target, try pathfinding to it
+                                newPath = findPath(
+                                    curX, curY,
+                                    safeTargetX, safeTargetY,
+                                    gameMap,
+                                    pathPlanningRadius,
+                                    config.nonTraversableBlocks
+                                );
+                                
+                                if (!newPath.empty()) {
+                                    // Found a path to the safe target position
+                                    entity.path = newPath;
+                                    entity.currentPathIndex = 0;
+                                    entity.targetX = safeTargetX;
+                                    entity.targetY = safeTargetY;
+                                    std::cout << "Found path to safe target with " << newPath.size() << " waypoints" << std::endl;
+                                    
+                                    // Update direction
+                                    if (entity.path.size() > 0) {
+                                        float nextX = entity.path[0].first;
+                                        float nextY = entity.path[0].second;
+                                        float dirX = nextX - curX;
+                                        float dirY = nextY - curY;
+                                        
+                                        // Update direction and sprite
+                                        updateDirectionAndSprite(dirX, dirY);
+                                    }
+                                    
+                                    // Make sure we're moving next frame
+                                    canMove = true;
+                                    return; // Skip the rest of this update cycle
+                                }
+                            }
                         }
                     }
                 } else {
@@ -798,8 +999,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
     } else {
         // We have a collision but we want to keep trying to reach the target
         // Update the sprite direction to match the intended movement even if we can't actually move
-        updateDirectionAndSprite(dx, dy);
-    }
+        updateDirectionAndSprite(dx, dy);    }
 }
 
 // Function to ensure entity is not stuck in any collision areas
@@ -828,13 +1028,16 @@ bool EntitiesManager::ensureEntityNotStuck(const std::string& instanceName) {
     float x, y;
     if (!elementsManager.getElementPosition(elementName, x, y)) {
         return false;
-    }
-      // Check if entity is in a collision state
-    if (wouldCollideWithElement(x, y, config->collisionRadius) || 
-        wouldCollideWithMapBlock(x, y, gameMap)) {
+    }      // Check if entity is in a collision state
+    bool collisionWithElement = wouldCollideWithElement(x, y, config->collisionRadius);
+    bool collisionWithMapBlock = wouldCollideWithMapBlock(x, y, gameMap, config->nonTraversableBlocks);
         
-        // Entity is stuck, try to find a safe position
-        if (findSafePosition(x, y, config->collisionRadius, gameMap)) {
+    if (collisionWithElement || collisionWithMapBlock) {        // Add a safety buffer for better collision avoidance
+        float safetyBuffer = 0.2f;
+        float safeRadius = config->collisionRadius + safetyBuffer;
+        
+        // Entity is stuck, try to find a safe position with entity-specific non-traversable blocks
+        if (findSafePosition(x, y, safeRadius, gameMap, config->nonTraversableBlocks)) {
             // Found a safe position, move entity there
             elementsManager.changeElementCoordinates(elementName, x, y);
             

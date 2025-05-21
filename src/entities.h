@@ -122,6 +122,13 @@ struct Entity {
     std::vector<std::pair<float, float>> path; // Current path from pathfinding
     size_t currentPathIndex = 0; // Current position in the path
     std::pair<float, float> lastSegmentDirection = {0.0f, 0.0f}; // Last major direction for path smoothing
+    
+    // Movement tracking for stuck detection
+    float lastPositionX = 0.0f;
+    float lastPositionY = 0.0f;
+    float lastPositionChangeTime = 0.0f;
+    float stuckCheckTime = 0.0f;
+    int stuckCount = 0;
 };
 
 // EntitiesManager - Manages all entities in the game

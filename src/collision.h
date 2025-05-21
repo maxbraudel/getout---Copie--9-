@@ -49,6 +49,9 @@ std::ostream& operator<<(std::ostream& os, const TextureName& blockType);
 // Returns true if the player position was adjusted, false if no adjustment was necessary
 bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap);
 
+// Overloaded version that handles entity-specific non-traversable blocks
+bool findSafePosition(float& x, float& y, float entityRadius, const Map& gameMap, const std::set<TextureName>& entityNonTraversableBlocks);
+
 // Spatial partitioning functions for collision optimization
 int getSpatialGridIndex(float x, float y);
 void updateSpatialGrid();

@@ -212,8 +212,7 @@ bool EntityBehaviorManager::getRandomPositionNearOnBlockTypes(const std::string&
                 // Check if this block type is in our whitelist
                 bool isTargetType = std::find(targetBlockTypes.begin(), targetBlockTypes.end(), blockType) != targetBlockTypes.end();
                 
-                if (isTargetType) {
-                    // Calculate position with a small random offset to avoid grid alignment
+                if (isTargetType) {                    // Calculate position with a small random offset to avoid grid alignment
                     // Reduced offset range to keep positions more centered in safe cells
                     std::uniform_real_distribution<float> smallOffset(-0.2f, 0.2f);
                     float offsetX = smallOffset(rng);
@@ -222,13 +221,49 @@ bool EntityBehaviorManager::getRandomPositionNearOnBlockTypes(const std::string&
                     float posX = static_cast<float>(gridX) + offsetX;
                     float posY = static_cast<float>(gridY) + offsetY;
                     
+                    // Add increased safety buffer to stay further from obstacles
+                    float safetyBuffer = 0.4f; // Increased from 0.2f
+                    float safeCollisionRadius = collisionRadius + safetyBuffer;
+                    
                     // First check map block collisions - faster check
-                    if (!wouldCollideWithMapBlock(posX, posY, gameMap)) {
+                    bool mapBlockCollision = wouldCollideWithMapBlock(posX, posY, gameMap);
+                    if (!mapBlockCollision) {
                         // Then check element collisions with increased safety radius
-                        if (!wouldCollideWithElement(posX, posY, safeCollisionRadius)) {
-                            // Perform a check for nearby collision elements to ensure we're not too close
+                        bool elementCollision = wouldCollideWithElement(posX, posY, safeCollisionRadius);
+                        if (!elementCollision) {
+                            // Check nearby elements to ensure we're not too close to obstacles
                             std::vector<std::string> nearbyElements = getNearbyElements(posX, posY, safeCollisionRadius * 1.5f);
-                            if (nearbyElements.empty()) {
+                            bool tooCloseToObstacle = false;
+                            
+                            // Additional check for nearby elements
+                            for (const auto& elementName : nearbyElements) {
+                                float elementX, elementY;
+                                if (elementsManager.getElementPosition(elementName, elementX, elementY)) {
+                                    float dx = posX - elementX;
+                                    float dy = posY - elementY;
+                                    float distanceSquared = dx*dx + dy*dy;
+                                    
+                                    // Get the element's collision radius
+                                    float elementRadius = 0.4f; // Default
+                                    const auto& elements = elementsManager.getElements();
+                                    for (const auto& element : elements) {
+                                        if (element.instanceName == elementName) {
+                                            elementRadius = element.collisionRadius;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    // Check if we're too close to this element
+                                    float minDistanceSquared = (safeCollisionRadius + elementRadius) * 
+                                                              (safeCollisionRadius + elementRadius);
+                                    if (distanceSquared < minDistanceSquared) {
+                                        tooCloseToObstacle = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if (!tooCloseToObstacle) {
                                 validPositions.push_back(std::make_pair(posX, posY));
                             }
                         }
