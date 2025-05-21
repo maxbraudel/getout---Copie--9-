@@ -51,30 +51,31 @@ void clearNonTraversableBlocks() {
     std::cout << "Cleared all non-traversable blocks." << std::endl;
 }
 
-// Helper function to convert TextureName to string
-std::string getBlockTypeName(TextureName blockType) {
+// Stream output operator for TextureName enum - more elegant than a conversion function
+std::ostream& operator<<(std::ostream& os, const TextureName& blockType) {
     switch (blockType) {
-        case TextureName::GRASS_0: return "GRASS_0";
-        case TextureName::GRASS_1: return "GRASS_1";
-        case TextureName::GRASS_2: return "GRASS_2";
-        case TextureName::GRASS_3: return "GRASS_3";
-        case TextureName::GRASS_4: return "GRASS_4";
-        case TextureName::GRASS_5: return "GRASS_5";
-        case TextureName::SAND: return "SAND";
-        case TextureName::WATER_0: return "WATER_0";
-        case TextureName::WATER_1: return "WATER_1";
-        case TextureName::WATER_2: return "WATER_2";
-        case TextureName::WATER_3: return "WATER_3";
-        case TextureName::WATER_4: return "WATER_4";
-        default: return "UNKNOWN";
+        case TextureName::GRASS_0: os << "GRASS_0"; break;
+        case TextureName::GRASS_1: os << "GRASS_1"; break;
+        case TextureName::GRASS_2: os << "GRASS_2"; break;
+        case TextureName::GRASS_3: os << "GRASS_3"; break;
+        case TextureName::GRASS_4: os << "GRASS_4"; break;
+        case TextureName::GRASS_5: os << "GRASS_5"; break;
+        case TextureName::SAND: os << "SAND"; break;
+        case TextureName::WATER_0: os << "WATER_0"; break;
+        case TextureName::WATER_1: os << "WATER_1"; break;
+        case TextureName::WATER_2: os << "WATER_2"; break;
+        case TextureName::WATER_3: os << "WATER_3"; break;
+        case TextureName::WATER_4: os << "WATER_4"; break;
+        default: os << "UNKNOWN"; break;
     }
+    return os;
 }
 
 // Function to print all non-traversable block types
 void printNonTraversableBlocks() {
     std::cout << "Non-traversable block types (" << nonTraversableBlocks.size() << " total):" << std::endl;
     for (const auto& blockType : nonTraversableBlocks) {
-        std::cout << " - " << getBlockTypeName(blockType) << " (enum: " << static_cast<int>(blockType) << ")" << std::endl;
+        // std::cout << " - " << getBlockTypeName(blockType) << " (enum: " << static_cast<int>(blockType) << ")" << std::endl;
     }
 }
 
@@ -197,13 +198,16 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
     // This is more efficient than checking in a grid and handles both element and map block collisions
     
     const float step = 0.1f;  // Step size for each potential position check
-    const float maxDistance = 3.0f; // Maximum distance to check for safe position
+    const float maxDistance = 5.0f; // Increased maximum distance to check for safe position
     float distance = step;
-    
-    // Try to find a safe position by spiraling outward
+      // Try to find a safe position by spiraling outward
     while (distance <= maxDistance) {
         // Try positions in a circle at current distance
-        for (float angle = 0.0f; angle < 2.0f * M_PI; angle += 0.2f) {
+        // Use more angles for finer granularity as the search expands
+        float angleStep = 0.2f;
+        if (distance > 2.0f) angleStep = 0.1f; // Finer search at greater distances
+        
+        for (float angle = 0.0f; angle < 2.0f * M_PI; angle += angleStep) {
             float testX = x + distance * cos(angle);
             float testY = y + distance * sin(angle);
             
@@ -224,6 +228,39 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
         
         // Increase distance for next search ring
         distance += step;
+    }
+    
+    // If no safe position found in spiral search, try a grid search as fallback
+    // This helps in cases where the map has complex collision patterns
+    if (playerDebugMode) {
+        std::cout << "Spiral search failed, trying grid search..." << std::endl;
+    }
+    
+    // Try a grid search in a square around the player
+    for (float dx = -maxDistance; dx <= maxDistance; dx += step) {
+        for (float dy = -maxDistance; dy <= maxDistance; dy += step) {
+            // Skip points we've already checked in the spiral (approximately)
+            if (std::sqrt(dx*dx + dy*dy) <= maxDistance - step) {
+                continue;
+            }
+            
+            float testX = x + dx;
+            float testY = y + dy;
+            
+            // Check if this position is safe
+            if (!wouldCollideWithElement(testX, testY, playerRadius) && 
+                !wouldCollideWithMapBlock(testX, testY, gameMap)) {
+                // Found a safe position, update coordinates and return
+                if (playerDebugMode) {
+                    std::cout << "Grid search found safe position at (" << testX << ", " << testY 
+                              << "), moved player " << std::sqrt(dx*dx + dy*dy) << " units" << std::endl;
+                }
+                
+                x = testX;
+                y = testY;
+                return true; // Position was adjusted
+            }
+        }
     }
     
     // If we got here, couldn't find a safe position within reasonable distance

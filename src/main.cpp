@@ -404,15 +404,21 @@ int main() {
 			createPlayer(10.0f, 10.0f);
 			playerExists = true;
 		}
-		
-		// Safety check - make sure the player is never stuck in collision areas
+				// Safety check - make sure the player is never stuck in collision areas
 		// This is important in case the player somehow ends up in a collision area
 		// (e.g., if a map is loaded with player already in a collision block)
-		if (playerExists && ensurePlayerNotStuck(gameMap)) {
-			// If position was adjusted, get the new position for debug info
-			getPlayerPosition(playerX, playerY);
-			if (playerDebugMode) {
-				std::cout << "Player position adjusted to safe position: (" << playerX << ", " << playerY << ")" << std::endl;
+		if (playerExists) {
+			static float lastCollisionCheckTime = 0.0f;
+			// Check for collisions more frequently (every 0.2 seconds) to catch any stuck situations quickly
+			if (currentTime - lastCollisionCheckTime > 0.2f) {
+				// Periodically run the collision check to ensure player isn't stuck
+				lastCollisionCheckTime = currentTime;
+				
+				if (ensurePlayerNotStuck(gameMap)) {
+					// If position was adjusted, get the new position for debug info
+					getPlayerPosition(playerX, playerY);
+					std::cout << "Player position adjusted to safe position: (" << playerX << ", " << playerY << ")" << std::endl;
+				}
 			}
 		}
 		

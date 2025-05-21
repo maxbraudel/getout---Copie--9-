@@ -90,8 +90,7 @@ void movePlayer(float deltaX, float deltaY) {
         elementsManager.listElements();
         return;
     }
-    
-    // First, check if the player is already in a collision state and try to fix it
+      // First, check if the player is already in a collision state and try to fix it
     // This handles the case where the player somehow got stuck in a collision area
     float currentX = x;
     float currentY = y;
@@ -111,6 +110,26 @@ void movePlayer(float deltaX, float deltaY) {
             }
             x = currentX;
             y = currentY;
+        } 
+        else {
+            // Failed to find a safe position - try with a larger radius search
+            // This is a more aggressive attempt to get the player unstuck
+            std::cout << "WARNING: Player is stuck in collision and standard recovery failed." << std::endl;
+            std::cout << "Attempting emergency teleport to a known safe location..." << std::endl;
+            
+            // Try to teleport to the center of the map or another known safe location
+            currentX = 10.0f;
+            currentY = 10.0f;
+            
+            // Make sure this location is actually safe
+            if (!wouldCollideWithElement(currentX, currentY, 0.2f) && 
+                !wouldCollideWithMapBlock(currentX, currentY, gameMap)) {
+                elementsManager.changeElementCoordinates("player1", currentX, currentY);
+                std::cout << "Player emergency teleported to (" << currentX << ", " << currentY << ")" << std::endl;
+                x = currentX;
+                y = currentY;
+                wasStuck = true;
+            }
         }
     }
     
@@ -180,27 +199,99 @@ void teleportPlayer(float x, float y) {
     bool collisionWithMapBlock = wouldCollideWithMapBlock(targetX, targetY, gameMap);
     
     if (collisionWithElement || collisionWithMapBlock) {
+        // Log the collision type for debugging
+        if (playerDebugMode) {
+            std::cout << "Teleport destination has collision: ";
+            if (collisionWithMapBlock) {
+                int gridX = static_cast<int>(targetX);
+                int gridY = static_cast<int>(targetY);
+                TextureName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
+                std::cout << "Map block type: " << blockType << " ";
+            }
+            if (collisionWithElement) {
+                std::cout << "Element collision";
+            }
+            std::cout << std::endl;
+        }
+        
         // Try to find a safe position near the requested coordinates
+        // First attempt - standard search with normal radius
         if (findSafePosition(targetX, targetY, 0.2f, gameMap)) {
             // Found a safe position near the requested coordinates
             std::cout << "Adjusted teleport position from (" << x << ", " << y << ") to ("
                     << targetX << ", " << targetY << ") to avoid collisions." << std::endl;
         } else {
-            // Could not find a safe position
-            std::cout << "Cannot teleport player to (" << x << ", " << y << ") - ";
-            if (collisionWithElement) {
-                std::cout << "position is occupied by a collidable element";
+            // Could not find a safe position with standard search
+            // Try a different approach - try points in an expanding square
+            std::cout << "Standard search failed. Trying alternate safe position search..." << std::endl;
+            
+            // Try in a square pattern around the target
+            bool foundSafe = false;
+            float searchRadius = 1.0f;
+            float maxSearchRadius = 10.0f;
+            
+            while (!foundSafe && searchRadius <= maxSearchRadius) {
+                // Try the four corners of the square
+                float testPoints[4][2] = {
+                    {x + searchRadius, y + searchRadius},
+                    {x + searchRadius, y - searchRadius},
+                    {x - searchRadius, y + searchRadius},
+                    {x - searchRadius, y - searchRadius}
+                };
+                
+                for (int i = 0; i < 4; i++) {
+                    float testX = testPoints[i][0];
+                    float testY = testPoints[i][1];
+                    
+                    if (!wouldCollideWithElement(testX, testY, 0.2f) && 
+                        !wouldCollideWithMapBlock(testX, testY, gameMap)) {
+                        targetX = testX;
+                        targetY = testY;
+                        foundSafe = true;
+                        std::cout << "Found alternate safe position at (" << targetX << ", " << targetY << ")" << std::endl;
+                        break;
+                    }
+                }
+                
+                // Increase search radius for next iteration
+                searchRadius += 1.0f;
             }
-            if (collisionWithMapBlock) {
-                std::cout << (collisionWithElement ? " and " : "") << "position has a non-traversable map block";
+            
+            // If we still haven't found a safe position, use the emergency teleport to 10,10
+            if (!foundSafe) {
+                // Could not find a safe position
+                std::cout << "Cannot find any safe position near (" << x << ", " << y << ") - ";
+                if (collisionWithElement) {
+                    std::cout << "position is occupied by a collidable element";
+                }
+                if (collisionWithMapBlock) {
+                    std::cout << (collisionWithElement ? " and " : "") << "position has a non-traversable map block";
+                }
+                std::cout << "." << std::endl;
+                
+                // Default to a known safe position (assuming center of map is safe)
+                targetX = 10.0f;
+                targetY = 10.0f;
+                std::cout << "Emergency teleport to default position (" << targetX << ", " << targetY << ")" << std::endl;
             }
-            std::cout << "." << std::endl;
-            return;
         }
     }
     
     // Directly set player position without affecting animation
     elementsManager.changeElementCoordinates("player1", targetX, targetY);
+    
+    // Double-check that the player isn't still stuck somehow
+    if (wouldCollideWithElement(targetX, targetY, 0.2f) || 
+        wouldCollideWithMapBlock(targetX, targetY, gameMap)) {
+        std::cout << "WARNING: Player still in collision after teleport attempt!" << std::endl;
+        
+        // Run the safety check to force a resolution
+        float x = targetX, y = targetY;
+        if (findSafePosition(x, y, 0.2f, gameMap)) {
+            elementsManager.changeElementCoordinates("player1", x, y);
+            std::cout << "Emergency correction applied, player moved to (" << x << ", " << y << ")" << std::endl;
+        }
+    }
 }
 
 // Function to set the player's animation state
@@ -223,21 +314,57 @@ bool ensurePlayerNotStuck(const Map& gameMap) {
     }
     
     // Check if player is in a collision state
-    if (wouldCollideWithElement(x, y, 0.2f) || wouldCollideWithMapBlock(x, y, gameMap)) {
+    bool hasElementCollision = wouldCollideWithElement(x, y, 0.2f);
+    bool hasMapBlockCollision = wouldCollideWithMapBlock(x, y, gameMap);
+    
+    if (hasElementCollision || hasMapBlockCollision) {
+        // Log what we're colliding with for easier debugging
+        std::cout << "Player stuck detection: ";
+        if (hasElementCollision) std::cout << "Collision with element. ";
+        if (hasMapBlockCollision) {
+            int gridX = static_cast<int>(x);
+            int gridY = static_cast<int>(y);
+            TextureName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
+            // std::cout << "Collision with map block type: " << getBlockTypeName(blockType);
+        }
+        std::cout << std::endl;
+        
         // Player is stuck, try to find a safe position
         if (findSafePosition(x, y, 0.2f, gameMap)) {
             // Found a safe position, move player there
             elementsManager.changeElementCoordinates("player1", x, y);
-            if (playerDebugMode) {
-                std::cout << "Safety check: Player was stuck in collision, moved to safe position: (" 
-                          << x << ", " << y << ")" << std::endl;
-            }
+            std::cout << "Safety check: Player was stuck in collision, moved to safe position: (" 
+                      << x << ", " << y << ")" << std::endl;
             return true; // Position was adjusted
         } else {
-            // Could not find a safe position
-            if (playerDebugMode) {
-                std::cout << "Warning: Player is stuck in collision at (" << x << ", " << y 
-                          << ") and no safe position could be found!" << std::endl;
+            // Could not find a safe position using standard search
+            std::cout << "Warning: Player is stuck in collision and automatic recovery failed!" << std::endl;
+            
+            // Try a more aggressive approach - teleport to a known safe area
+            // First try the center of the map
+            x = 10.0f;
+            y = 10.0f;
+            
+            // Ensure the target position is actually safe
+            if (!wouldCollideWithElement(x, y, 0.2f) && !wouldCollideWithMapBlock(x, y, gameMap)) {
+                elementsManager.changeElementCoordinates("player1", x, y);
+                std::cout << "Emergency recovery: Player teleported to (" << x << ", " << y << ")" << std::endl;
+                return true;
+            } else {
+                // If center isn't safe, try a few other common positions
+                for (int testX = 5; testX < 15; testX += 5) {
+                    for (int testY = 5; testY < 15; testY += 5) {
+                        x = static_cast<float>(testX);
+                        y = static_cast<float>(testY);
+                        if (!wouldCollideWithElement(x, y, 0.2f) && !wouldCollideWithMapBlock(x, y, gameMap)) {
+                            elementsManager.changeElementCoordinates("player1", x, y);
+                            std::cout << "Last resort recovery: Player teleported to (" << x << ", " << y << ")" << std::endl;
+                            return true;
+                        }
+                    }
+                }
+                
+                std::cout << "CRITICAL: Could not find ANY safe position for player!" << std::endl;
             }
         }
     }

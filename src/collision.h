@@ -31,7 +31,9 @@ void removeNonTraversableBlock(TextureName blockType);
 bool isBlockNonTraversable(TextureName blockType);
 void clearNonTraversableBlocks();
 void printNonTraversableBlocks();
-std::string getBlockTypeName(TextureName blockType);
+
+// Stream operator for TextureName enum
+std::ostream& operator<<(std::ostream& os, const TextureName& blockType);
 
 // Function to find a safe position when player is stuck inside a collision area
 // Returns true if the player position was adjusted, false if no adjustment was necessary
