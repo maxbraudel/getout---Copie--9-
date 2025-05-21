@@ -200,13 +200,12 @@ void teleportPlayer(float x, float y) {
     
     if (collisionWithElement || collisionWithMapBlock) {
         // Log the collision type for debugging
-        if (playerDebugMode) {
-            std::cout << "Teleport destination has collision: ";
+        if (playerDebugMode) {            std::cout << "Teleport destination has collision: ";
             if (collisionWithMapBlock) {
                 int gridX = static_cast<int>(targetX);
                 int gridY = static_cast<int>(targetY);
                 TextureName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
-                std::cout << "Map block type: " << blockType << " ";
+                std::cout << "Map block type: " << static_cast<int>(blockType) << " ";
             }
             if (collisionWithElement) {
                 std::cout << "Element collision";

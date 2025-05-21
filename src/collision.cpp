@@ -51,26 +51,6 @@ void clearNonTraversableBlocks() {
     std::cout << "Cleared all non-traversable blocks." << std::endl;
 }
 
-// Stream output operator for TextureName enum - more elegant than a conversion function
-std::ostream& operator<<(std::ostream& os, const TextureName& blockType) {
-    switch (blockType) {
-        case TextureName::GRASS_0: os << "GRASS_0"; break;
-        case TextureName::GRASS_1: os << "GRASS_1"; break;
-        case TextureName::GRASS_2: os << "GRASS_2"; break;
-        case TextureName::GRASS_3: os << "GRASS_3"; break;
-        case TextureName::GRASS_4: os << "GRASS_4"; break;
-        case TextureName::GRASS_5: os << "GRASS_5"; break;
-        case TextureName::SAND: os << "SAND"; break;
-        case TextureName::WATER_0: os << "WATER_0"; break;
-        case TextureName::WATER_1: os << "WATER_1"; break;
-        case TextureName::WATER_2: os << "WATER_2"; break;
-        case TextureName::WATER_3: os << "WATER_3"; break;
-        case TextureName::WATER_4: os << "WATER_4"; break;
-        default: os << "UNKNOWN"; break;
-    }
-    return os;
-}
-
 // Function to print all non-traversable block types
 void printNonTraversableBlocks() {
     std::cout << "Non-traversable block types (" << nonTraversableBlocks.size() << " total):" << std::endl;
