@@ -418,12 +418,55 @@ int main() {
     
     // Initialize entity configurations from predefined types in entities.cpp
     entitiesManager.initializeEntityConfigurations();
+
+
+    elementsManager.placeElement("bush0",ElementTextureName::COCONUT_TREE_1,10.0f,0,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+
+    elementsManager.placeElement("bush1",ElementTextureName::COCONUT_TREE_1,10.0f,1,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush2",ElementTextureName::COCONUT_TREE_1,10.0f,2,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush3",ElementTextureName::COCONUT_TREE_1,10.0f,3,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush4",ElementTextureName::COCONUT_TREE_1,10.0f,4,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush5",ElementTextureName::COCONUT_TREE_1,10.0f,5,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush6",ElementTextureName::COCONUT_TREE_1,10.0f,6,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush7",ElementTextureName::COCONUT_TREE_1,10.0f,7,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush8",ElementTextureName::COCONUT_TREE_1,10.0f,8,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush9",ElementTextureName::COCONUT_TREE_1,10.0f,9,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush10",ElementTextureName::COCONUT_TREE_1,10.0f,10,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush11",ElementTextureName::COCONUT_TREE_1,10.0f,11,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush12",ElementTextureName::COCONUT_TREE_1,10.0f,12,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush13",ElementTextureName::COCONUT_TREE_1,10.0f,13,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush14",ElementTextureName::COCONUT_TREE_1,10.0f,14,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush15",ElementTextureName::COCONUT_TREE_1,10.0f,15,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush16",ElementTextureName::COCONUT_TREE_1,10.0f,16,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush17",ElementTextureName::COCONUT_TREE_1,10.0f,17,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush18",ElementTextureName::COCONUT_TREE_1,10.0f,18,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush21",ElementTextureName::COCONUT_TREE_1,10.0f,21,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush22",ElementTextureName::COCONUT_TREE_1,10.0f,22,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush23",ElementTextureName::COCONUT_TREE_1,10.0f,23,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush24",ElementTextureName::COCONUT_TREE_1,10.0f,24,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush25",ElementTextureName::COCONUT_TREE_1,10.0f,25,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush26",ElementTextureName::COCONUT_TREE_1,10.0f,26,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush27",ElementTextureName::COCONUT_TREE_1,10.0f,27,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush28",ElementTextureName::COCONUT_TREE_1,10.0f,28,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush29",ElementTextureName::COCONUT_TREE_1,10.0f,29,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush30",ElementTextureName::COCONUT_TREE_1,10.0f,30,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush31",ElementTextureName::COCONUT_TREE_1,10.0f,31,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush32",ElementTextureName::COCONUT_TREE_1,10.0f,32,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush33",ElementTextureName::COCONUT_TREE_1,10.0f,33,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush34",ElementTextureName::COCONUT_TREE_1,10.0f,34,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush35",ElementTextureName::COCONUT_TREE_1,10.0f,35,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush36",ElementTextureName::COCONUT_TREE_1,10.0f,36,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush37",ElementTextureName::COCONUT_TREE_1,10.0f,37,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush38",ElementTextureName::COCONUT_TREE_1,10.0f,38,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush39",ElementTextureName::COCONUT_TREE_1,10.0f,39,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+
+
     
     // Place the antagonist entity at coordinates (10, 10)
-    entitiesManager.placeEntityByType("antagonist1", "antagonist", 30.0f, 30.0f);;
+    entitiesManager.placeEntityByType("antagonist1", "antagonist", 5.0f, 30.0f);;
 
 
-    entitiesManager.moveEntity("antagonist1", 45.0f, 45.0f); // Move the antagonist entity to a new position
+    entitiesManager.moveEntity("antagonist1",10.0f, 45.0f); // Move the antagonist entity to a new position
 
 	// Only show elements count rather than full list for cleaner output
 	std::cout << "Game ready with " << elementsManager.getElementsCount() << " elements placed" << std::endl;
