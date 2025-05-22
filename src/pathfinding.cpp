@@ -1,8 +1,10 @@
 #include "pathfinding.h"
 #include "collision.h"
 #include "globals.h" // For GRID_SIZE
+#include "elementsOnMap.h" // Added for elementsManager access
 #include <iostream>
 #include <algorithm> // For std::reverse
+#include <cmath> // For std::sqrt
 
 // Function declarations for helper functions
 std::vector<std::pair<float, float>> simplifyPath(const std::vector<std::pair<float, float>>& path);
@@ -343,29 +345,62 @@ float calculateHeuristic(int x1, int y1, int x2, int y2) {
 bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap) {
     // First check if coordinates are within the grid bounds
     if (x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) {
-        // Uncomment this for debugging specific issues, but keep commented to avoid console spam
-        // std::cout << "Warning: Coordinates (" << x << ", " << y << ") are outside the grid bounds" << std::endl;
         return false;
     }
-      // Convert grid coordinates to world coordinates (center of the cell)
+
+    // New: Check if the grid cell (x,y) is within 2 units of any collision-enabled element's grid cell
+    for (const auto& element : elementsManager.getElements()) {
+        if (element.hasCollision) {
+            int elementGridX = static_cast<int>(element.x);
+            int elementGridY = static_cast<int>(element.y);
+            
+            // Calculate squared Euclidean distance between grid cell centers
+            float distanceSq_gridCells = static_cast<float>((x - elementGridX) * (x - elementGridX) + (y - elementGridY) * (y - elementGridY));
+            
+            // If distance between grid cell centers is <= 2.0 (distSq <= 4.0), cell (x,y) is non-walkable.
+            if (distanceSq_gridCells <= 4.0f) { 
+                return false; 
+            }
+        }
+    }
+    
+    // Convert grid coordinates to world coordinates (center of the cell)
     float worldX = x + 0.5f;
     float worldY = y + 0.5f;
-      // Add a safety buffer to the collision radius for better pathfinding
-    float safetyBuffer = 0.2f;
+    // Add a safety buffer to the collision radius for better pathfinding
+    float safetyBuffer = 2.0f; // Keep 2.0f safety buffer
     float pathfindingRadius = collisionRadius + safetyBuffer;
     
-    // Check if this position would collide with any collision
+    // Check if this position would collide with any element
     bool collisionWithElement = wouldCollideWithElement(worldX, worldY, pathfindingRadius);
-    bool collisionWithMapBlock = wouldCollideWithMapBlock(worldX, worldY, gameMap, nonTraversableBlocks);
+    
+    // Check if this position would collide with a non-traversable map block (original call for this overload)
+    bool collisionWithMapBlock = wouldCollideWithMapBlock(worldX, worldY, gameMap);
     
     return !collisionWithElement && !collisionWithMapBlock;
 }
 
 // Overloaded function that uses entity-specific non-traversable blocks
-bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap, const std::set<TextureName>& nonTraversableBlocks) {
+bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap, const std::set<TextureName>& entityNonTraversableBlocks) {
     // First check if coordinates are within the grid bounds
     if (x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) {
         return false;
+    }
+
+    // New: Check if the grid cell (x,y) is within 2 units of any collision-enabled element's grid cell
+    for (const auto& element : elementsManager.getElements()) {
+        if (element.hasCollision) {
+            int elementGridX = static_cast<int>(element.x);
+            int elementGridY = static_cast<int>(element.y);
+
+            // Calculate squared Euclidean distance between grid cell centers
+            float distanceSq_gridCells = static_cast<float>((x - elementGridX) * (x - elementGridX) + (y - elementGridY) * (y - elementGridY));
+
+            // If distance between grid cell centers is <= 2.0 (distSq <= 4.0), cell (x,y) is non-walkable.
+            if (distanceSq_gridCells <= 4.0f) { 
+                return false; 
+            }
+        }
     }
     
     // Convert grid coordinates to world coordinates (center of the cell)
@@ -373,47 +408,17 @@ bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap, co
     float worldY = y + 0.5f;
     
     // Add a safety buffer to the collision radius for better pathfinding
-    float safetyBuffer = 0.3f; // Increased from 0.2f for better obstacle avoidance
+    float safetyBuffer = 2.0f; // Keep 2.0f safety buffer
     float pathfindingRadius = collisionRadius + safetyBuffer;
     
     // Check if this position would collide with any element (trees, etc)
     bool collisionWithElement = wouldCollideWithElement(worldX, worldY, pathfindingRadius);
     
     // Check if this position would collide with a non-traversable map block
-    bool collisionWithMapBlock = wouldCollideWithMapBlock(worldX, worldY, gameMap, nonTraversableBlocks);
+    bool collisionWithMapBlock = wouldCollideWithMapBlock(worldX, worldY, gameMap, entityNonTraversableBlocks);
     
-    // Also check nearby elements to make sure we're not too close to obstacles
-    std::vector<std::string> nearbyElements = getNearbyElements(worldX, worldY, pathfindingRadius * 1.2f);
-    bool tooCloseToObstacle = false;
-    
-    for (const auto& elementName : nearbyElements) {
-        float elementX, elementY;
-        if (elementsManager.getElementPosition(elementName, elementX, elementY)) {
-            float dx = worldX - elementX;
-            float dy = worldY - elementY;
-            float distanceSquared = dx*dx + dy*dy;
-            
-            // Get the element's collision radius
-            float elementRadius = 0.4f; // Default
-            const auto& elements = elementsManager.getElements();
-            for (const auto& element : elements) {
-                if (element.instanceName == elementName) {
-                    elementRadius = element.collisionRadius;
-                    break;
-                }
-            }
-            
-            // Check if we're too close to this element
-            float minDistanceSquared = (pathfindingRadius + elementRadius + 0.1f) * (pathfindingRadius + elementRadius + 0.1f);
-            if (distanceSquared < minDistanceSquared) {
-                tooCloseToObstacle = true;
-                break;
-            }
-        }
-    }
-    
-    // Return true only if there are no collisions and we're not too close to obstacles
-    return !collisionWithElement && !collisionWithMapBlock && !tooCloseToObstacle;
+    // Return true only if there are no collisions
+    return !collisionWithElement && !collisionWithMapBlock;
 }
 
 // Get all valid neighbors for a position with diagonal movement

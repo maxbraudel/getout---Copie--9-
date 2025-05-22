@@ -239,6 +239,8 @@ bool EntitiesManager::walkEntityToCoordinates(const std::string& instanceName, f
     entity->targetX = x;
     entity->targetY = y;
     entity->walkType = walkType;
+    entity->usePathfinding = false; // Explicitly set usePathfinding to false
+    entity->path.clear(); // Ensure path is empty for direct movement
     
     // Enable animation
     elementsManager.changeElementAnimationStatus(elementName, true);
@@ -423,30 +425,44 @@ void EntitiesManager::drawDebugPaths(float startX, float endX, float startY, flo
     }
 
     glLineWidth(2.0f); // Set line width for paths
-    glColor3f(0.0f, 0.0f, 1.0f); // Blue color for paths
-
+    
     for (const auto& pair : entities) {
         const Entity& entity = pair.second;
-        if (entity.isWalking && entity.usePathfinding && !entity.path.empty()) {
-            glBegin(GL_LINE_STRIP);
-            // Draw line from current entity position to the first waypoint
+        if (entity.isWalking) {
             float currentX, currentY;
             std::string elementName = getElementName(entity.instanceName);
-            if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
-                // Convert world to screen coordinates
-                float screenX = startX + (currentX - cameraLeft) / (cameraRight - cameraLeft) * (endX - startX);
-                float screenY = startY + (currentY - cameraBottom) / (cameraTop - cameraBottom) * (endY - startY);
-                glVertex2f(screenX, screenY);
+            if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
+                continue; // Skip if we can't get current position
             }
 
-            for (size_t i = entity.currentPathIndex; i < entity.path.size(); ++i) {
-                const auto& waypoint = entity.path[i];
-                // Convert world to screen coordinates
-                float screenX = startX + (waypoint.first - cameraLeft) / (cameraRight - cameraLeft) * (endX - startX);
-                float screenY = startY + (waypoint.second - cameraBottom) / (cameraTop - cameraBottom) * (endY - startY);
-                glVertex2f(screenX, screenY);
+            // Convert current entity position to screen coordinates
+            float entityScreenX = startX + (currentX - cameraLeft) / (cameraRight - cameraLeft) * (endX - startX);
+            float entityScreenY = startY + (currentY - cameraBottom) / (cameraTop - cameraBottom) * (endY - startY);
+
+            if (entity.usePathfinding && !entity.path.empty()) {
+                glColor3f(0.0f, 0.0f, 1.0f); // Blue color for pathfinding paths
+                glBegin(GL_LINE_STRIP);
+                glVertex2f(entityScreenX, entityScreenY); // Start line from current entity position
+
+                for (size_t i = entity.currentPathIndex; i < entity.path.size(); ++i) {
+                    const auto& waypoint = entity.path[i];
+                    // Convert world to screen coordinates
+                    float screenX = startX + (waypoint.first - cameraLeft) / (cameraRight - cameraLeft) * (endX - startX);
+                    float screenY = startY + (waypoint.second - cameraBottom) / (cameraTop - cameraBottom) * (endY - startY);
+                    glVertex2f(screenX, screenY);
+                }
+                glEnd();
+            } else if (!entity.usePathfinding) {
+                glColor3f(1.0f, 0.0f, 0.0f); // Red color for direct paths (walkEntityToCoordinates)
+                glBegin(GL_LINES);
+                glVertex2f(entityScreenX, entityScreenY); // Line start
+
+                // Convert target world to screen coordinates
+                float targetScreenX = startX + (entity.targetX - cameraLeft) / (cameraRight - cameraLeft) * (endX - startX);
+                float targetScreenY = startY + (entity.targetY - cameraBottom) / (cameraTop - cameraBottom) * (endY - startY);
+                glVertex2f(targetScreenX, targetScreenY); // Line end
+                glEnd();
             }
-            glEnd();
         }
     }
 }

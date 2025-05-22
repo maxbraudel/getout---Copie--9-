@@ -440,8 +440,7 @@ int main() {
     elementsManager.placeElement("bush16",ElementTextureName::COCONUT_TREE_1,10.0f,16,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush17",ElementTextureName::COCONUT_TREE_1,10.0f,17,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush18",ElementTextureName::COCONUT_TREE_1,10.0f,18,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
-    elementsManager.placeElement("bush21",ElementTextureName::COCONUT_TREE_1,10.0f,21,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
-    elementsManager.placeElement("bush22",ElementTextureName::COCONUT_TREE_1,10.0f,22,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+
     elementsManager.placeElement("bush23",ElementTextureName::COCONUT_TREE_1,10.0f,23,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush24",ElementTextureName::COCONUT_TREE_1,10.0f,24,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush25",ElementTextureName::COCONUT_TREE_1,10.0f,25,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
@@ -466,7 +465,7 @@ int main() {
     entitiesManager.placeEntityByType("antagonist1", "antagonist", 5.0f, 30.0f);;
 
 
-    entitiesManager.moveEntity("antagonist1",10.0f, 45.0f); // Move the antagonist entity to a new position
+    entitiesManager.walkEntityToCoordinates("antagonist1",10.0f, 48.0f, WalkType::NORMAL); // Move the antagonist entity to a new position
 
 	// Only show elements count rather than full list for cleaner output
 	std::cout << "Game ready with " << elementsManager.getElementsCount() << " elements placed" << std::endl;
