@@ -31,6 +31,7 @@ extern bool hideOutsideGrid;
 
 // Debug flags
 extern bool DEBUG_MAP; // When true, uses a simplified debug map instead of Perlin noise
+extern bool DEBUG_SHOW_PATHS; // When true, displays entity paths
 
 // Input handling
 extern bool keyPressedStates[]; // GLFW_KEY_LAST + 1

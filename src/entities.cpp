@@ -417,6 +417,40 @@ void EntitiesManager::update(double deltaTime) {
     }
 }
 
+void EntitiesManager::drawDebugPaths(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop) {
+    if (!DEBUG_SHOW_PATHS) {
+        return;
+    }
+
+    glLineWidth(2.0f); // Set line width for paths
+    glColor3f(0.0f, 0.0f, 1.0f); // Blue color for paths
+
+    for (const auto& pair : entities) {
+        const Entity& entity = pair.second;
+        if (entity.isWalking && entity.usePathfinding && !entity.path.empty()) {
+            glBegin(GL_LINE_STRIP);
+            // Draw line from current entity position to the first waypoint
+            float currentX, currentY;
+            std::string elementName = getElementName(entity.instanceName);
+            if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
+                // Convert world to screen coordinates
+                float screenX = startX + (currentX - cameraLeft) / (cameraRight - cameraLeft) * (endX - startX);
+                float screenY = startY + (currentY - cameraBottom) / (cameraTop - cameraBottom) * (endY - startY);
+                glVertex2f(screenX, screenY);
+            }
+
+            for (size_t i = entity.currentPathIndex; i < entity.path.size(); ++i) {
+                const auto& waypoint = entity.path[i];
+                // Convert world to screen coordinates
+                float screenX = startX + (waypoint.first - cameraLeft) / (cameraRight - cameraLeft) * (endX - startX);
+                float screenY = startY + (waypoint.second - cameraBottom) / (cameraTop - cameraBottom) * (endY - startY);
+                glVertex2f(screenX, screenY);
+            }
+            glEnd();
+        }
+    }
+}
+
 // Private helper methods
 
 Entity* EntitiesManager::getEntity(const std::string& instanceName) {

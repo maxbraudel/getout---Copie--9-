@@ -240,7 +240,13 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 elementsManager.getElementPosition(name, x, y);
                 std::cout << name << " at position (" << x << ", " << y << ")" << std::endl;
             }
-        }        else if (key == GLFW_KEY_F7) {
+        }
+        // Toggle path debugging with F8
+        else if (key == GLFW_KEY_F8) {
+            DEBUG_SHOW_PATHS = !DEBUG_SHOW_PATHS;
+            std::cout << "Entity path debugging " << (DEBUG_SHOW_PATHS ? "enabled" : "disabled") << std::endl;
+        }
+        else if (key == GLFW_KEY_F7) { // This is a duplicate F7 handler, ensure it's reconciled or removed if not needed
             // Get all tree names
             std::vector<std::string> trees = getCollidableElementNames();
             std::cout << "\n--- Tree Collision System ---" << std::endl;
@@ -614,6 +620,12 @@ int main() {
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();		// Draw elements on top of the map tiles (freely placed decorations)
 		elementsManager.drawElements(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, deltaTime);
+
+        // Draw entity debug paths if enabled
+        if (DEBUG_SHOW_PATHS) {
+            entitiesManager.drawDebugPaths(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop);
+        }
+
           // Disable scissor test when rendering is complete
         if (hideOutsideGrid) {
             glDisable(GL_SCISSOR_TEST);

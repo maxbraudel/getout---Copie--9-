@@ -181,6 +181,9 @@ public:
     
     // Function to check if all entities are in safe positions, moving them if needed
     void ensureAllEntitiesNotStuck();
+
+    // Draw debug paths for all entities
+    void drawDebugPaths(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop);
     
 private:
     std::map<std::string, EntityConfiguration> configurations;    std::map<std::string, Entity> entities;    // Helper methods

@@ -37,6 +37,7 @@ bool hideOutsideGrid = false; // Controls whether to hide pixels outside the map
 
 // Debug flags
 bool DEBUG_MAP = true; // Set to true to use simplified debug map
+bool DEBUG_SHOW_PATHS = false; // Set to true to display entity paths
 
 // Input handling
 bool keyPressedStates[GLFW_KEY_LAST + 1] = { false };
