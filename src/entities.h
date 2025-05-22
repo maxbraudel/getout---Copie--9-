@@ -9,6 +9,15 @@
 #include <cmath> // For distance calculations
 #include <utility> // For std::pair
 
+// Enum for entity directions (corresponds to sprite sheet rows/phases)
+enum EntityDirection {
+    DIRECTION_UP = 0,    // Or 3, depending on sprite sheet convention
+    DIRECTION_DOWN = 1,  // Or 0
+    DIRECTION_LEFT = 2,
+    DIRECTION_RIGHT = 3,
+    DIRECTION_NONE = -1 // For when no specific direction is set
+};
+
 // Enum for walk types
 enum class WalkType {
     NORMAL,
@@ -129,6 +138,9 @@ struct Entity {
     float lastPositionChangeTime = 0.0f;
     float stuckCheckTime = 0.0f;
     int stuckCount = 0;
+    float interactionRadius;
+    EntityDirection currentSegmentSpriteDirection = DIRECTION_DOWN; // Initialize to a default
+    std::string currentBehavior;
 };
 
 // EntitiesManager - Manages all entities in the game
