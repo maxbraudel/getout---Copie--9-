@@ -101,11 +101,16 @@ public:
                       bool isAnimated = false, float animationSpeed = 10.0f,
                       AnchorPoint anchorPoint = AnchorPoint::USE_TEXTURE_DEFAULT,
                       float anchorOffsetX = 0.0f, float anchorOffsetY = 0.0f);
+      // Remove an element by its instance name
+    bool removeElement(const std::string& instanceName);
     
-    // Remove an element by its instance name
-    bool rechangeElementCoordinates(const std::string& instanceName);    // Move an existing element to a new position
+    // Remove all elements with a specific category prefix in their instanceName
+    int removeAllElementsByCategory(const std::string& category);
+    
+    // Move an existing element to a new position
     bool changeElementCoordinates(const std::string& instanceName, float newX, float newY, float newRotation = -1.0f);
-      // Move an element relative to its current position
+      
+    // Move an element relative to its current position
     bool moveElement(const std::string& instanceName, float deltaX, float deltaY);
     
     // Get element position

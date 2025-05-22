@@ -298,36 +298,6 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
     std::cout << std::endl;
 }
 
-bool ElementsOnMap::rechangeElementCoordinates(const std::string& instanceName) {
-    // Find in index map first (O(1) lookup)
-    auto mapIt = elementIndexMap.find(instanceName);
-    if (mapIt == elementIndexMap.end()) {
-        std::cerr << "Element not found: " << instanceName << std::endl;
-        return false;
-    }
-    
-    size_t index = mapIt->second;
-    // Erase the element from the vector
-    if (index < elements.size()) {
-        // When removing an element, we need to update the indices in our map
-        elements.erase(elements.begin() + index);
-        elementIndexMap.erase(mapIt); // Remove the element we just deleted
-        
-        // Update indices for all elements that were after the removed element
-        for (auto& pair : elementIndexMap) {
-            if (pair.second > index) {
-                pair.second--; // Decrement index because the vector now has one less element
-            }
-        }
-        
-        std::cout << "Removed element: " << instanceName << std::endl;
-        return true;
-    }
-    
-    std::cerr << "Element index out of range: " << instanceName << std::endl;
-    return false;
-}
-
 bool ElementsOnMap::changeElementCoordinates(const std::string& instanceName, float newX, float newY, float newRotation) {
     // Find element by name directly
     auto it = std::find_if(elements.begin(), elements.end(),
@@ -973,6 +943,66 @@ void ElementsOnMap::printElementPositions() const {
                    element.anchorOffsetX, element.anchorOffsetY);
         }
     }
+      std::cout << "==========================================================" << std::endl;
+}
+
+// Implementation of removeElement method to remove an element by its instance name
+bool ElementsOnMap::removeElement(const std::string& instanceName) {
+    // Find the element in the index map
+    auto it = elementIndexMap.find(instanceName);
+    if (it == elementIndexMap.end()) {
+        // Element not found, return false
+        return false;
+    }
     
-    std::cout << "==========================================================" << std::endl;
+    // Get the index of the element to remove
+    size_t indexToRemove = it->second;
+    
+    // Remove the element from the index map
+    elementIndexMap.erase(it);
+    
+    // Remove the element from the elements vector
+    elements.erase(elements.begin() + indexToRemove);
+    
+    // Update the indices in the elementIndexMap for all elements after the removed one
+    for (auto& pair : elementIndexMap) {
+        if (pair.second > indexToRemove) {
+            // Decrement the index for elements that were after the removed element
+            pair.second--;
+        }
+    }
+    
+    return true;
+}
+
+// Implementation of removeAllElementsByCategory method to remove elements by category prefix
+int ElementsOnMap::removeAllElementsByCategory(const std::string& category) {
+    int removedCount = 0;
+    
+    // Create a temporary list of element names to remove
+    std::vector<std::string> elementsToRemove;
+    
+    // Identify elements that match the category prefix
+    for (const auto& element : elements) {
+        // Check if the element's instanceName starts with the category prefix
+        // For terrain elements, they have names like "terrain_coconut_tree_X"
+        if (element.instanceName.find(category) == 0) {
+            elementsToRemove.push_back(element.instanceName);
+        }
+    }
+    
+    // Now remove each identified element
+    for (const auto& elementName : elementsToRemove) {
+        if (removeElement(elementName)) {
+            removedCount++;
+        }
+    }
+    
+    // Log how many elements were removed
+    if (removedCount > 0) {
+        std::cout << "Removed " << removedCount << " elements with category prefix '" 
+                  << category << "'" << std::endl;
+    }
+    
+    return removedCount;
 }

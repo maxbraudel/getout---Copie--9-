@@ -13,7 +13,6 @@
 #include "collision.h" // Added include for collision detection
 #include "debug.h" // Added include for debugging features
 #include "entities.h" // Added include for entity management
-#include "entityBehaviors.h" // Added include for entity behaviors
 #include <ctime> // For time(0) to seed random number generator
 #include <cmath> // For sqrt function
 #include <algorithm> // For std::min and std::max
@@ -195,29 +194,6 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         else if (key == GLFW_KEY_F6) {
             elementsManager.printElementPositions();
         }
-        // Toggle AI behavior for enemies with H key
-        else if (key == GLFW_KEY_H) {
-            static bool aiEnabled = true;
-            aiEnabled = !aiEnabled;
-            
-            // Create local copies of entity instances for safety
-            std::vector<std::string> antagonists = {"antagonist1"};
-            
-            // Toggle behavior for all antagonists
-            for (const auto& instanceName : antagonists) {
-                // If disabling, unregister from behavior system
-                if (!aiEnabled) {
-                    entityBehaviorManager.unregisterEntity(instanceName);
-                    std::cout << "AI behavior disabled for " << instanceName << std::endl;
-                } else {
-                    // If enabling, register with behavior system
-                    entityBehaviorManager.registerEntity(instanceName, "antagonist");
-                    std::cout << "AI behavior enabled for " << instanceName << std::endl;
-                }
-            }
-            
-            std::cout << "Enemy AI behavior " << (aiEnabled ? "enabled" : "disabled") << std::endl;
-        }
         // Toggle sand as non-traversable
         else if (key == GLFW_KEY_B) {
             static bool sandIsBlocked = false;
@@ -237,6 +213,22 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         // Print all non-traversable blocks
         else if (key == GLFW_KEY_N) {
             printNonTraversableBlocks();
+        }
+        // Toggle DEBUG_MAP mode with M key
+        else if (key == GLFW_KEY_V) {
+            DEBUG_MAP = !DEBUG_MAP;
+            std::cout << "\nDEBUG MAP mode " << (DEBUG_MAP ? "enabled" : "disabled") << std::endl;
+            
+            // Regenerate the map with the new setting
+            std::cout << "Regenerating terrain with DEBUG_MAP=" << (DEBUG_MAP ? "true" : "false") << "..." << std::endl;
+            std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.65f);
+            gameMap.placeBlocks(generatedMap);
+            
+            // Regenerate terrain elements
+            elementsManager.removeAllElementsByCategory("decoration");
+            placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);
+            
+            std::cout << "Map regeneration complete." << std::endl;
         }
         // Show collision information
         else if (key == GLFW_KEY_F7) {
@@ -416,30 +408,17 @@ int main() {
 	std::cout << "Map generation complete." << std::endl;
 		// Automatically place terrain elements (bushes on sand blocks) with 1/50 chance
 	// Instead of creating a separate map, we'll use the gameMap directly to ensure we see the actual blocks
-	placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);    // Initialize entity configurations from predefined types in entities.cpp
+	placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);    
+    
+    // Initialize entity configurations from predefined types in entities.cpp
     entitiesManager.initializeEntityConfigurations();
     
-    // Initialize entity behavior system
-    entityBehaviorManager.initialize();
-    
     // Place the antagonist entity at coordinates (10, 10)
-    entitiesManager.placeEntityByType("antagonist1", "antagonist", 10.0f, 10.0f);
-
-    entitiesManager.placeEntityByType("antagonist2", "antagonist", 20.0f, 20.0f);
-
-    entitiesManager.placeEntityByType("antagonist3", "antagonist", 30.0f, 30.0f);
-
-    entitiesManager.placeEntityByType("antagonist4", "antagonist", 40.0f, 40.0f);
+    entitiesManager.placeEntityByType("antagonist1", "antagonist", 30.0f, 30.0f);;
 
 
-    
-    // Register the antagonist with the behavior system
-    entityBehaviorManager.registerEntity("antagonist1", "antagonist");
-    
-    entitiesManager.moveEntity("antagonist1", 20.0f, 20.0f); // Move the antagonist entity to a new position
+    entitiesManager.moveEntity("antagonist1", 45.0f, 45.0f); // Move the antagonist entity to a new position
 
-    entitiesManager.moveEntity("antagonist1", 20.0f, 20.0f); // Move the antagonist entity to a new position
-    
 	// Only show elements count rather than full list for cleaner output
 	std::cout << "Game ready with " << elementsManager.getElementsCount() << " elements placed" << std::endl;
 		// Skip block test output for cleaner console
@@ -457,14 +436,12 @@ int main() {
         static double lastTime = currentTime;
         double deltaTime = currentTime - lastTime;
         lastTime = currentTime;
-		
-		// Process keyboard input for player movement
+				// Process keyboard input for player movement
 		float playerMoveX = 0.0f;
-		float playerMoveY = 0.0f;        // Update entities (handle movement and animations)
-        entitiesManager.update(deltaTime);
+		float playerMoveY = 0.0f;        
         
-        // Update entity behaviors
-        entityBehaviorManager.update(deltaTime);
+        // Update entities (handle movement and animations)
+        entitiesManager.update(deltaTime);
       		// First check if the player exists before processing movements
 		float playerX, playerY;
 		bool playerExists = elementsManager.getElementPosition("player1", playerX, playerY);

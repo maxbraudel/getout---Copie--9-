@@ -7,7 +7,7 @@
 const double FRAMERATE_IN_SECONDS = 1. / 60.; // 60 FPS
 
 // Grid properties
-const int GRID_SIZE = 300;
+const int GRID_SIZE = 50;
 const float PLAYER_BASE_SPEED = 3.0f;   // Base speed of player movement (grid units per second)
 const float PLAYER_SPRINT_SPEED = 6.0f; // Sprint speed when shift is held (grid units per second)
 
@@ -34,6 +34,9 @@ float g_endY = 1.0f;
 // Boolean flags for visibility features
 bool showGridLines = false;
 bool hideOutsideGrid = false; // Controls whether to hide pixels outside the map grid
+
+// Debug flags
+bool DEBUG_MAP = true; // Set to true to use simplified debug map
 
 // Input handling
 bool keyPressedStates[GLFW_KEY_LAST + 1] = { false };

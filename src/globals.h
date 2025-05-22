@@ -29,5 +29,8 @@ extern float g_endY;
 extern bool showGridLines;
 extern bool hideOutsideGrid;
 
+// Debug flags
+extern bool DEBUG_MAP; // When true, uses a simplified debug map instead of Perlin noise
+
 // Input handling
 extern bool keyPressedStates[]; // GLFW_KEY_LAST + 1

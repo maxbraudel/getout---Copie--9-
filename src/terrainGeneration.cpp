@@ -1,6 +1,7 @@
 #include "terrainGeneration.h"
 #include "map.h" // For TextureName enum and gameMap
 #include "collision.h" // For collision detection
+#include "globals.h" // For DEBUG_MAP flag
 #include <vector>
 #include <queue>
 #include <map>
@@ -9,6 +10,7 @@
 #include <cmath>   // For fmod, sqrt, etc.
 #include <cstdlib> // For rand, srand
 #include <ctime>   // For time
+#include <iostream> // For debugging output
 
 // Static variables for noise generation (assuming these are part of your existing setup)
 static std::vector<std::vector<float>> baseNoiseGrid;
@@ -81,6 +83,30 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
     float seaFeatureSize,    // Added this line
     float waterThreshold, float grassThreshold) {
 
+    // Check if we should generate a debug map instead of the regular terrain
+    if (DEBUG_MAP) {
+        std::cout << "Generating DEBUG MAP - Top half: GRASS_2, Bottom half: WATER_4" << std::endl;
+        
+        std::map<std::pair<int, int>, TextureName> debugMap;
+        int midPoint = gridHeight / 2;
+        
+        // Fill the grid with the debug pattern
+        for (int y_coord = 0; y_coord < gridHeight; ++y_coord) {
+            for (int x_coord = 0; x_coord < gridWidth; ++x_coord) {
+                if (y_coord >= midPoint) {
+                    // Top half - GRASS_2
+                    debugMap[{x_coord, y_coord}] = TextureName::GRASS_2;
+                } else {
+                    // Bottom half - WATER_4
+                    debugMap[{x_coord, y_coord}] = TextureName::WATER_4;
+                }
+            }
+        }
+        
+        return debugMap;
+    }
+
+    // Regular terrain generation (only executed if DEBUG_MAP is false)
     // Adjust feature size for noise generation based on seaFeatureSize
     // A larger seaFeatureSize means smaller features in the noise map, leading to larger continuous areas (sea)
     float noiseFeatureSize = islandFeatureSize / seaFeatureSize; 
