@@ -478,7 +478,7 @@ int main() {
     // wait 2 seconds
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
-    entitiesManager.moveEntity("antagonist1",10.0f, 48.0f); // Move the antagonist entity to a new position
+    // entitiesManager.moveEntity("antagonist1",10.0f, 48.0f); // Move the antagonist entity to a new position
 
 
 
@@ -488,6 +488,9 @@ int main() {
 	          	// Display brief coordinate system information
 	std::cout << "\nGame uses a coordinate system with (0,0) at bottom-left, Y increasing upward" << std::endl;
 	
+    double lastAntagonistMoveTime = 0.0;
+    const double antagonistMoveInterval = 5.0; // seconds
+
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
 	{
@@ -496,9 +499,17 @@ int main() {
 		
 		// Get time for animations
         double currentTime = glfwGetTime();
-        static double lastTime = currentTime;
-        double deltaTime = currentTime - lastTime;
-        lastTime = currentTime;
+        static double lastFrameTime = currentTime; // Renamed to avoid conflict with other lastTime variables
+        double deltaTime = currentTime - lastFrameTime;
+        lastFrameTime = currentTime;
+
+        // Periodically move antagonist1
+        if (currentTime - lastAntagonistMoveTime >= antagonistMoveInterval) {
+            std::cout << "Attempting to move antagonist1 to (10.0f, 48.0f) at time: " << currentTime << std::endl;
+            entitiesManager.moveEntity("antagonist1", 10.0f, 49.0f);
+            lastAntagonistMoveTime = currentTime;
+        }
+
 				// Process keyboard input for player movement
 		float playerMoveX = 0.0f;
 		float playerMoveY = 0.0f;        
