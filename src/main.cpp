@@ -445,6 +445,11 @@ int main() {
     elementsManager.placeElement("bush17",ElementTextureName::COCONUT_TREE_1,10.0f,17,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush18",ElementTextureName::COCONUT_TREE_1,10.0f,18,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
 
+    elementsManager.placeElement("bush19",ElementTextureName::COCONUT_TREE_1,10.0f,19,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush20",ElementTextureName::COCONUT_TREE_1,10.0f,20,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    // elementsManager.placeElement("bush21",ElementTextureName::COCONUT_TREE_1,10.0f,21,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    
+    // elementsManager.placeElement("bush22",ElementTextureName::COCONUT_TREE_1,10.0f,22,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush23",ElementTextureName::COCONUT_TREE_1,10.0f,23,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush24",ElementTextureName::COCONUT_TREE_1,10.0f,24,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush25",ElementTextureName::COCONUT_TREE_1,10.0f,25,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
