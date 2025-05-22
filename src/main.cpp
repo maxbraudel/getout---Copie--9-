@@ -417,7 +417,9 @@ int main() {
 	placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);    
     
     // Initialize entity configurations from predefined types in entities.cpp
-    entitiesManager.initializeEntityConfigurations();
+   
+
+   
 
 
     elementsManager.placeElement("bush0",ElementTextureName::COCONUT_TREE_1,10.0f,0,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
@@ -460,12 +462,21 @@ int main() {
     elementsManager.placeElement("bush39",ElementTextureName::COCONUT_TREE_1,10.0f,39,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
 
 
+    gameMap.placeBlockArea(TextureName::WATER_3, 0, 35, 50, 35); // Place a water block at (0, 0)
+
+
+    gameMap.placeBlock(TextureName::GRASS_0, 5, 35); // Place a water block at (0, 0)
     
     // Place the antagonist entity at coordinates (10, 10)
-    entitiesManager.placeEntityByType("antagonist1", "antagonist", 5.0f, 30.0f);;
+
+     entitiesManager.initializeEntityConfigurations();
+
+      entitiesManager.placeEntityByType("antagonist1", "antagonist", 5.0f, 30.0f);;
+
+    // wait 2 seconds
+    entitiesManager.moveEntity("antagonist1",10.0f, 48.0f); // Move the antagonist entity to a new position
 
 
-    entitiesManager.walkEntityToCoordinates("antagonist1",10.0f, 48.0f, WalkType::NORMAL); // Move the antagonist entity to a new position
 
 	// Only show elements count rather than full list for cleaner output
 	std::cout << "Game ready with " << elementsManager.getElementsCount() << " elements placed" << std::endl;
