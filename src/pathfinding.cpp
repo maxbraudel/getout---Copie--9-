@@ -8,12 +8,13 @@
 #include <cmath>
 #include <algorithm>
 #include <iostream>
+#include <limits> // Added to resolve std::numeric_limits error
 
 // Maximum distance for pathfinding to prevent performance issues with very long paths
 const float MAX_PATHFINDING_DISTANCE = 100.0f; // Maximum straight-line distance to attempt pathfinding
 
 // Minimum distance that path points must maintain from non-walkable areas
-const float MIN_DISTANCE_FROM_NON_WALKABLE_AREAS = 0.1f;
+const float MIN_DISTANCE_FROM_NON_WALKABLE_AREAS = 0.05f;
 
 // Using Node structure defined in pathfinding.h
 
@@ -31,47 +32,58 @@ float calculateHeuristic(int x1, int y1, int x2, int y2) {
 
 // Check if a position is valid (within bounds and not colliding)
 bool isPositionValid(float x, float y, float entityCollisionRadius, const Map& gameMap, const std::set<TextureName>& nonTraversableBlocks) {
-    // 1. Check if the entity's entire collision body is within game bounds.
-    // The entity is a circle centered at (x,y) with radius entityCollisionRadius.
+    // 1. Check if the entity\'s entire collision body is within game bounds.
+    // This uses the actual entityCollisionRadius.
     if (x - entityCollisionRadius < 0.0f || x + entityCollisionRadius >= GRID_SIZE ||
         y - entityCollisionRadius < 0.0f || y + entityCollisionRadius >= GRID_SIZE) {
-        // std::cout << \"isPositionValid: FALSE (Out of bounds) for (\" << x << \", \" << y << \") radius \" << entityCollisionRadius << std::endl;
+        // std::cout << "isPositionValid: FALSE (Out of bounds) for (" << x << ", " << y << ") radius " << entityCollisionRadius << std::endl;
         return false; // Entity would be partially or fully out of bounds.
     }
 
     // 2. Check for collision with other collidable elements in the game.
-    // This function should check if an entity centered at (x,y) with entityCollisionRadius collides with any *other* dynamic elements.
+    // This also uses the actual entityCollisionRadius.
     if (wouldCollideWithElement(x, y, entityCollisionRadius)) {
-        // std::cout << \"isPositionValid: FALSE (Element collision) for (\" << x << \", \" << y << \") radius \" << entityCollisionRadius << std::endl;
+        // std::cout << "isPositionValid: FALSE (Element collision) for (" << x << ", " << y << ") radius " << entityCollisionRadius << std::endl;
         return false;
     }
 
-    // 3. Check collision with non-traversable map blocks.
-    //    The entity (circle) must not overlap any non-traversable map blocks.
-    //    We check the center and points on its circumference.
-    const int numCircumferencePoints = 8; // Number of points to sample on the circumference. More points = more precision but more cost.
-    const float pi = 3.14159265358979323846f;
-
-    // Check the center point of the entity.
+    // 3. Check collision with non-traversable map blocks, maintaining MIN_DISTANCE_FROM_NON_WALKABLE_AREAS.
+    
+    // First, check if the entity\'s center is directly inside a non-traversable block.
     if (wouldCollideWithMapBlock(x, y, gameMap, nonTraversableBlocks)) {
-        // std::cout << \"isPositionValid: FALSE (Map block collision at center) for (\" << x << \", \" << y << \")\" << std::endl;
+        // std::cout << "isPositionValid: FALSE (Map block collision at center) for (" << x << ", " << y << ")" << std::endl;
         return false; // Center of the entity is on a non-traversable block.
     }
 
-    // Check points on the circumference of the entity's collision body.
+    // Define the effective radius for checking against map blocks and boundaries, incorporating the margin.
+    float effectiveRadiusForMarginCheck = entityCollisionRadius + MIN_DISTANCE_FROM_NON_WALKABLE_AREAS;
+
+    const int numCircumferencePoints = 8; 
+    const float pi = 3.14159265358979323846f;
+
+    // Check points on the circumference of this "effective" safety circle.
     for (int i = 0; i < numCircumferencePoints; ++i) {
         float angle = 2.0f * pi * static_cast<float>(i) / static_cast<float>(numCircumferencePoints);
-        float checkX = x + entityCollisionRadius * std::cos(angle);
-        float checkY = y + entityCollisionRadius * std::sin(angle);
+        float marginCheckX = x + effectiveRadiusForMarginCheck * std::cos(angle);
+        float marginCheckY = y + effectiveRadiusForMarginCheck * std::sin(angle);
 
-        if (wouldCollideWithMapBlock(checkX, checkY, gameMap, nonTraversableBlocks)) {
-            // std::cout << \"isPositionValid: FALSE (Map block collision at circumference point \" << i << \": \" << checkX << \", \" << checkY << \") for center (\" << x << \", \" << y << \")\" << std::endl;
-            return false; // A point on the entity's circumference is on a non-traversable block.
+        // Check if this margin-aware point is out of game bounds.
+        // If it is, (x,y) is too close to a boundary to maintain the required distance.
+        if (marginCheckX < 0.0f || marginCheckX >= GRID_SIZE ||
+            marginCheckY < 0.0f || marginCheckY >= GRID_SIZE) {
+            // std::cout << "isPositionValid: FALSE (Margin check point out of bounds: " << marginCheckX << ", " << marginCheckY << ") for center (" << x << ", " << y << ") with effective radius " << effectiveRadiusForMarginCheck << std::endl;
+            return false;
+        }
+
+        // Check if this margin-aware point is inside a non-traversable map block.
+        if (wouldCollideWithMapBlock(marginCheckX, marginCheckY, gameMap, nonTraversableBlocks)) {
+            // std::cout << "isPositionValid: FALSE (Map block collision at margin check point " << i << ": " << marginCheckX << ", " << marginCheckY << ") for center (" << x << ", " << y << ") with effective radius " << effectiveRadiusForMarginCheck << std::endl;
+            return false; 
         }
     }
 
     // If all checks pass, the position is valid for the entity.
-    // std::cout << \"isPositionValid: TRUE for (\" << x << \", \" << y << \") radius \" << entityCollisionRadius << std::endl;
+    // std::cout << "isPositionValid: TRUE for (" << x << ", " << y << ") radius " << entityCollisionRadius << " with margin " << MIN_DISTANCE_FROM_NON_WALKABLE_AREAS << std::endl;
     return true;
 }
 
@@ -142,6 +154,111 @@ std::vector<std::pair<int, int>> getNeighbors(int x, int y, float collisionRadiu
     return neighbors;
 }
 
+// Helper function to check if a line segment is valid by sampling points
+static bool isSegmentValid(float x1, float y1, float x2, float y2,
+                           float entityCollisionRadius,
+                           const Map& gameMap,
+                           const std::set<TextureName>& nonTraversableBlocks) {
+    float dx = x2 - x1;
+    float dy = y2 - y1;
+    float distance = std::sqrt(dx * dx + dy * dy);
+
+    if (distance < 0.001f) { // Essentially the same point
+        return isPositionValid(x1, y1, entityCollisionRadius, gameMap, nonTraversableBlocks);
+    }
+
+    // Step size for sampling, e.g., half the collision radius.
+    // Ensure a minimum step size to prevent issues with very small radii and to ensure progress.
+    float stepSize = entityCollisionRadius * 0.5f;
+    if (stepSize < 0.01f) { // Minimum practical step size to avoid excessive checks or division by zero if radius is 0.
+        stepSize = 0.01f;
+    }
+    if (stepSize == 0.0f) { // If radius was 0 and somehow stepSize became 0
+         stepSize = 0.1f; // A fallback small step
+    }
+
+
+    int numSteps = static_cast<int>(distance / stepSize);
+    if (numSteps == 0 && distance > 0.001f) numSteps = 1; // Ensure at least one check for distinct points if distance > epsilon
+
+    // Check points along the segment, including endpoints
+    for (int i = 0; i <= numSteps; ++i) {
+        float t = (numSteps == 0) ? 0.0f : static_cast<float>(i) / static_cast<float>(numSteps);
+        // Ensure the last point is exactly (x2, y2) to avoid floating point drift
+        if (i == numSteps) t = 1.0f; 
+
+        float currentX = x1 + t * dx;
+        float currentY = y1 + t * dy;
+
+        if (!isPositionValid(currentX, currentY, entityCollisionRadius, gameMap, nonTraversableBlocks)) {
+            // For debugging:
+            // std::cout << "isSegmentValid: FALSE at point (" << currentX << ", " << currentY 
+            //           << ") on segment (" << x1 << "," << y1 << ")-(" << x2 << "," << y2 
+            //           << ") with radius " << entityCollisionRadius << ", step " << i << "/" << numSteps << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
+
+// Simplify path using "string pulling" method, ensuring segments are valid
+static void simplifyPath(std::vector<std::pair<float, float>>& path,
+                         float entityCollisionRadius,
+                         const Map& gameMap,
+                         const std::set<TextureName>& nonTraversableBlocks) {
+    if (path.size() <= 2) {
+        // For paths of 0, 1, or 2 points, no simplification is typically needed.
+        // However, if it's 2 points, ensure the direct segment is valid.
+        // This is more of a sanity check as A* should provide valid segments between adjacent cells.
+        // The main findPath logic handles snapping, so this simplifyPath assumes input path points are "reasonable".
+        if (path.size() == 2) {
+            if (!isSegmentValid(path[0].first, path[0].second, path[1].first, path[1].second,
+                                entityCollisionRadius, gameMap, nonTraversableBlocks)) {
+                // If the direct segment between the two points is invalid,
+                // this indicates a potential issue upstream (e.g. A* produced only start/goal
+                // but direct line is blocked). In such a case, simplification can't fix it,
+                // and we might return the original path or a modified one.
+                // For now, we'll let it be, as findPath re-snaps.
+                // A more robust solution might involve returning only the start point if the segment is bad.
+            }
+        }
+        return;
+    }
+
+    std::vector<std::pair<float, float>> simplifiedPath;
+    simplifiedPath.push_back(path[0]); // Always include the starting point
+
+    int currentAnchorIndexInOriginalPath = 0;
+    while (static_cast<size_t>(currentAnchorIndexInOriginalPath) < path.size() - 1) {
+        int furthestReachableIndexInOriginalPath = currentAnchorIndexInOriginalPath + 1;
+        for (size_t i = currentAnchorIndexInOriginalPath + 2; i < path.size(); ++i) {
+            if (isSegmentValid(path[currentAnchorIndexInOriginalPath].first, path[currentAnchorIndexInOriginalPath].second,
+                               path[i].first, path[i].second,
+                               entityCollisionRadius, gameMap, nonTraversableBlocks)) {
+                furthestReachableIndexInOriginalPath = i;
+            } else {
+                // Cannot reach path[i] directly from currentAnchor,
+                // so path[i-1] (which is current furthestReachableIndexInOriginalPath) was the limit.
+                break; 
+            }
+        }
+        // Add the furthest reachable point and update the anchor
+        if (static_cast<size_t>(furthestReachableIndexInOriginalPath) < path.size()) {
+             // Ensure not adding duplicate points if something went very wrong or path is [A,A,A]
+            if (simplifiedPath.back().first != path[furthestReachableIndexInOriginalPath].first ||
+                simplifiedPath.back().second != path[furthestReachableIndexInOriginalPath].second) {
+                simplifiedPath.push_back(path[furthestReachableIndexInOriginalPath]);
+            }
+        } else {
+            // Should not happen if logic is correct, means furthestReachableIndexInOriginalPath went out of bounds
+            break; 
+        }
+        currentAnchorIndexInOriginalPath = furthestReachableIndexInOriginalPath;
+    }
+    path = simplifiedPath;
+}
+
+
 // Find path using A* algorithm
 std::vector<std::pair<float, float>> findPath(
     float startX, float startY,
@@ -150,45 +267,85 @@ std::vector<std::pair<float, float>> findPath(
     float collisionRadius,
     const std::set<TextureName>& nonTraversableBlocks
 ) {
-    // Convert float coordinates to integer grid coordinates for A*
+    // Store original intended goal for messages, and derive initial cell indices
+    float originalGoalX = goalX;
+    float originalGoalY = goalY;
+    int initialStartNodeX = static_cast<int>(startX);
+    int initialStartNodeY = static_cast<int>(startY);
+    int initialGoalNodeX = static_cast<int>(goalX);
+    int initialGoalNodeY = static_cast<int>(goalY);
+
+    // Check and adjust start position
+    if (!isPositionValid(startX, startY, collisionRadius, gameMap, nonTraversableBlocks)) {
+        std::cout << "Pathfinding: Start position (" << startX << ", " << startY << ") is invalid. Searching for a nearby valid start..." << std::endl;
+        bool foundValidStart = false;
+        for (int r = 0; r <= 3; ++r) { // Search radius: 0 (original cell), then 1, 2, 3
+            for (int dx_offset = -r; dx_offset <= r; ++dx_offset) {
+                for (int dy_offset = -r; dy_offset <= r; ++dy_offset) {
+                    if (r > 0 && (std::abs(dx_offset) < r && std::abs(dy_offset) < r)) {
+                        continue; // For r > 0, only check the perimeter of the current search square
+                    }
+                    float testX = static_cast<float>(initialStartNodeX + dx_offset) + 0.5f;
+                    float testY = static_cast<float>(initialStartNodeY + dy_offset) + 0.5f;
+                    if (isPositionValid(testX, testY, collisionRadius, gameMap, nonTraversableBlocks)) {
+                        startX = testX; // Update startX to the valid cell center
+                        startY = testY; // Update startY to the valid cell center
+                        std::cout << "Pathfinding: Adjusted start to valid cell center (" << startX << ", " << startY << ")" << std::endl;
+                        foundValidStart = true;
+                        goto end_start_search;
+                    }
+                }
+            }
+        }
+        end_start_search:;
+        if (!foundValidStart) {
+            std::cerr << "Pathfinding Error: Could not find a valid start position near original (" << initialStartNodeX << ".5, " << initialStartNodeY << ".5)." << std::endl;
+            return {};
+        }
+    }
+
+    // Check and adjust goal position
+    if (!isPositionValid(goalX, goalY, collisionRadius, gameMap, nonTraversableBlocks)) {
+        std::cout << "Pathfinding: Goal position (" << originalGoalX << ", " << originalGoalY << ") is invalid. Searching for a nearby valid goal..." << std::endl;
+        bool foundValidGoal = false;
+        for (int r = 0; r <= 3; ++r) { // Search radius
+            for (int dx_offset = -r; dx_offset <= r; ++dx_offset) {
+                for (int dy_offset = -r; dy_offset <= r; ++dy_offset) {
+                     if (r > 0 && (std::abs(dx_offset) < r && std::abs(dy_offset) < r)) {
+                        continue; 
+                    }
+                    float testX = static_cast<float>(initialGoalNodeX + dx_offset) + 0.5f;
+                    float testY = static_cast<float>(initialGoalNodeY + dy_offset) + 0.5f;
+                    if (isPositionValid(testX, testY, collisionRadius, gameMap, nonTraversableBlocks)) {
+                        goalX = testX; // Update goalX to the valid cell center
+                        goalY = testY; // Update goalY to the valid cell center
+                        std::cout << "Pathfinding: Adjusted goal to valid cell center (" << goalX << ", " << goalY << ")" << std::endl;
+                        foundValidGoal = true;
+                        goto end_goal_search;
+                    }
+                }
+            }
+        }
+        end_goal_search:;
+        if (!foundValidGoal) {
+            std::cerr << "Pathfinding Error: Could not find a valid goal position near original (" << originalGoalX << ", " << originalGoalY << ")." << std::endl;
+            return {};
+        }
+    }
+
+    // Now, derive the A* start/goal nodes from the (potentially adjusted) startX/Y and goalX/Y
     int startNodeX = static_cast<int>(startX);
     int startNodeY = static_cast<int>(startY);
     int goalNodeX = static_cast<int>(goalX);
     int goalNodeY = static_cast<int>(goalY);
 
-    // Check if start or goal are invalid (e.g., inside an obstacle)
-    if (!isPositionValid(startX, startY, collisionRadius, gameMap, nonTraversableBlocks)) {
-        std::cerr << "Pathfinding Error: Start position (" << startX << ", " << startY << ") is invalid." << std::endl;
-        return {}; // Return empty path
+    // If, after adjustment, start and goal are effectively the same, return a direct path
+    if (std::abs(startX - goalX) < 0.001f && std::abs(startY - goalY) < 0.001f) {
+        return {{startX, startY}};
     }
-    if (!isPositionValid(goalX, goalY, collisionRadius, gameMap, nonTraversableBlocks)) {
-        std::cerr << "Pathfinding Error: Goal position (" << goalX << ", " << goalY << ") is invalid." << std::endl;
-        // Attempt to find a nearby valid goal position (optional, simple attempt here)
-        bool foundValidGoal = false;
-        for (int dx = -1; dx <= 1; ++dx) {
-            for (int dy = -1; dy <= 1; ++dy) {
-                if (dx == 0 && dy == 0) continue;
-                float newGoalX = goalX + dx;
-                float newGoalY = goalY + dy;
-                if (isPositionValid(newGoalX, newGoalY, collisionRadius, gameMap, nonTraversableBlocks)) {
-                    goalNodeX = static_cast<int>(newGoalX);
-                    goalNodeY = static_cast<int>(newGoalY);
-                    std::cout << "Pathfinding: Original goal invalid, adjusted to (" << newGoalX << ", " << newGoalY << ")" << std::endl;
-                    foundValidGoal = true;
-                    break;
-                }
-            }
-            if (foundValidGoal) break;
-        }
-        if (!foundValidGoal) {
-            std::cerr << "Pathfinding Error: Could not find a valid goal position near (" << goalX << ", " << goalY << ")." << std::endl;
-            return {};
-        }
-    }
-
-
+    
     std::priority_queue<Node*, std::vector<Node*>, CompareNodes> openSet;
-    std::unordered_map<std::pair<int, int>, Node*, PairHash> allNodes; // Stores all created nodes to manage memory and access
+    std::unordered_map<std::pair<int, int>, Node*, PairHash> allNodes; 
 
     Node* startNode = new Node(startNodeX, startNodeY);
     startNode->gCost = 0;
@@ -198,11 +355,9 @@ std::vector<std::pair<float, float>> findPath(
     allNodes[{startNodeX, startNodeY}] = startNode;
 
     std::unordered_set<std::pair<int, int>, PairHash> closedSet;
-
     std::vector<std::pair<float, float>> path;
-
     int iterations = 0;
-    const int maxIterations = GRID_SIZE * GRID_SIZE * 2; // A reasonable limit to prevent infinite loops in edge cases
+    const int maxIterations = GRID_SIZE * GRID_SIZE * 4; // Increased max iterations slightly
 
     while (!openSet.empty()) {
         iterations++;
@@ -214,7 +369,8 @@ std::vector<std::pair<float, float>> findPath(
                 Node* currentTop = openSet.top();
                 std::cerr << "Pathfinding Details: Current top of openSet: (" << currentTop->x << ", " << currentTop->y << ") fCost: " << currentTop->fCost << std::endl;
             }
-            for (auto& pair : allNodes) { delete pair.second; }
+            for (auto& pair_node : allNodes) { delete pair_node.second; }
+            allNodes.clear();
             return {};
         }
 
@@ -222,46 +378,54 @@ std::vector<std::pair<float, float>> findPath(
         openSet.pop();
 
         if (currentNode->x == goalNodeX && currentNode->y == goalNodeY) {
-            // Path found, reconstruct
             Node* temp = currentNode;
             while (temp != nullptr) {
-                // Path waypoints are cell centers
                 path.push_back({static_cast<float>(temp->x) + 0.5f, static_cast<float>(temp->y) + 0.5f});
                 temp = temp->parent;
             }
             std::reverse(path.begin(), path.end());
             
-            // Ensure the final goal position (float) is accurately set if path is found
-            if (!path.empty()) {
-                // If the path ends at a cell center different from the precise float goal,
-                // and the float goal is valid, adjust the last point.
-                // The first point will also be adjusted to the precise startX, startY.
+            for (auto& pair_node : allNodes) { delete pair_node.second; }
+            allNodes.clear();
+
+            if (path.empty()) { 
+                 if (std::abs(startX - goalX) < 0.001f && std::abs(startY - goalY) < 0.001f) path.push_back({startX, startY});
+                 else { path.push_back({startX, startY}); path.push_back({goalX, goalY}); } 
+            } else {
+                // Path has at least one point (a cell center)
+                // Snap endpoints to the (guaranteed valid or adjusted) startX/Y and goalX/Y BEFORE simplification
+                path[0] = {startX, startY};
                 path.back() = {goalX, goalY};
-            } else if (startX == goalX && startY == goalY) {
-                // Handle case where start and goal are the same
+
+                // Simplify the path using the new robust method
+                simplifyPath(path, collisionRadius, gameMap, nonTraversableBlocks); 
+
+                // Ensure simplification didn't break start/end points, or if path became very short
+                if (!path.empty()) {
+                    path[0] = {startX, startY}; // Re-snap start
+                    // If simplifyPath results in a single point, goalX/Y might not be path.back() if startX/Y was that point.
+                    // Ensure goal is the last point if path has more than one point, or if path is just goal.
+                    if (path.size() > 1) {
+                        path.back() = {goalX, goalY}; // Re-snap end
+                    } else { // Path has 1 point. If it's not goalX/Y (e.g. startX/Y == goalX/Y), it's fine.
+                             // If startX/Y != goalX/Y but path became 1 point, it should be startX/Y. Add goalX/Y.
+                        if (std::abs(startX - goalX) > 0.001f || std::abs(startY - goalY) > 0.001f) {
+                            if (path[0].first != goalX || path[0].second != goalY) { // if the single point isn't already the goal
+                                path.push_back({goalX, goalY});
+                            }
+                        }
+                    }
+                } else { // Path became empty after simplification (e.g. start and goal were same and simplifyPath reduced it)
+                    path.push_back({startX, startY}); 
+                    if (std::abs(startX - goalX) > 0.001f || std::abs(startY - goalY) > 0.001f) { 
+                         path.push_back({goalX, goalY});
+                    }
+                }
+            }
+             // Ensure path has at least one point if start and goal are the same.
+            if (path.empty() && std::abs(startX - goalX) < 0.001f && std::abs(startY - goalY) < 0.001f) {
                 path.push_back({startX, startY});
             }
-
-            // Clean up allocated nodes
-            for (auto& pair : allNodes) {
-                delete pair.second;
-            }
-            simplifyPath(path);
-            if (path.size() == 1 && (path[0].first != goalX || path[0].second != goalY) && (startX != goalX || startY != goalY) ) {
-                 // If simplified path is just the start, but goal is different, add goal if valid
-                 if(isPositionValid(goalX, goalY, collisionRadius, gameMap, nonTraversableBlocks)) {
-                    path.push_back({goalX, goalY});
-                 }
-            } else if (path.empty() && startX == goalX && startY == goalY) {
-                 path.push_back({startX, startY});
-            } else if (path.size() > 1) {
-                // Ensure the very first point is the exact start float coordinates
-                path[0] = {startX, startY};
-                // Ensure the very last point is the exact goal float coordinates
-                path.back() = {goalX, goalY};
-            }
-
-
             return path;
         }
 
@@ -272,61 +436,56 @@ std::vector<std::pair<float, float>> findPath(
                 continue;
             }
 
-            float tentativeGCost = currentNode->gCost + 1.0f; // Assuming cost of 1 for adjacent nodes
+            float tentativeGCost = currentNode->gCost + 1.0f; 
+            // Diagonal movement cost (optional, can be sqrt(2) or different if desired)
+            // if (std::abs(neighborPos.first - currentNode->x) == 1 && std::abs(neighborPos.second - currentNode->y) == 1) {
+            //    tentativeGCost = currentNode->gCost + 1.414f; // Cost for diagonal
+            // }
+
 
             Node* neighborNode = nullptr;
-            if (allNodes.count(neighborPos)) {
-                neighborNode = allNodes[neighborPos];
+            auto it = allNodes.find(neighborPos);
+            if (it != allNodes.end()) {
+                neighborNode = it->second;
             } else {
                 neighborNode = new Node(neighborPos.first, neighborPos.second);
                 allNodes[neighborPos] = neighborNode;
+                 // Initialize gCost to a high value if new, so any path is better
+                neighborNode->gCost = std::numeric_limits<float>::max();
             }
 
-            bool inOpenSet = false; // This check is tricky with raw pointers in priority_queue.
-                                    // A better way is to check if gCost can be improved.
-
-            if (tentativeGCost < neighborNode->gCost || neighborNode->gCost == 0 && neighborNode->parent == nullptr && !(neighborNode->x == startNodeX && neighborNode->y == startNodeY) ) { // if gCost is 0 and no parent, it's effectively infinity unless it's the start node
+            if (tentativeGCost < neighborNode->gCost) {
                 neighborNode->parent = currentNode;
                 neighborNode->gCost = tentativeGCost;
                 neighborNode->hCost = calculateHeuristic(neighborNode->x, neighborNode->y, goalNodeX, goalNodeY);
                 neighborNode->fCost = neighborNode->gCost + neighborNode->hCost;
-                
-                // To update priority in openSet, typically involves removing and re-adding,
-                // or using a structure that supports decrease-key.
-                // A simpler (though less efficient for dense graphs) approach for std::priority_queue
-                // is to just add it again; the earlier, worse entry will be processed later or ignored.
-                // However, ensure we don't have duplicates if we are checking if it's already there.
-                // For now, we'll rely on the gCost check. If it was already in openSet with higher gCost,
-                // this new one will be prioritized. If it wasn't in openSet, it's added.
                 openSet.push(neighborNode);
             }
         }
     }
 
     // Clean up allocated nodes if no path found
-    for (auto& pair : allNodes) {
-        delete pair.second;
-    }
-    // Enhanced Debugging Output
-    std::cerr << "-------------------------------------------------" << std::endl;
+    for (auto& pair_node : allNodes) { delete pair_node.second; }
+    allNodes.clear();
+    
+    // Enhanced Debugging Output (if no path found)
+    std::cerr << "-------------------------------------------------\\\\" << std::endl;
     std::cerr << "Pathfinding: No path found! Details:" << std::endl;
-    std::cerr << "  Start Node (float): (" << startX << ", " << startY << ")" << std::endl;
-    std::cerr << "  Goal Node (float):  (" << goalX << ", " << goalY << ")" << std::endl;
-    std::cerr << "  Start Node (int):   (" << startNodeX << ", " << startNodeY << ")" << std::endl;
-    std::cerr << "  Goal Node (int):    (" << goalNodeX << ", " << goalNodeY << ")" << std::endl;
+    std::cerr << "  Start (final used): (" << startX << ", " << startY << "), Node: (" << startNodeX << ", " << startNodeY << ")" << std::endl;
+    std::cerr << "  Goal (final used):  (" << goalX << ", " << goalY << "), Node: (" << goalNodeX << ", " << goalNodeY << ")" << std::endl;
+    std::cerr << "  Original Goal:      (" << originalGoalX << ", " << originalGoalY << ")" << std::endl;
     std::cerr << "  Collision Radius:   " << collisionRadius << std::endl;
     std::cerr << "  Open Set Status:    " << (openSet.empty() ? "Empty" : "Not Empty (Error in logic?)") << std::endl;
     std::cerr << "  Nodes Explored (Closed Set Size): " << closedSet.size() << std::endl;
-    std::cerr << "  Total Nodes Considered (AllNodes map size): " << allNodes.size() << std::endl;
+    // std::cerr << "  Total Nodes Considered (AllNodes map size at end): " << allNodes.size() << std::endl; // allNodes is cleared
     std::cerr << "  Number of Iterations: " << iterations << std::endl;
 
-    // Optionally, print some of the closed set nodes if it's small enough or a sample
     if (closedSet.size() < 20 && closedSet.size() > 0) {
         std::cerr << "  Sample of Closed Set Nodes (x, y):" << std::endl;
         int count = 0;
         for (const auto& node_pair : closedSet) {
             std::cerr << "    (" << node_pair.first << ", " << node_pair.second << ")" << std::endl;
-            if (++count >= 5) break; // Print first 5 explored nodes
+            if (++count >= 5) break; 
         }
     } else if (closedSet.size() >= 20) {
         std::cerr << "  Closed set is large, not printing samples here." << std::endl;
@@ -338,10 +497,10 @@ std::vector<std::pair<float, float>> findPath(
     } else {
         std::cerr << std::endl;
         for (const auto& block : nonTraversableBlocks) {
-            std::cerr << "    - " << static_cast<int>(block) << std::endl; // Assuming TextureName can be cast to int for logging
+            std::cerr << "    - " << static_cast<int>(block) << std::endl; 
         }
     }
-    std::cerr << "-------------------------------------------------" << std::endl;
+    std::cerr << "-------------------------------------------------\\" << std::endl;
 
     return {}; // No path found
 }
@@ -354,25 +513,4 @@ std::vector<std::pair<float, float>> findPath(
     float collisionRadius
 ) {
     return findPath(startX, startY, goalX, goalY, gameMap, collisionRadius, std::set<TextureName>());
-}
-
-// Simplify path by removing waypoints that are too close together
-void simplifyPath(std::vector<std::pair<float, float>>& path) {
-    if (path.size() <= 2) return;
-
-    std::vector<std::pair<float, float>> simplified;
-    simplified.push_back(path.front());
-
-    for (size_t i = 1; i < path.size(); ++i) {
-        float dx = path[i].first - simplified.back().first;
-        float dy = path[i].second - simplified.back().second;
-        float distance = std::sqrt(dx * dx + dy * dy);
-
-        // Only add points that are far enough from the last added point
-        if (distance >= MINIMUM_DISTANCE_BETWEEN_WAYPOINTS || i == path.size() - 1) {
-            simplified.push_back(path[i]);
-        }
-    }
-
-    path = std::move(simplified);
 }
