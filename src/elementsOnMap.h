@@ -50,7 +50,7 @@ struct ElementTextureInfo {
     float anchorOffsetX = 0.0f;                    // Default X offset from anchor point
     float anchorOffsetY = 0.0f;                    // Default Y offset from anchor point
     bool hasCollision = false;                     // Whether this element has collision detection
-    float collisionRadius = 0.4f;                  // Radius for collision detection if enabled
+    std::vector<std::pair<float, float>> collisionShapePoints; // Points defining the collision polygon, relative to anchor
 };
 
 // Struct to hold placed element information
@@ -80,7 +80,7 @@ struct PlacedElement {
     
     // Collision properties
     bool hasCollision = false;    // Whether this element has collision detection
-    float collisionRadius = 0.4f; // Radius for collision detection if enabled
+    std::vector<std::pair<float, float>> collisionShapePoints; // Points defining the collision polygon
 };
 
 // Main class to handle elements on the map

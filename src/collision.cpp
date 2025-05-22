@@ -8,6 +8,7 @@
 #include <string>
 #include <set>
 #include <unordered_map>  // Added for spatial partitioning
+#include <limits> // Added for std::numeric_limits
 
 // Forward declaration for playerNonTraversableBlocks from player.cpp
 extern std::set<TextureName> playerNonTraversableBlocks;
@@ -128,83 +129,113 @@ bool wouldCollideWithElement(float x, float y, float playerRadius) {
     // Check distance to each nearby element
     for (const auto& elementName : nearbyElements) {
         float elementX, elementY;
-        if (elementsManager.getElementPosition(elementName, elementX, elementY)) {
-            // Count how many collision checks we're performing
-            collisionCheckCount++;
+        // Also need element scale and rotation for transforming polygon points
+        float elementScale = 1.0f;
+        float elementRotation = 0.0f;
+        std::vector<std::pair<float, float>> elementCollisionShapePoints;
+        bool elementHasCollision = false;
+
+        // Find the element to get its actual collision properties
+        const auto& elements = elementsManager.getElements();
+        const PlacedElement* currentElement = nullptr;
+        for (const auto& el : elements) {
+            if (el.instanceName == elementName) {
+                currentElement = &el;
+                break;
+            }
+        }
+
+        if (!currentElement || !currentElement->hasCollision || currentElement->collisionShapePoints.empty()) {
+            continue; // Skip elements without collision enabled or without defined shape
+        }
+
+        elementX = currentElement->x;
+        elementY = currentElement->y;
+        elementScale = currentElement->scale; // Assuming uniform scaling for now
+        elementRotation = currentElement->rotation; // In degrees
+        elementCollisionShapePoints = currentElement->collisionShapePoints;
+        elementHasCollision = true;
+
+        collisionCheckCount++;
+
+        // Transform polygon points to world coordinates
+        std::vector<std::pair<float, float>> worldShapePoints;
+        float angleRad = elementRotation * M_PI / 180.0f; // Convert rotation to radians
+        float cosA = cos(angleRad);
+        float sinA = sin(angleRad);
+
+        for (const auto& localPoint : elementCollisionShapePoints) {
+            // Scale first, then rotate, then translate
+            float scaledX = localPoint.first * elementScale;
+            float scaledY = localPoint.second * elementScale;
             
-            // Get the collision radius (half side length of the square) for this specific element
-            float elementHalfSide = 0.4f; // Default value
-            bool elementHasCollision = false;
+            float rotatedX = scaledX * cosA - scaledY * sinA;
+            float rotatedY = scaledX * sinA + scaledY * cosA;
             
-            // Find the element to get its actual collision properties
-            const auto& elements = elementsManager.getElements();
-            for (const auto& element : elements) {
-                if (element.instanceName == elementName) {
-                    if (element.hasCollision) {
-                        elementHalfSide = element.collisionRadius; // collisionRadius is half side length
-                        elementHasCollision = true;
-                    }
-                    break;
+            worldShapePoints.push_back({elementX + rotatedX, elementY + rotatedY});
+        }
+
+        // Perform circle-polygon collision detection
+        // For simplicity, we can use a separating axis theorem (SAT) based approach or a point-in-polygon test for the circle's center
+        // followed by checking distance to polygon edges if the center is outside.
+        // A robust solution is complex. Here's a simplified version:
+        // 1. Check if player center is inside the polygon.
+        // 2. If not, find the closest point on polygon to player center and check distance.
+
+        bool collision = false;
+        // Step 1: Point-in-polygon test (Ray Casting)
+        int intersectCount = 0;
+        for (size_t i = 0; i < worldShapePoints.size(); ++i) {
+            std::pair<float, float> p1 = worldShapePoints[i];
+            std::pair<float, float> p2 = worldShapePoints[(i + 1) % worldShapePoints.size()];
+
+            // Check if player.y is between p1.y and p2.y
+            if (((p1.second <= y && y < p2.second) || (p2.second <= y && y < p1.second)) &&
+                // And player.x is to the left of the intersection point of the ray and the edge
+                (x < (p2.first - p1.first) * (y - p1.second) / (p2.second - p1.second) + p1.first)) {
+                intersectCount++;
+            }
+        }
+        if (intersectCount % 2 == 1) {
+            collision = true; // Player center is inside polygon
+        }
+
+        // Step 2: If center is not inside, check distance to polygon edges
+        if (!collision) {
+            float minDistSq = std::numeric_limits<float>::max();
+            for (size_t i = 0; i < worldShapePoints.size(); ++i) {
+                std::pair<float, float> p1 = worldShapePoints[i];
+                std::pair<float, float> p2 = worldShapePoints[(i + 1) % worldShapePoints.size()];
+
+                // Calculate closest point on segment (p1, p2) to player (x,y)
+                float lenSq = (p2.first - p1.first)*(p2.first - p1.first) + (p2.second - p1.second)*(p2.second - p1.second);
+                if (lenSq == 0.0) { // p1 and p2 are the same
+                    minDistSq = std::min(minDistSq, (x - p1.first)*(x - p1.first) + (y - p1.second)*(y - p1.second));
+                    continue;
                 }
+                float t = ((x - p1.first)*(p2.first - p1.first) + (y - p1.second)*(p2.second - p1.second)) / lenSq;
+                t = std::max(0.0f, std::min(1.0f, t)); // Clamp t to [0,1]
+                float closestX = p1.first + t * (p2.first - p1.first);
+                float closestY = p1.second + t * (p2.second - p1.second);
+                float distSq = (x - closestX)*(x - closestX) + (y - closestY)*(y - closestY);
+                minDistSq = std::min(minDistSq, distSq);
             }
-
-            if (!elementHasCollision) {
-                continue; // Skip elements without collision enabled
+            if (minDistSq < (playerRadius * playerRadius)) {
+                collision = true;
             }
-            
-            // AABB collision detection for player (point) and element (square)
-            // Player is treated as a point (x, y) for simplicity with AABB.
-            // If playerRadius needs to be accounted for, this becomes a square-square or circle-square check.
-            // For now, let's assume playerRadius is for player-player or player-circular-object collision,
-            // and for player-square-element, we check if the player's center point (x,y) is inside the square.
+        }
 
-            // Calculate the square's boundaries
-            float elementMinX = elementX - elementHalfSide;
-            float elementMaxX = elementX + elementHalfSide;
-            float elementMinY = elementY - elementHalfSide;
-            float elementMaxY = elementY + elementHalfSide;
-
-            // Check if the player's point (x, y) is within the element's square
-            // This is a point-AABB check. If playerRadius > 0, it's more like circle-AABB.
-            // For a simple AABB vs AABB (if player is also a square of side 2*playerRadius):
-            // bool overlapX = (x - playerRadius < elementMaxX) && (x + playerRadius > elementMinX);
-            // bool overlapY = (y - playerRadius < elementMaxY) && (y + playerRadius > elementMinY);
-
-            // For player (circle) vs element (square AABB) collision:
-            // Find the closest point on the square to the circle's center
-            float closestX = std::max(elementMinX, std::min(x, elementMaxX));
-            float closestY = std::max(elementMinY, std::min(y, elementMaxY));
-
-            // Calculate the distance between the circle's center and this closest point
-            float distanceX = x - closestX;
-            float distanceY = y - closestY;
-            float distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
-
-            // If the distance is less than the circle's radius, an intersection occurs
-            if (distanceSquared < (playerRadius * playerRadius)) {
-                collisionHitCount++;
-                float currentTime = static_cast<float>(glfwGetTime());
-                if (playerDebugMode && currentTime - lastCollisionDebugTime > 2.0f) {
-                    lastCollisionDebugTime = currentTime;
-                    std::cout << "Collision with " << elementName 
-                              << " (square) at player pos (" << x << ", " << y << ")" 
-                              << ", element center: (" << elementX << ", " << elementY << ")" 
-                              << ", element half-side: " << elementHalfSide << std::endl;
-                    std::cout << "  Player (radius: " << playerRadius << ") vs Element Square (minX: " << elementMinX 
-                              << ", maxX: " << elementMaxX << ", minY: " << elementMinY << ", maxY: " << elementMaxY << ")" << std::endl;
-                    std::cout << "  Closest point on square: (" << closestX << ", " << closestY << ")" << std::endl;
-                    std::cout << "  Distance squared to closest point: " << distanceSquared << " (playerRadius^2: " << (playerRadius * playerRadius) << ")" << std::endl;
-                    std::cout << "Collision efficiency: " << collisionHitCount << " hits from " 
-                              << collisionCheckCount << " checks ("
-                              << (collisionCheckCount > 0 ? (100.0f * collisionHitCount / collisionCheckCount) : 0)
-                              << "% hit rate)" << std::endl;
-                    if (collisionCheckCount > 1000) {
-                        collisionCheckCount = 0;
-                        collisionHitCount = 0;
-                    }
-                }
-                return true; // Collision detected
+        if (collision) {
+            collisionHitCount++;
+            float currentTime = static_cast<float>(glfwGetTime());
+            if (playerDebugMode && currentTime - lastCollisionDebugTime > 2.0f) {
+                lastCollisionDebugTime = currentTime;
+                std::cout << "Collision with " << elementName 
+                          << " (polygon) at player pos (" << x << ", " << y << ")" 
+                          << ", element center: (" << elementX << ", " << elementY << ")" << std::endl;
+                // Further debug info can be added here if needed
             }
+            return true; // Collision detected
         }
     }
     

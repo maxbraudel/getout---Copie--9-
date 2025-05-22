@@ -16,36 +16,48 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
       // Static texture for test/grass
     ElementTextureInfo testTexture;
     testTexture.name = ElementTextureName::TEST;
-    testTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\blocks\\grass.png";
+    testTexture.path = "C:\\\\Users\\\\famillebraudel\\\\Documents\\\\Developpement\\\\getout - Copie (9)\\\\assets\\\\textures\\\\blocks\\\\grass.png";
     testTexture.type = ElementTextureType::STATIC;
     testTexture.anchorPoint = AnchorPoint::CENTER; // Default center anchor
     textures.push_back(testTexture);    // Static texture for coconut tree 1
     ElementTextureInfo coconutTree1Texture;
     coconutTree1Texture.name = ElementTextureName::COCONUT_TREE_1;
-    coconutTree1Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_1.png";
+    coconutTree1Texture.path = "C:\\\\Users\\\\famillebraudel\\\\Documents\\\\Developpement\\\\getout - Copie (9)\\\\assets\\\\textures\\\\decorations\\\\coconut_tree_1.png";
     coconutTree1Texture.type = ElementTextureType::STATIC;
     coconutTree1Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree1Texture.anchorOffsetX = -0.3f; // X offset
     coconutTree1Texture.anchorOffsetY = 0.2f; // No Y offset
     coconutTree1Texture.hasCollision = true;  // Enable collision for this tree
-    coconutTree1Texture.collisionRadius = 0.4f; // Set collision radius
+    // Define a rectangular collision shape. Points are relative to the anchor point.
+    // Based on previous collisionRadius = 0.4f, let's make a 0.8x0.8 box.
+    // Anchor is BOTTOM_CENTER, with offsets. The shape should be centered around this effective anchor.
+    // For BOTTOM_CENTER, y=0 is the bottom.
+    // Example: A 0.8 wide, 0.8 tall box centered at the anchor.
+    // The points are (local_x, local_y)
+    coconutTree1Texture.collisionShapePoints = {
+        {-0.05f, 0.0f}, {-0.05f, 0.1}, {0.05f, 0.1f}, {0.05f, 0.0f}
+    };
     textures.push_back(coconutTree1Texture);    ElementTextureInfo coconutTree2Texture;
     coconutTree2Texture.name = ElementTextureName::COCONUT_TREE_2;
-    coconutTree2Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_2.png";
+    coconutTree2Texture.path = "C:\\\\Users\\\\famillebraudel\\\\Documents\\\\Developpement\\\\getout - Copie (9)\\\\assets\\\\textures\\\\decorations\\\\coconut_tree_2.png";
     coconutTree2Texture.type = ElementTextureType::STATIC;
     coconutTree2Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree2Texture.anchorOffsetX = 0.0f; // No offset
     coconutTree2Texture.anchorOffsetY = 0.4f; // No offset
     coconutTree2Texture.hasCollision = true;  // Enable collision for this tree
-    coconutTree2Texture.collisionRadius = 0.4f; // Set collision radius
+    coconutTree2Texture.collisionShapePoints = {
+        {-0.05f, 0.0f}, {-0.05f, 0.1}, {0.05f, 0.1f}, {0.05f, 0.0f}
+    };
     textures.push_back(coconutTree2Texture);    ElementTextureInfo coconutTree3Texture;
     coconutTree3Texture.name = ElementTextureName::COCONUT_TREE_3;
-    coconutTree3Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_3.png";
+    coconutTree3Texture.path = "C:\\\\Users\\\\famillebraudel\\\\Documents\\\\Developpement\\\\getout - Copie (9)\\\\assets\\\\textures\\\\decorations\\\\coconut_tree_3.png";
     coconutTree3Texture.type = ElementTextureType::STATIC;    coconutTree3Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree3Texture.anchorOffsetX = 0.3f; // No offset
     coconutTree3Texture.anchorOffsetY = 0.4f; // No offset
     coconutTree3Texture.hasCollision = true;  // Enable collision for this tree
-    coconutTree3Texture.collisionRadius = 0.4f; // Set collision radius
+    coconutTree3Texture.collisionShapePoints = {
+        {-0.05f, 0.0f}, {-0.05f, 0.1}, {0.05f, 0.1f}, {0.05f, 0.0f}
+    };
     textures.push_back(coconutTree3Texture);
       // Sprite sheet texture for character
     ElementTextureInfo characterTexture;
@@ -227,7 +239,7 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
     
     // Handle anchor point - check if we need to use the texture's default
     if (anchorPoint == AnchorPoint::USE_TEXTURE_DEFAULT) {
-        // Look up the texture's default anchor point
+        // Look up the texture\'s default anchor point
         bool found = false;        for (const auto& texInfo : elementTexturesToLoad) {
             if (texInfo.name == textureName) {
                 element.anchorPoint = texInfo.anchorPoint;
@@ -236,7 +248,8 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
                 
                 // Copy collision properties from the texture definition
                 element.hasCollision = texInfo.hasCollision;
-                element.collisionRadius = texInfo.collisionRadius;
+                // element.collisionRadius = texInfo.collisionRadius; // Old line
+                element.collisionShapePoints = texInfo.collisionShapePoints; // New line
                 
                 found = true;
                 break;
@@ -814,9 +827,9 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
           // Draw collision box if visualization is enabled and this element has collision
         if (isShowingCollisionBoxes() && element.hasCollision) {
             // Scale the collision radius to match the grid cell dimensions
-            float halfSideLength = element.collisionRadius * cellWidth; // collisionRadius is now half side length
+            // float halfSideLength = element.collisionRadius * cellWidth; // collisionRadius is now half side length // Old line
 
-            // Draw the collision square centered on the anchor point
+            // Draw the collision polygon centered on the anchor point
             // The anchor point is at (anchorX, anchorY) before the -anchorX, -anchorY translation,
             // so in the current coordinate system, we need to draw at (anchorX, anchorY)
             
@@ -825,15 +838,21 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
 
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
-            // Translate to the anchor point of the element where the collision square should be centered
+            // Translate to the anchor point of the element where the collision shape should be centered
             glTranslatef(anchorX, anchorY, 0.0f);
 
-            // Draw the square using GL_LINE_LOOP
+            // Draw the polygon using GL_LINE_LOOP
             glBegin(GL_LINE_LOOP);
-                glVertex2f(-halfSideLength, -halfSideLength); // Bottom-left
-                glVertex2f( halfSideLength, -halfSideLength); // Bottom-right
-                glVertex2f( halfSideLength,  halfSideLength); // Top-right
-                glVertex2f(-halfSideLength,  halfSideLength); // Top-left
+            if (!element.collisionShapePoints.empty()) {
+                for (const auto& point : element.collisionShapePoints) {
+                    // Scale points by element.scale first, then by cell dimensions
+                    // to convert from local element units (defined in collisionShapePoints)
+                    // to screen/grid units for drawing.
+                    float polyX = (point.first * element.scale) * cellWidth; 
+                    float polyY = (point.second * element.scale) * cellHeight; 
+                    glVertex2f(polyX, polyY);
+                }
+            }
             glEnd();
 
             glPopMatrix();
