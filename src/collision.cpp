@@ -132,52 +132,72 @@ bool wouldCollideWithElement(float x, float y, float playerRadius) {
             // Count how many collision checks we're performing
             collisionCheckCount++;
             
-            // Quick distance check
-            float dx = x - elementX;
-            float dy = y - elementY;
-            float distanceSquared = dx*dx + dy*dy;
+            // Get the collision radius (half side length of the square) for this specific element
+            float elementHalfSide = 0.4f; // Default value
+            bool elementHasCollision = false;
             
-            // Skip elements that are clearly too far away (optimization)
-            float maxCheckRange = MAX_COLLISION_CHECK_RANGE + playerRadius;
-            if (distanceSquared > maxCheckRange * maxCheckRange) {
-                continue;
-            }
-            
-            // Get the collision radius for this specific element
-            float elementRadius = 0.4f; // Default value
-            
-            // Find the element to get its actual collision radius
+            // Find the element to get its actual collision properties
             const auto& elements = elementsManager.getElements();
             for (const auto& element : elements) {
                 if (element.instanceName == elementName) {
-                    elementRadius = element.collisionRadius;
+                    if (element.hasCollision) {
+                        elementHalfSide = element.collisionRadius; // collisionRadius is half side length
+                        elementHasCollision = true;
+                    }
                     break;
                 }
             }
+
+            if (!elementHasCollision) {
+                continue; // Skip elements without collision enabled
+            }
             
-            // Combined radius for collision detection
-            float combinedRadius = playerRadius + elementRadius;
-            
-            // If distance is less than combined radius, we have a collision
-            if (distanceSquared < combinedRadius * combinedRadius) {
-                // Count how many actual collisions we're detecting
+            // AABB collision detection for player (point) and element (square)
+            // Player is treated as a point (x, y) for simplicity with AABB.
+            // If playerRadius needs to be accounted for, this becomes a square-square or circle-square check.
+            // For now, let's assume playerRadius is for player-player or player-circular-object collision,
+            // and for player-square-element, we check if the player's center point (x,y) is inside the square.
+
+            // Calculate the square's boundaries
+            float elementMinX = elementX - elementHalfSide;
+            float elementMaxX = elementX + elementHalfSide;
+            float elementMinY = elementY - elementHalfSide;
+            float elementMaxY = elementY + elementHalfSide;
+
+            // Check if the player's point (x, y) is within the element's square
+            // This is a point-AABB check. If playerRadius > 0, it's more like circle-AABB.
+            // For a simple AABB vs AABB (if player is also a square of side 2*playerRadius):
+            // bool overlapX = (x - playerRadius < elementMaxX) && (x + playerRadius > elementMinX);
+            // bool overlapY = (y - playerRadius < elementMaxY) && (y + playerRadius > elementMinY);
+
+            // For player (circle) vs element (square AABB) collision:
+            // Find the closest point on the square to the circle's center
+            float closestX = std::max(elementMinX, std::min(x, elementMaxX));
+            float closestY = std::max(elementMinY, std::min(y, elementMaxY));
+
+            // Calculate the distance between the circle's center and this closest point
+            float distanceX = x - closestX;
+            float distanceY = y - closestY;
+            float distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
+
+            // If the distance is less than the circle's radius, an intersection occurs
+            if (distanceSquared < (playerRadius * playerRadius)) {
                 collisionHitCount++;
-                
-                // Only print collision debug info when playerDebugMode is on and throttle the messages
                 float currentTime = static_cast<float>(glfwGetTime());
                 if (playerDebugMode && currentTime - lastCollisionDebugTime > 2.0f) {
                     lastCollisionDebugTime = currentTime;
                     std::cout << "Collision with " << elementName 
-                              << " at distance " << std::sqrt(distanceSquared)
-                              << " (combined radius: " << combinedRadius << ")" << std::endl;
-                    
-                    // Print performance stats occasionally
+                              << " (square) at player pos (" << x << ", " << y << ")" 
+                              << ", element center: (" << elementX << ", " << elementY << ")" 
+                              << ", element half-side: " << elementHalfSide << std::endl;
+                    std::cout << "  Player (radius: " << playerRadius << ") vs Element Square (minX: " << elementMinX 
+                              << ", maxX: " << elementMaxX << ", minY: " << elementMinY << ", maxY: " << elementMaxY << ")" << std::endl;
+                    std::cout << "  Closest point on square: (" << closestX << ", " << closestY << ")" << std::endl;
+                    std::cout << "  Distance squared to closest point: " << distanceSquared << " (playerRadius^2: " << (playerRadius * playerRadius) << ")" << std::endl;
                     std::cout << "Collision efficiency: " << collisionHitCount << " hits from " 
                               << collisionCheckCount << " checks ("
                               << (collisionCheckCount > 0 ? (100.0f * collisionHitCount / collisionCheckCount) : 0)
                               << "% hit rate)" << std::endl;
-                    
-                    // Reset counters periodically
                     if (collisionCheckCount > 1000) {
                         collisionCheckCount = 0;
                         collisionHitCount = 0;

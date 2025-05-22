@@ -23,7 +23,8 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     ElementTextureInfo coconutTree1Texture;
     coconutTree1Texture.name = ElementTextureName::COCONUT_TREE_1;
     coconutTree1Texture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\decorations\\coconut_tree_1.png";
-    coconutTree1Texture.type = ElementTextureType::STATIC;    coconutTree1Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
+    coconutTree1Texture.type = ElementTextureType::STATIC;
+    coconutTree1Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree1Texture.anchorOffsetX = -0.3f; // X offset
     coconutTree1Texture.anchorOffsetY = 0.2f; // No Y offset
     coconutTree1Texture.hasCollision = true;  // Enable collision for this tree
@@ -813,11 +814,31 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
           // Draw collision box if visualization is enabled and this element has collision
         if (isShowingCollisionBoxes() && element.hasCollision) {
             // Scale the collision radius to match the grid cell dimensions
-            float scaledRadius = element.collisionRadius * cellWidth;
-            // Draw the collision box centered on the anchor point
+            float halfSideLength = element.collisionRadius * cellWidth; // collisionRadius is now half side length
+
+            // Draw the collision square centered on the anchor point
             // The anchor point is at (anchorX, anchorY) before the -anchorX, -anchorY translation,
             // so in the current coordinate system, we need to draw at (anchorX, anchorY)
-            drawCollisionBox(anchorX, anchorY, scaledRadius);
+            
+            // Set color for collision box (e.g., red)
+            glColor4f(1.0f, 0.0f, 0.0f, 1.0f); // Red color
+
+            glMatrixMode(GL_MODELVIEW);
+            glPushMatrix();
+            // Translate to the anchor point of the element where the collision square should be centered
+            glTranslatef(anchorX, anchorY, 0.0f);
+
+            // Draw the square using GL_LINE_LOOP
+            glBegin(GL_LINE_LOOP);
+                glVertex2f(-halfSideLength, -halfSideLength); // Bottom-left
+                glVertex2f( halfSideLength, -halfSideLength); // Bottom-right
+                glVertex2f( halfSideLength,  halfSideLength); // Top-right
+                glVertex2f(-halfSideLength,  halfSideLength); // Top-left
+            glEnd();
+
+            glPopMatrix();
+            // Restore original color if needed (e.g., white for textures)
+            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         }
         
         // Restore matrix state
