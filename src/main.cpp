@@ -16,6 +16,8 @@
 #include <ctime> // For time(0) to seed random number generator
 #include <cmath> // For sqrt function
 #include <algorithm> // For std::min and std::max
+#include <thread> // For std::this_thread::sleep_for
+#include <chrono> // For std::chrono::seconds
 
 
 using namespace glbasimac;
@@ -474,6 +476,8 @@ int main() {
       entitiesManager.placeEntityByType("antagonist1", "antagonist", 5.0f, 30.0f);;
 
     // wait 2 seconds
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+
     entitiesManager.moveEntity("antagonist1",10.0f, 48.0f); // Move the antagonist entity to a new position
 
 

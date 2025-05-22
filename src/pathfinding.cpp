@@ -10,7 +10,10 @@
 #include <iostream>
 
 // Maximum distance for pathfinding to prevent performance issues with very long paths
-const float MAX_PATHFINDING_DISTANCE = 100.0f; // Maximum straight-line distance to attempt pathfinding
+const float MAX_PATHFINDING_DISTANCE = 30.0f; // Maximum straight-line distance to attempt pathfinding
+
+// Minimum distance that path points must maintain from non-walkable areas
+const float MIN_DISTANCE_FROM_NON_WALKABLE_AREAS = 0.6f;
 
 // Using Node structure defined in pathfinding.h
 
@@ -28,19 +31,32 @@ float calculateHeuristic(int x1, int y1, int x2, int y2) {
 
 // Check if a position is valid (within bounds and not colliding)
 bool isPositionValid(float x, float y, float collisionRadius, const Map& gameMap, const std::set<TextureName>& nonTraversableBlocks) {
-    // Check bounds
-    if (x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) {
+    // Check bounds with additional safety margin
+    if (x < MIN_DISTANCE_FROM_NON_WALKABLE_AREAS || 
+        y < MIN_DISTANCE_FROM_NON_WALKABLE_AREAS || 
+        x >= GRID_SIZE - MIN_DISTANCE_FROM_NON_WALKABLE_AREAS || 
+        y >= GRID_SIZE - MIN_DISTANCE_FROM_NON_WALKABLE_AREAS) {
         return false;
     }
 
-    // Check for collisions with map blocks
-    if (wouldCollideWithMapBlock(x, y, gameMap, nonTraversableBlocks)) {
-        return false;
-    }
-
-    // Check for collisions with elements (like coconut trees)
-    if (wouldCollideWithElement(x, y, collisionRadius)) {
-        return false;
+    // Check surrounding points to ensure minimum distance from non-walkable areas
+    float checkRadius = MIN_DISTANCE_FROM_NON_WALKABLE_AREAS;
+    for (float dx = -checkRadius; dx <= checkRadius; dx += 0.5f) {
+        for (float dy = -checkRadius; dy <= checkRadius; dy += 0.5f) {
+            float checkX = x + dx;
+            float checkY = y + dy;
+            
+            // Skip check points outside the grid
+            if (checkX < 0 || checkY < 0 || checkX >= GRID_SIZE || checkY >= GRID_SIZE) {
+                continue;
+            }
+            
+            // If any point within minimum distance is non-walkable, position is invalid
+            if (wouldCollideWithMapBlock(checkX, checkY, gameMap, nonTraversableBlocks) ||
+                wouldCollideWithElement(checkX, checkY, collisionRadius)) {
+                return false;
+            }
+        }
     }
 
     return true;
