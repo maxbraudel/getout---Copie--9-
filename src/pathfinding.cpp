@@ -229,28 +229,41 @@ static void simplifyPath(std::vector<std::pair<float, float>>& path,
     simplifiedPath.push_back(path[0]); // Always include the starting point
 
     int currentAnchorIndexInOriginalPath = 0;
+    const float epsilon = 0.001f; // For floating point comparisons
+
     while (static_cast<size_t>(currentAnchorIndexInOriginalPath) < path.size() - 1) {
         int furthestReachableIndexInOriginalPath = currentAnchorIndexInOriginalPath + 1;
         for (size_t i = currentAnchorIndexInOriginalPath + 2; i < path.size(); ++i) {
-            if (isSegmentValid(path[currentAnchorIndexInOriginalPath].first, path[currentAnchorIndexInOriginalPath].second,
-                               path[i].first, path[i].second,
-                               entityCollisionRadius, gameMap, nonTraversableBlocks)) {
-                furthestReachableIndexInOriginalPath = i;
+            float dx = path[i].first - path[currentAnchorIndexInOriginalPath].first;
+            float dy = path[i].second - path[currentAnchorIndexInOriginalPath].second;
+
+            bool isHorizontal = std::abs(dy) < epsilon && std::abs(dx) > epsilon;
+            bool isVertical = std::abs(dx) < epsilon && std::abs(dy) > epsilon;
+            // Check for non-zero dx/dy for diagonal to ensure it's a line, not a point.
+            bool isDiagonal = std::abs(std::abs(dx) - std::abs(dy)) < epsilon && std::abs(dx) > epsilon; 
+
+            if (isHorizontal || isVertical || isDiagonal) {
+                if (isSegmentValid(path[currentAnchorIndexInOriginalPath].first, path[currentAnchorIndexInOriginalPath].second,
+                                   path[i].first, path[i].second,
+                                   entityCollisionRadius, gameMap, nonTraversableBlocks)) {
+                    furthestReachableIndexInOriginalPath = i;
+                } else {
+                    // Segment is of allowed type but collides
+                    break; 
+                }
             } else {
-                // Cannot reach path[i] directly from currentAnchor,
-                // so path[i-1] (which is current furthestReachableIndexInOriginalPath) was the limit.
-                break; 
+                // Segment is not Horizontal, Vertical, or perfect Diagonal
+                break;
             }
         }
+        
         // Add the furthest reachable point and update the anchor
         if (static_cast<size_t>(furthestReachableIndexInOriginalPath) < path.size()) {
-             // Ensure not adding duplicate points if something went very wrong or path is [A,A,A]
             if (simplifiedPath.back().first != path[furthestReachableIndexInOriginalPath].first ||
                 simplifiedPath.back().second != path[furthestReachableIndexInOriginalPath].second) {
                 simplifiedPath.push_back(path[furthestReachableIndexInOriginalPath]);
             }
         } else {
-            // Should not happen if logic is correct, means furthestReachableIndexInOriginalPath went out of bounds
             break; 
         }
         currentAnchorIndexInOriginalPath = furthestReachableIndexInOriginalPath;
@@ -407,7 +420,7 @@ std::vector<std::pair<float, float>> findPath(
                     // Ensure goal is the last point if path has more than one point, or if path is just goal.
                     if (path.size() > 1) {
                         path.back() = {goalX, goalY}; // Re-snap end
-                    } else { // Path has 1 point. If it's not goalX/Y (e.g. startX/Y == goalX/Y), it's fine.
+                    } else { // Path has 1 point. If it's not goalX/Y, it's fine.
                              // If startX/Y != goalX/Y but path became 1 point, it should be startX/Y. Add goalX/Y.
                         if (std::abs(startX - goalX) > 0.001f || std::abs(startY - goalY) > 0.001f) {
                             if (path[0].first != goalX || path[0].second != goalY) { // if the single point isn't already the goal
