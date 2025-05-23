@@ -1,5 +1,6 @@
 #include "collision.h"
 #include "elementsOnMap.h"
+#include "entities.h"  // Added for entitiesManager
 #include "globals.h"  // Added for GRID_SIZE
 #include "GLFW/glfw3.h" // Added for glfwGetTime
 #include <cmath>
@@ -10,8 +11,8 @@
 #include <unordered_map>  // Added for spatial partitioning
 #include <limits> // Added for std::numeric_limits
 
-// Forward declaration for playerNonTraversableBlocks from player.cpp
-extern std::set<TextureName> playerNonTraversableBlocks;
+// Forward declaration for entitiesManager from entities.cpp
+extern EntitiesManager entitiesManager;
 
 // Define M_PI if not already defined (needed for angle calculations)
 #ifndef M_PI
@@ -381,9 +382,16 @@ bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap, const std::s
 
 // Function to find a safe position when a character is stuck inside a collision area
 bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap) {
+    // Get the player's non-traversable blocks from the entity system
+    const EntityConfiguration* playerConfig = entitiesManager.getConfiguration("player");
+    if (!playerConfig) {
+        std::cerr << "Error: Player entity configuration not found in findSafePosition" << std::endl;
+        return false; // Cannot proceed without player configuration
+    }
+    
     // First, check if the current position is already safe
     bool hasElementCollision = wouldCollideWithElement(x, y, playerRadius);
-    bool hasMapBlockCollision = wouldCollideWithMapBlock(x, y, gameMap, playerNonTraversableBlocks);
+    bool hasMapBlockCollision = wouldCollideWithMapBlock(x, y, gameMap, playerConfig->nonTraversableBlocks);
     
     if (!hasElementCollision && !hasMapBlockCollision) {
         return false; // No adjustment needed, position is already safe
@@ -407,12 +415,11 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
         float angleStep = 0.2f;
         if (distance > 2.0f) angleStep = 0.1f; // Finer search at greater distances
         
-        for (float angle = 0.0f; angle < 2.0f * M_PI; angle += angleStep) {
-            float testX = x + distance * cos(angle);
+        for (float angle = 0.0f; angle < 2.0f * M_PI; angle += angleStep) {            float testX = x + distance * cos(angle);
             float testY = y + distance * sin(angle);
               // Check if this position is safe
             if (!wouldCollideWithElement(testX, testY, playerRadius) && 
-                !wouldCollideWithMapBlock(testX, testY, gameMap, playerNonTraversableBlocks)) {
+                !wouldCollideWithMapBlock(testX, testY, gameMap, playerConfig->nonTraversableBlocks)) {
                 // Found a safe position, update coordinates and return
                 if (playerDebugMode) {
                     std::cout << "Safe position found at (" << testX << ", " << testY 
@@ -451,13 +458,12 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
                 float pointDist = std::sqrt(dx*dx + dy*dy);
                 if (pointDist < searchDist - adaptiveStep || pointDist > searchDist + adaptiveStep) {
                     continue;
-                }
-                  float testX = x + dx;
+                }                float testX = x + dx;
                 float testY = y + dy;
                 
                 // Check if this position is safe
                 if (!wouldCollideWithElement(testX, testY, playerRadius) && 
-                    !wouldCollideWithMapBlock(testX, testY, gameMap, playerNonTraversableBlocks)) {
+                    !wouldCollideWithMapBlock(testX, testY, gameMap, playerConfig->nonTraversableBlocks)) {
                     // Found a safe position, update coordinates and return
                     if (playerDebugMode) {
                         std::cout << "Grid search found safe position at (" << testX << ", " << testY 
@@ -476,16 +482,16 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
     if (playerDebugMode) {
         std::cout << "Grid search failed, attempting random position search..." << std::endl;
     }
-    
-    // Try a limited number of random positions to avoid infinite loop
+      // Try a limited number of random positions to avoid infinite loop
     const int MAX_RANDOM_ATTEMPTS = 100;
     for (int attempt = 0; attempt < MAX_RANDOM_ATTEMPTS; attempt++) {
         // Generate random coordinates within the grid
         float testX = 1.0f + static_cast<float>(rand() % (GRID_SIZE - 2));
         float testY = 1.0f + static_cast<float>(rand() % (GRID_SIZE - 2));
-          // Check if this position is safe
+        
+        // Check if this position is safe
         if (!wouldCollideWithElement(testX, testY, playerRadius) && 
-            !wouldCollideWithMapBlock(testX, testY, gameMap, playerNonTraversableBlocks)) {
+            !wouldCollideWithMapBlock(testX, testY, gameMap, playerConfig->nonTraversableBlocks)) {
             // Found a safe position, update coordinates and return
             if (playerDebugMode) {
                 std::cout << "Random search found safe position at (" << testX << ", " << testY 

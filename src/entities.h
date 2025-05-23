@@ -9,6 +9,12 @@
 #include <cmath> // For distance calculations
 #include <utility> // For std::pair
 
+// Enum for entity types/names
+enum class EntityName {
+    ANTAGONIST,
+    PLAYER // Add more entity types as needed
+};
+
 // Enum for entity directions (corresponds to sprite sheet rows/phases)
 enum EntityDirection {
     DIRECTION_UP = 0,    // Or 3, depending on sprite sheet convention

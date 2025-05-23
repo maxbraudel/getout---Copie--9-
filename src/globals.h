@@ -6,6 +6,7 @@ struct GLFWwindow;
 // Constants
 extern const double FRAMERATE_IN_SECONDS;
 extern const int GRID_SIZE;
+// DEPRECATED: Use entity configuration instead (playerConfig->normalWalkingSpeed and playerConfig->sprintWalkingSpeed)
 extern const float PLAYER_BASE_SPEED;
 extern const float PLAYER_SPRINT_SPEED;
 

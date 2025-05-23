@@ -446,10 +446,10 @@ int main() {
     elementsManager.placeElement("bush18",ElementTextureName::COCONUT_TREE_1,10.0f,18,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
 
     elementsManager.placeElement("bush19",ElementTextureName::COCONUT_TREE_1,10.0f,19,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
-    elementsManager.placeElement("bush20",ElementTextureName::COCONUT_TREE_1,5.0f,20,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
-    // elementsManager.placeElement("bush21",ElementTextureName::COCONUT_TREE_1,10.0f,21,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush20",ElementTextureName::COCONUT_TREE_1,10.0f,20,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush21",ElementTextureName::COCONUT_TREE_1,10.0f,21,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     
-    // elementsManager.placeElement("bush22",ElementTextureName::COCONUT_TREE_1,10.0f,22,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    elementsManager.placeElement("bush22",ElementTextureName::COCONUT_TREE_1,10.0f,22,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush23",ElementTextureName::COCONUT_TREE_1,10.0f,23,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush24",ElementTextureName::COCONUT_TREE_1,10.0f,24,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush25",ElementTextureName::COCONUT_TREE_1,10.0f,25,40,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
@@ -479,6 +479,9 @@ int main() {
      entitiesManager.initializeEntityConfigurations();
 
       entitiesManager.placeEntityByType("antagonist1", "antagonist", 5.0f, 30.0f);;
+
+    entitiesManager.placeEntityByType("player1", "player", 5.0f, 45.0f);;
+
 
     // wait 2 seconds
     std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -529,7 +532,7 @@ int main() {
 			std::cerr << "WARNING: Player doesn't exist in movement processing! Listing elements:" << std::endl;
 			elementsManager.listElements();
 			std::cerr << "Creating new player since the original one is missing..." << std::endl;
-			createPlayer(10.0f, 10.0f);
+			// createPlayer(10.0f, 10.0f);
 			playerExists = true;
 		}
 						// Safety check - make sure the player is never stuck in collision areas
@@ -552,11 +555,21 @@ int main() {
 				// entitiesManager.ensureAllEntitiesNotStuck();
 			}
 		}
-		
 		// Apply speed based on whether shift is held
-		float currentSpeed = PLAYER_BASE_SPEED;
-		if (keyPressedStates[GLFW_KEY_LEFT_SHIFT] || keyPressedStates[GLFW_KEY_RIGHT_SHIFT]) {
-			currentSpeed = PLAYER_SPRINT_SPEED; // Use sprint speed when shift is held
+		float currentSpeed = 0.0f;
+		
+		// Use player entity configuration for speeds
+		const EntityConfiguration* playerConfig = entitiesManager.getConfiguration("player");
+		if (playerConfig) {
+			// Use speeds from player entity configuration
+			if (keyPressedStates[GLFW_KEY_LEFT_SHIFT] || keyPressedStates[GLFW_KEY_RIGHT_SHIFT]) {
+				currentSpeed = playerConfig->sprintWalkingSpeed; // Use sprint speed from entity config
+			} else {
+				currentSpeed = playerConfig->normalWalkingSpeed; // Use normal speed from entity config
+			}
+		} else {
+			// No fallback to constants - log error instead
+			std::cerr << "ERROR: Player configuration not found! Movement will be disabled." << std::endl;
 		}
 		
 		// Check arrow keys for player movement

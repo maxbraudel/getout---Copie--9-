@@ -53,6 +53,48 @@ static void initializeEntityTypes() {
     // Add to the list
     entityTypes.push_back(antagonist);
 
+
+    EntityInfo player;
+    player.typeName = "player";
+    player.textureName = ElementTextureName::CHARACTER1;
+    player.scale = 1.5f;
+    
+    // Default sprite configuration
+    player.defaultSpriteSheetPhase = 2;
+    player.defaultSpriteSheetFrame = 0;
+    player.defaultAnimationSpeed = 11.0f;
+    
+    // Walking animation phases
+    player.spritePhaseWalkUp = 0;
+    player.spritePhaseWalkDown = 3;
+    player.spritePhaseWalkLeft = 2;
+    player.spritePhaseWalkRight = 1;
+    
+    // Movement speeds
+    player.normalWalkingSpeed = 1.5f;
+    player.normalWalkingAnimationSpeed = 4.0f;
+    player.sprintWalkingSpeed = 10.0f;
+    player.sprintWalkingAnimationSpeed = 12.0f;
+    
+    // Collision settings
+    player.canCollide = true;
+    player.collisionRadius = 0.4f;
+      // Define non-traversable blocks for antagonist
+    // Antagonists cannot walk on water blocks or through coconut trees
+    player.nonTraversableBlocks = {
+        TextureName::WATER_0,
+        TextureName::WATER_1,
+        TextureName::WATER_2,
+        TextureName::WATER_3,
+        TextureName::WATER_4
+        // Note: Coconut trees are elements, not map blocks, so they're handled via element collision detection
+    };
+      
+    // Add to the list
+    entityTypes.push_back(player);
+
+
+
     
     // Add to the list    
     // Add more entity types here as needed
@@ -66,7 +108,9 @@ extern Map gameMap;
 
 // Static method to get element name from instance name
 std::string EntitiesManager::getElementName(const std::string& instanceName) {
-    return "entity_" + instanceName;
+    // return "entity_" + instanceName;
+    return instanceName;
+
 }
 
 EntitiesManager::EntitiesManager() {
@@ -241,8 +285,7 @@ bool EntitiesManager::walkEntityToCoordinates(const std::string& instanceName, f
     entity->walkType = walkType;
     entity->usePathfinding = false; // Explicitly set usePathfinding to false
     entity->path.clear(); // Ensure path is empty for direct movement
-    
-    // Enable animation
+      // Enable animation
     elementsManager.changeElementAnimationStatus(elementName, true);
     
     // Set the animation speed based on walk type
@@ -250,6 +293,39 @@ bool EntitiesManager::walkEntityToCoordinates(const std::string& instanceName, f
                           config->normalWalkingAnimationSpeed : 
                           config->sprintWalkingAnimationSpeed;
     elementsManager.changeElementAnimationSpeed(elementName, animationSpeed);
+    
+    // Set initial sprite direction based on movement direction
+    float currentX, currentY;
+    if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
+        float dx = x - currentX;
+        float dy = y - currentY;
+        
+        // Determine the primary direction
+        int direction;
+        if (std::abs(dx) > std::abs(dy)) {
+            // Horizontal movement dominates
+            direction = (dx > 0) ? 3 : 2;  // 3 = right, 2 = left
+        } else {
+            // Vertical movement dominates or is equal
+            direction = (dy > 0) ? 0 : 1;  // 0 = up, 1 = down
+        }
+        
+        // Set sprite direction
+        entity->lastDirection = direction;
+        
+        // Set the appropriate sprite phase based on direction
+        int phase;
+        switch (direction) {
+            case 0: phase = config->spritePhaseWalkUp; break;
+            case 1: phase = config->spritePhaseWalkDown; break;
+            case 2: phase = config->spritePhaseWalkLeft; break;
+            case 3: phase = config->spritePhaseWalkRight; break;
+            default: phase = config->defaultSpriteSheetPhase; break;
+        }
+        
+        // Change the sprite phase
+        elementsManager.changeElementSpritePhase(elementName, phase);
+    }
     
     std::cout << "Entity " << instanceName << " starting to walk to (" << x << ", " << y << ") with " 
               << ((walkType == WalkType::NORMAL) ? "normal" : "sprint") << " speed" << std::endl;
