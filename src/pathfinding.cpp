@@ -13,8 +13,11 @@
 // Maximum distance for pathfinding to prevent performance issues with very long paths
 const float MAX_PATHFINDING_DISTANCE = 100.0f; // Maximum straight-line distance to attempt pathfinding
 
-// Minimum distance that path points must maintain from non-walkable areas
-const float MIN_DISTANCE_FROM_NON_WALKABLE_AREAS = 0.05f;
+// Minimum distance that path points must maintain from non-walkable blocks (map terrain)
+const float MIN_DISTANCE_FROM_NON_WALKABLE_BLOCKS = 0.05f;
+
+// Minimum distance that path points must maintain from non-walkable elements (objects with collision)
+const float MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS = 0.5f;
 
 // Using Node structure defined in pathfinding.h
 
@@ -38,25 +41,28 @@ bool isPositionValid(float x, float y, float entityCollisionRadius, const Map& g
         y - entityCollisionRadius < 0.0f || y + entityCollisionRadius >= GRID_SIZE) {
         // std::cout << "isPositionValid: FALSE (Out of bounds) for (" << x << ", " << y << ") radius " << entityCollisionRadius << std::endl;
         return false; // Entity would be partially or fully out of bounds.
-    }
-
-    // 2. Check for collision with other collidable elements in the game.
-    // This also uses the actual entityCollisionRadius.
+    }    // 2. Check for collision with other collidable elements in the game, maintaining MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS.
+    // First check direct collision with the actual entity collision radius
     if (wouldCollideWithElement(x, y, entityCollisionRadius)) {
         // std::cout << "isPositionValid: FALSE (Element collision) for (" << x << ", " << y << ") radius " << entityCollisionRadius << std::endl;
         return false;
     }
+    
+    // Then check with margin for pathfinding safety distance
+    float effectiveRadiusForElementCheck = entityCollisionRadius + MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS;
+    if (wouldCollideWithElement(x, y, effectiveRadiusForElementCheck)) {
+        // std::cout << "isPositionValid: FALSE (Element margin collision) for (" << x << ", " << y << ") radius " << effectiveRadiusForElementCheck << std::endl;
+        return false;
+    }
 
-    // 3. Check collision with non-traversable map blocks, maintaining MIN_DISTANCE_FROM_NON_WALKABLE_AREAS.
+    // 3. Check collision with non-traversable map blocks, maintaining MIN_DISTANCE_FROM_NON_WALKABLE_BLOCKS.
     
     // First, check if the entity\'s center is directly inside a non-traversable block.
     if (wouldCollideWithMapBlock(x, y, gameMap, nonTraversableBlocks)) {
         // std::cout << "isPositionValid: FALSE (Map block collision at center) for (" << x << ", " << y << ")" << std::endl;
         return false; // Center of the entity is on a non-traversable block.
-    }
-
-    // Define the effective radius for checking against map blocks and boundaries, incorporating the margin.
-    float effectiveRadiusForMarginCheck = entityCollisionRadius + MIN_DISTANCE_FROM_NON_WALKABLE_AREAS;
+    }    // Define the effective radius for checking against map blocks and boundaries, incorporating the margin.
+    float effectiveRadiusForMarginCheck = entityCollisionRadius + MIN_DISTANCE_FROM_NON_WALKABLE_BLOCKS;
 
     const int numCircumferencePoints = 8; 
     const float pi = 3.14159265358979323846f;
@@ -83,7 +89,7 @@ bool isPositionValid(float x, float y, float entityCollisionRadius, const Map& g
     }
 
     // If all checks pass, the position is valid for the entity.
-    // std::cout << "isPositionValid: TRUE for (" << x << ", " << y << ") radius " << entityCollisionRadius << " with margin " << MIN_DISTANCE_FROM_NON_WALKABLE_AREAS << std::endl;
+    // std::cout << "isPositionValid: TRUE for (" << x << ", " << y << ") radius " << entityCollisionRadius << " with margin " << MIN_DISTANCE_FROM_NON_WALKABLE_BLOCKS << std::endl;
     return true;
 }
 
