@@ -35,7 +35,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     // Example: A 0.8 wide, 0.8 tall box centered at the anchor.
     // The points are (local_x, local_y)
     coconutTree1Texture.collisionShapePoints = {
-        {-0.05f, 0.0f}, {-0.05f, 0.1}, {0.05f, 0.1f}, {0.05f, 0.0f}
+        {-0.07f, 0.0f}, {-0.07f, 0.1}, {0.07f, 0.1f}, {0.07f, 0.0f}
     };
     textures.push_back(coconutTree1Texture);    ElementTextureInfo coconutTree2Texture;
     coconutTree2Texture.name = ElementTextureName::COCONUT_TREE_2;
@@ -46,7 +46,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     coconutTree2Texture.anchorOffsetY = 0.4f; // No offset
     coconutTree2Texture.hasCollision = true;  // Enable collision for this tree
     coconutTree2Texture.collisionShapePoints = {
-        {-0.05f, 0.0f}, {-0.05f, 0.1}, {0.05f, 0.1f}, {0.05f, 0.0f}
+        {-0.07f, 0.0f}, {-0.07f, 0.1}, {0.07f, 0.1f}, {0.07f, 0.0f}
     };
     textures.push_back(coconutTree2Texture);    ElementTextureInfo coconutTree3Texture;
     coconutTree3Texture.name = ElementTextureName::COCONUT_TREE_3;
@@ -56,7 +56,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     coconutTree3Texture.anchorOffsetY = 0.4f; // No offset
     coconutTree3Texture.hasCollision = true;  // Enable collision for this tree
     coconutTree3Texture.collisionShapePoints = {
-        {-0.05f, 0.0f}, {-0.05f, 0.1}, {0.05f, 0.1f}, {0.05f, 0.0f}
+        {-0.07f, 0.0f}, {-0.07f, 0.1}, {0.07f, 0.1f}, {0.07f, 0.0f}
     };
     textures.push_back(coconutTree3Texture);
       // Sprite sheet texture for character
