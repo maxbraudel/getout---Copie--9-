@@ -39,7 +39,7 @@ static void initializeEntityTypes() {
     antagonist.canCollide = true;
     antagonist.collisionRadius = 0.4f;
     antagonist.collisionShapePoints = {
-        {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}
+        {-0.3f, -1.3f}, {0.3f, -1.3f}, {0.3f, 1.3f}, {-0.3f, 1.3f}
     };
       // Define non-traversable blocks for antagonist
     // Antagonists cannot walk on water blocks or through coconut trees
@@ -359,15 +359,12 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
     if (!elementsManager.getElementPosition(elementName, startPathX, startPathY)) {
         std::cerr << "Error getting position for entity: " << instanceName << std::endl;
         return false;
-    }
-
-    // Pathfinding logic
+    }    // Pathfinding logic
     std::vector<std::pair<float, float>> path = findPath(
         startPathX, startPathY,
         x, y,
         gameMap,
-        config->collisionRadius,
-        config->nonTraversableBlocks
+        *config
     );
 
     entity->path = path; // Store the raw path first
@@ -980,16 +977,16 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                             elementsManager.changeElementAnimationStatus(elementName, false);
                             elementsManager.changeElementSpriteFrame(elementName, 0);
                             return;
-                        }
-                        // Recalculate the path from the current position
-                        // Use an enlarged collision radius for safer paths
-                        float pathPlanningRadius = config.collisionRadius + 0.3f;
+                        }                        // Recalculate the path from the current position
+                        // Create a modified config with enlarged collision radius for safer paths
+                        EntityConfiguration pathConfig = config;
+                        pathConfig.collisionRadius += 0.3f;
+                        
                         std::vector<std::pair<float, float>> newPath = findPath(
                             curX, curY,
                             entity.targetX, entity.targetY,
                             gameMap,
-                            pathPlanningRadius,
-                            config.nonTraversableBlocks
+                            pathConfig
                         );
                         
                         // Check if a new path was found
@@ -1019,16 +1016,18 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                             // Find a safe position near the target first
                             float safeTargetX = entity.targetX;
                             float safeTargetY = entity.targetY;
-                            
-                            // Try to find a safe position near the target
+                              // Try to find a safe position near the target
+                            float pathPlanningRadius = config.collisionRadius + 0.3f;
                             if (findSafePosition(safeTargetX, safeTargetY, pathPlanningRadius, gameMap, config.nonTraversableBlocks)) {
                                 // Found a safe position near the target, try pathfinding to it
+                                EntityConfiguration pathConfig = config;
+                                pathConfig.collisionRadius = pathPlanningRadius;
+                                
                                 newPath = findPath(
                                     curX, curY,
                                     safeTargetX, safeTargetY,
                                     gameMap,
-                                    pathPlanningRadius,
-                                    config.nonTraversableBlocks
+                                    pathConfig
                                 );
                                 
                                 if (!newPath.empty()) {

@@ -1,6 +1,7 @@
 #include "pathfinding.h"
 #include "globals.h" // For GRID_SIZE
 #include "collision.h" // For collision detection
+#include "entities.h" // For EntityConfiguration
 #include <vector>
 #include <queue>
 #include <set>
@@ -11,7 +12,7 @@
 #include <limits> // Added to resolve std::numeric_limits error
 
 // Maximum distance for pathfinding to prevent performance issues with very long paths
-const float MAX_PATHFINDING_DISTANCE = 100.0f; // Maximum straight-line distance to attempt pathfinding
+const float MAX_PATHFINDING_DISTANCE = 1000.0f; // Maximum straight-line distance to attempt pathfinding
 
 // Minimum distance that path points must maintain from non-walkable blocks (map terrain)
 const float MIN_DISTANCE_FROM_NON_WALKABLE_BLOCKS = 0.05f;
@@ -532,4 +533,454 @@ std::vector<std::pair<float, float>> findPath(
     float collisionRadius
 ) {
     return findPath(startX, startY, goalX, goalY, gameMap, collisionRadius, std::set<TextureName>());
+}
+
+// NEW FUNCTIONS USING EntityConfiguration FOR COLLISION SHAPE POINTS
+
+// Check if a position is valid using EntityConfiguration
+bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, const Map& gameMap) {
+    // 1. Check if the entity's entire collision body is within game bounds
+    // For collision shape points, we need to check all points of the collision shape
+    if (!entityConfig.collisionShapePoints.empty()) {
+        // Check bounds using collision shape points
+        for (const auto& point : entityConfig.collisionShapePoints) {
+            float pointX = x + point.first;
+            float pointY = y + point.second;
+            
+            if (pointX < 0.0f || pointX >= GRID_SIZE || pointY < 0.0f || pointY >= GRID_SIZE) {
+                return false; // Shape would be partially or fully out of bounds
+            }
+        }
+    } else {
+        // Fallback to collision radius if no collision shape points defined
+        if (x - entityConfig.collisionRadius < 0.0f || x + entityConfig.collisionRadius >= GRID_SIZE ||
+            y - entityConfig.collisionRadius < 0.0f || y + entityConfig.collisionRadius >= GRID_SIZE) {
+            return false;
+        }
+    }
+
+    // 2. Check for collision with other collidable elements in the game
+    if (wouldEntityCollideWithElement(entityConfig, x, y)) {
+        return false;
+    }
+    
+    // Apply safety margin for pathfinding by expanding the collision check slightly
+    // For collision shape points, we create a slightly larger version
+    if (!entityConfig.collisionShapePoints.empty()) {
+        // Create expanded collision shape points for safety margin
+        std::vector<std::pair<float, float>> expandedShapePoints;
+        for (const auto& point : entityConfig.collisionShapePoints) {
+            // Expand each point outward from center by the safety margin
+            float expandedX = point.first;
+            float expandedY = point.second;
+            
+            // Apply expansion based on distance from center
+            float distance = std::sqrt(expandedX * expandedX + expandedY * expandedY);
+            if (distance > 0.001f) { // Avoid division by zero
+                float expansionFactor = (distance + MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS) / distance;
+                expandedX *= expansionFactor;
+                expandedY *= expansionFactor;
+            } else {
+                // Point is at center, expand by margin in all directions (create a small square)
+                expandedShapePoints.push_back({-MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS, -MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS});
+                expandedShapePoints.push_back({MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS, -MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS});
+                expandedShapePoints.push_back({MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS, MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS});
+                expandedShapePoints.push_back({-MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS, MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS});
+                continue;
+            }
+            expandedShapePoints.push_back({expandedX, expandedY});
+        }
+        
+        // Check collision with expanded shape
+        if (wouldEntityCollideWithElement(x, y, expandedShapePoints, 1.0f, 0.0f)) {
+            return false;
+        }
+    } else {
+        // Fallback to radius-based collision check with margin
+        float effectiveRadiusForElementCheck = entityConfig.collisionRadius + MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS;
+        if (wouldCollideWithElement(x, y, effectiveRadiusForElementCheck)) {
+            return false;
+        }
+    }
+
+    // 3. Check collision with non-traversable map blocks
+    if (wouldCollideWithMapBlock(x, y, gameMap, entityConfig.nonTraversableBlocks)) {
+        return false;
+    }
+    
+    // Check margin around collision shape for map blocks
+    if (!entityConfig.collisionShapePoints.empty()) {
+        // Check points around the collision shape boundary for map block safety margin
+        for (const auto& point : entityConfig.collisionShapePoints) {
+            float checkX = x + point.first;
+            float checkY = y + point.second;
+            
+            // Check points around this collision shape point
+            const int numCircumferencePoints = 4; // Fewer points for performance
+            const float pi = 3.14159265358979323846f;
+            
+            for (int i = 0; i < numCircumferencePoints; ++i) {
+                float angle = 2.0f * pi * static_cast<float>(i) / static_cast<float>(numCircumferencePoints);
+                float marginCheckX = checkX + MIN_DISTANCE_FROM_NON_WALKABLE_BLOCKS * std::cos(angle);
+                float marginCheckY = checkY + MIN_DISTANCE_FROM_NON_WALKABLE_BLOCKS * std::sin(angle);
+                
+                // Check bounds
+                if (marginCheckX < 0.0f || marginCheckX >= GRID_SIZE ||
+                    marginCheckY < 0.0f || marginCheckY >= GRID_SIZE) {
+                    return false;
+                }
+                
+                // Check map block collision
+                if (wouldCollideWithMapBlock(marginCheckX, marginCheckY, gameMap, entityConfig.nonTraversableBlocks)) {
+                    return false;
+                }
+            }
+        }
+    } else {
+        // Fallback to radius-based margin check
+        float effectiveRadiusForMarginCheck = entityConfig.collisionRadius + MIN_DISTANCE_FROM_NON_WALKABLE_BLOCKS;
+        const int numCircumferencePoints = 8;
+        const float pi = 3.14159265358979323846f;
+        
+        for (int i = 0; i < numCircumferencePoints; ++i) {
+            float angle = 2.0f * pi * static_cast<float>(i) / static_cast<float>(numCircumferencePoints);
+            float marginCheckX = x + effectiveRadiusForMarginCheck * std::cos(angle);
+            float marginCheckY = y + effectiveRadiusForMarginCheck * std::sin(angle);
+            
+            if (marginCheckX < 0.0f || marginCheckX >= GRID_SIZE ||
+                marginCheckY < 0.0f || marginCheckY >= GRID_SIZE) {
+                return false;
+            }
+            
+            if (wouldCollideWithMapBlock(marginCheckX, marginCheckY, gameMap, entityConfig.nonTraversableBlocks)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+// Get neighbors using EntityConfiguration
+std::vector<std::pair<int, int>> getNeighbors(int x, int y, const EntityConfiguration& entityConfig, const Map& gameMap) {
+    std::vector<std::pair<int, int>> neighbors;
+    
+    // 8-directional movement (including diagonals)
+    const int directions[8][2] = {
+        {-1, -1}, {-1, 0}, {-1, 1},
+        {0, -1},           {0, 1},
+        {1, -1},  {1, 0},  {1, 1}
+    };
+    
+    for (int i = 0; i < 8; ++i) {
+        int newX = x + directions[i][0];
+        int newY = y + directions[i][1];
+        
+        // Check bounds
+        if (newX >= 0 && newX < GRID_SIZE && newY >= 0 && newY < GRID_SIZE) {
+            // Use the EntityConfiguration version of isPositionValid
+            if (isPositionValid(static_cast<float>(newX) + 0.5f, static_cast<float>(newY) + 0.5f, 
+                              entityConfig, gameMap)) {
+                neighbors.push_back({newX, newY});
+            }
+        }
+    }
+    
+    return neighbors;
+}
+
+// Helper function to check if a line segment is valid using EntityConfiguration
+static bool isSegmentValid(float x1, float y1, float x2, float y2,
+                           const EntityConfiguration& entityConfig,
+                           const Map& gameMap) {
+    float dx = x2 - x1;
+    float dy = y2 - y1;
+    float distance = std::sqrt(dx * dx + dy * dy);
+
+    if (distance < 0.001f) { // Essentially the same point
+        return isPositionValid(x1, y1, entityConfig, gameMap);
+    }
+
+    // Step size for sampling - use smaller of collision radius or fixed step
+    float stepSize = 0.1f; // Fixed small step size for collision shape points
+    if (entityConfig.collisionShapePoints.empty()) {
+        stepSize = entityConfig.collisionRadius * 0.5f;
+        if (stepSize < 0.01f) {
+            stepSize = 0.01f;
+        }
+    }
+    
+    int numSteps = static_cast<int>(std::ceil(distance / stepSize));
+    if (numSteps == 0) numSteps = 1;
+
+    for (int i = 0; i <= numSteps; ++i) {
+        float t = (numSteps == 0) ? 0.0f : static_cast<float>(i) / static_cast<float>(numSteps);
+        if (i == numSteps) t = 1.0f; // Ensure the last point is exactly (x2, y2)
+
+        float currentX = x1 + t * dx;
+        float currentY = y1 + t * dy;
+
+        if (!isPositionValid(currentX, currentY, entityConfig, gameMap)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Simplify path using EntityConfiguration
+static void simplifyPath(std::vector<std::pair<float, float>>& path,
+                         const EntityConfiguration& entityConfig,
+                         const Map& gameMap) {
+    if (path.size() <= 2) {
+        if (path.size() == 2) {
+            if (!isSegmentValid(path[0].first, path[0].second, path[1].first, path[1].second,
+                                entityConfig, gameMap)) {
+                // If direct segment is invalid, keep the original path
+                return;
+            }
+        }
+        return;
+    }
+
+    std::vector<std::pair<float, float>> simplifiedPath;
+    simplifiedPath.push_back(path[0]); // Start point
+
+    size_t currentIndex = 0;
+    while (currentIndex < path.size() - 1) {
+        size_t farthestReachable = currentIndex + 1;
+        
+        // Find the farthest point we can reach directly from current point
+        for (size_t i = currentIndex + 2; i < path.size(); ++i) {
+            if (isSegmentValid(path[currentIndex].first, path[currentIndex].second,
+                               path[i].first, path[i].second, entityConfig, gameMap)) {
+                farthestReachable = i;
+            } else {
+                break; // Can't reach this point, stop checking further
+            }
+        }
+        
+        currentIndex = farthestReachable;
+        simplifiedPath.push_back(path[currentIndex]);
+    }
+
+    path = simplifiedPath;
+}
+
+// Find path using EntityConfiguration
+std::vector<std::pair<float, float>> findPath(
+    float startX, float startY,
+    float goalX, float goalY,
+    const Map& gameMap,
+    const EntityConfiguration& entityConfig
+) {
+    // Store original intended goal for messages, and derive initial cell indices
+    float originalGoalX = goalX;
+    float originalGoalY = goalY;
+    int initialStartNodeX = static_cast<int>(startX);
+    int initialStartNodeY = static_cast<int>(startY);
+    int initialGoalNodeX = static_cast<int>(goalX);
+    int initialGoalNodeY = static_cast<int>(goalY);
+
+    // Check and adjust start position using new collision shape points system
+    if (!isPositionValid(startX, startY, entityConfig, gameMap)) {
+        std::cout << "Pathfinding: Start position (" << startX << ", " << startY << ") is invalid. Searching for a nearby valid start..." << std::endl;
+        bool foundValidStart = false;
+        for (int r = 0; r <= 3; ++r) { // Search radius
+            for (int dx_offset = -r; dx_offset <= r; ++dx_offset) {
+                for (int dy_offset = -r; dy_offset <= r; ++dy_offset) {
+                    if (r > 0 && (std::abs(dx_offset) < r && std::abs(dy_offset) < r)) {
+                        continue; 
+                    }
+                    float testX = static_cast<float>(initialStartNodeX + dx_offset) + 0.5f;
+                    float testY = static_cast<float>(initialStartNodeY + dy_offset) + 0.5f;
+                    if (isPositionValid(testX, testY, entityConfig, gameMap)) {
+                        startX = testX; // Update startX to the valid cell center
+                        startY = testY; // Update startY to the valid cell center
+                        std::cout << "Pathfinding: Adjusted start to valid cell center (" << startX << ", " << startY << ")" << std::endl;
+                        foundValidStart = true;
+                        goto end_start_search;
+                    }
+                }
+            }
+        }
+        end_start_search:;
+        if (!foundValidStart) {
+            std::cerr << "Pathfinding Error: Could not find a valid start position near original (" << initialStartNodeX << ".5, " << initialStartNodeY << ".5)." << std::endl;
+            return {};
+        }
+    }
+
+    // Check and adjust goal position using new collision shape points system
+    if (!isPositionValid(goalX, goalY, entityConfig, gameMap)) {
+        std::cout << "Pathfinding: Goal position (" << originalGoalX << ", " << originalGoalY << ") is invalid. Searching for a nearby valid goal..." << std::endl;
+        bool foundValidGoal = false;
+        for (int r = 0; r <= 3; ++r) { // Search radius
+            for (int dx_offset = -r; dx_offset <= r; ++dx_offset) {
+                for (int dy_offset = -r; dy_offset <= r; ++dy_offset) {
+                     if (r > 0 && (std::abs(dx_offset) < r && std::abs(dy_offset) < r)) {
+                        continue; 
+                    }
+                    float testX = static_cast<float>(initialGoalNodeX + dx_offset) + 0.5f;
+                    float testY = static_cast<float>(initialGoalNodeY + dy_offset) + 0.5f;
+                    if (isPositionValid(testX, testY, entityConfig, gameMap)) {
+                        goalX = testX; // Update goalX to the valid cell center
+                        goalY = testY; // Update goalY to the valid cell center
+                        std::cout << "Pathfinding: Adjusted goal to valid cell center (" << goalX << ", " << goalY << ")" << std::endl;
+                        foundValidGoal = true;
+                        goto end_goal_search;
+                    }
+                }
+            }
+        }
+        end_goal_search:;
+        if (!foundValidGoal) {
+            std::cerr << "Pathfinding Error: Could not find a valid goal position near original (" << originalGoalX << ", " << originalGoalY << ")." << std::endl;
+            return {};
+        }
+    }
+
+    // Calculate straight-line distance and check if it's too far
+    float dx = goalX - startX;
+    float dy = goalY - startY;
+    float distance = std::sqrt(dx * dx + dy * dy);
+    if (distance > MAX_PATHFINDING_DISTANCE) {
+        std::cerr << "Pathfinding Error: Distance (" << distance << ") exceeds maximum pathfinding distance (" << MAX_PATHFINDING_DISTANCE << ")." << std::endl;
+        return {};
+    }
+
+    // Convert adjusted start and goal to node coordinates
+    int startNodeX = static_cast<int>(startX);
+    int startNodeY = static_cast<int>(startY);
+    int goalNodeX = static_cast<int>(goalX);
+    int goalNodeY = static_cast<int>(goalY);
+
+    // A* algorithm using collision shape points
+    std::priority_queue<Node*, std::vector<Node*>, CompareNodes> openSet;
+    std::unordered_map<std::pair<int, int>, Node*, PairHash> allNodes; 
+
+    Node* startNode = new Node(startNodeX, startNodeY);
+    startNode->gCost = 0;
+    startNode->hCost = calculateHeuristic(startNodeX, startNodeY, goalNodeX, goalNodeY);
+    startNode->fCost = startNode->gCost + startNode->hCost;
+    openSet.push(startNode);
+    allNodes[{startNodeX, startNodeY}] = startNode;
+
+    std::unordered_set<std::pair<int, int>, PairHash> closedSet;
+    std::vector<std::pair<float, float>> path;
+    int iterations = 0;
+    const int maxIterations = GRID_SIZE * GRID_SIZE * 4;
+
+    while (!openSet.empty()) {
+        iterations++;
+        if (iterations > maxIterations) {
+            std::cerr << "Pathfinding: Exceeded maximum iterations (" << maxIterations << "). Aborting search." << std::endl;
+            for (auto& pair_node : allNodes) { delete pair_node.second; }
+            allNodes.clear();
+            return {};
+        }
+
+        Node* currentNode = openSet.top();
+        openSet.pop();
+
+        if (currentNode->x == goalNodeX && currentNode->y == goalNodeY) {
+            Node* temp = currentNode;
+            while (temp != nullptr) {
+                path.push_back({static_cast<float>(temp->x) + 0.5f, static_cast<float>(temp->y) + 0.5f});
+                temp = temp->parent;
+            }
+            std::reverse(path.begin(), path.end());
+            
+            for (auto& pair_node : allNodes) { delete pair_node.second; }
+            allNodes.clear();
+
+            if (path.empty()) { 
+                 if (std::abs(startX - goalX) < 0.001f && std::abs(startY - goalY) < 0.001f) path.push_back({startX, startY});
+                 else { path.push_back({startX, startY}); path.push_back({goalX, goalY}); } 
+            } else {
+                // Snap endpoints to the (guaranteed valid or adjusted) startX/Y and goalX/Y BEFORE simplification
+                path[0] = {startX, startY};
+                path.back() = {goalX, goalY};
+
+                // Simplify the path using the new EntityConfiguration-based method
+                simplifyPath(path, entityConfig, gameMap); 
+
+                // Ensure simplification didn't break start/end points
+                if (!path.empty()) {
+                    path[0] = {startX, startY}; // Re-snap start
+                    if (path.size() > 1) {
+                        path.back() = {goalX, goalY}; // Re-snap end
+                    } else { // Path has 1 point. If it's not goalX/Y, it's fine.
+                        if (std::abs(startX - goalX) > 0.001f || std::abs(startY - goalY) > 0.001f) {
+                            if (path[0].first != goalX || path[0].second != goalY) { // if the single point isn't already the goal
+                                path.push_back({goalX, goalY});
+                            }
+                        }
+                    }
+                } else { // Path became empty after simplification
+                    path.push_back({startX, startY}); 
+                    if (std::abs(startX - goalX) > 0.001f || std::abs(startY - goalY) > 0.001f) { 
+                         path.push_back({goalX, goalY});
+                    }
+                }
+            }
+            // Ensure path has at least one point if start and goal are the same.
+            if (path.empty() && std::abs(startX - goalX) < 0.001f && std::abs(startY - goalY) < 0.001f) {
+                path.push_back({startX, startY});
+            }
+
+            return path;
+        }
+
+        closedSet.insert({currentNode->x, currentNode->y});
+
+        // Get neighbors using EntityConfiguration
+        std::vector<std::pair<int, int>> neighbors = getNeighbors(currentNode->x, currentNode->y, entityConfig, gameMap);
+        for (const auto& neighbor : neighbors) {
+            int neighborX = neighbor.first;
+            int neighborY = neighbor.second;
+
+            if (closedSet.find({neighborX, neighborY}) != closedSet.end()) {
+                continue; // Skip already processed nodes
+            }
+
+            float tentativeGCost = currentNode->gCost + 1.0f; // Cost to move to neighbor
+
+            Node* neighborNode;
+            auto it = allNodes.find({neighborX, neighborY});
+            if (it != allNodes.end()) {
+                neighborNode = it->second;
+            } else {
+                neighborNode = new Node(neighborX, neighborY);
+                allNodes[{neighborX, neighborY}] = neighborNode;
+            }
+
+            if (tentativeGCost < neighborNode->gCost || neighborNode->gCost == 0) {
+                neighborNode->gCost = tentativeGCost;
+                neighborNode->hCost = calculateHeuristic(neighborX, neighborY, goalNodeX, goalNodeY);
+                neighborNode->fCost = neighborNode->gCost + neighborNode->hCost;
+                neighborNode->parent = currentNode;
+
+                // Check if this neighbor is already in the open set
+                bool inOpenSet = false;
+                std::priority_queue<Node*, std::vector<Node*>, CompareNodes> tempQueue = openSet;
+                while (!tempQueue.empty()) {
+                    if (tempQueue.top()->x == neighborX && tempQueue.top()->y == neighborY) {
+                        inOpenSet = true;
+                        break;
+                    }
+                    tempQueue.pop();
+                }
+
+                if (!inOpenSet) {
+                    openSet.push(neighborNode);
+                }
+            }
+        }
+    }
+
+    // No path found
+    std::cerr << "Pathfinding: No path found from (" << startX << ", " << startY << ") to (" << goalX << ", " << goalY << ") using collision shape points." << std::endl;
+    for (auto& pair_node : allNodes) { delete pair_node.second; }
+    allNodes.clear();
+    return {};
 }
