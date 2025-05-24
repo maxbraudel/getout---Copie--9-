@@ -3,6 +3,7 @@
 #include "map.h" // Adding for gameMap access
 #include "pathfinding.h"
 #include "globals.h" // For GRID_SIZE
+#include "debug.h" // For isShowingCollisionBoxes function
 #include <iostream>
 #include <cmath>
 
@@ -34,11 +35,12 @@ static void initializeEntityTypes() {
     antagonist.normalWalkingSpeed = 1.5f;
     antagonist.normalWalkingAnimationSpeed = 4.0f;
     antagonist.sprintWalkingSpeed = 10.0f;
-    antagonist.sprintWalkingAnimationSpeed = 12.0f;
-    
-    // Collision settings
+    antagonist.sprintWalkingAnimationSpeed = 12.0f;      // Collision settings
     antagonist.canCollide = true;
     antagonist.collisionRadius = 0.4f;
+    antagonist.collisionShapePoints = {
+        {-0.3f, -0.3f}, {0.3f, -0.3f}, {0.3f, 0.3f}, {-0.3f, 0.3f}
+    };
       // Define non-traversable blocks for antagonist
     // Antagonists cannot walk on water blocks or through coconut trees
     antagonist.nonTraversableBlocks = {
@@ -558,6 +560,66 @@ void EntitiesManager::drawDebugPaths(float startX, float endX, float startY, flo
     }
 }
 
+void EntitiesManager::drawDebugCollisionRadii(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop) {
+    // Only draw if collision visualization is enabled
+    if (!isShowingCollisionBoxes()) {
+        return;
+    }
+
+    glLineWidth(2.0f); // Set line width for collision radii
+    
+    for (const auto& pair : entities) {
+        const Entity& entity = pair.second;
+        
+        // Get the configuration for this entity to access collisionRadius
+        const EntityConfiguration* config = getConfiguration(entity.typeName);
+        if (!config || !config->canCollide) {
+            continue; // Skip entities without collision or configuration
+        }
+        
+        // Get current entity position
+        float currentX, currentY;
+        std::string elementName = getElementName(entity.instanceName);
+        if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
+            continue; // Skip if we can't get current position
+        }
+
+        // Convert entity position to screen coordinates
+        float entityScreenX = startX + (currentX - cameraLeft) / (cameraRight - cameraLeft) * (endX - startX);
+        float entityScreenY = startY + (currentY - cameraBottom) / (cameraTop - cameraBottom) * (endY - startY);        // Calculate radius in screen coordinates
+        float viewWidth = cameraRight - cameraLeft;
+        float screenWidth = endX - startX;
+        float radiusInScreenCoords = (config->collisionRadius / viewWidth) * screenWidth;
+
+        // Calculate square dimensions (square with side length = 2 * radius)
+        float halfSide = radiusInScreenCoords;
+        float left = entityScreenX - halfSide;
+        float right = entityScreenX + halfSide;
+        float bottom = entityScreenY - halfSide;
+        float top = entityScreenY + halfSide;
+
+        // Draw filled square for collision radius
+        glColor4f(0.0f, 1.0f, 0.0f, 0.3f); // Semi-transparent green
+        glBegin(GL_QUADS);
+        glVertex2f(left, bottom);   // Bottom-left
+        glVertex2f(right, bottom);  // Bottom-right
+        glVertex2f(right, top);     // Top-right
+        glVertex2f(left, top);      // Top-left
+        glEnd();
+
+        // Draw square outline
+        glColor4f(0.0f, 0.8f, 0.0f, 0.8f); // More solid green for the outline
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(left, bottom);   // Bottom-left
+        glVertex2f(right, bottom);  // Bottom-right
+        glVertex2f(right, top);     // Top-right
+        glVertex2f(left, top);      // Top-left
+        glEnd();
+    }
+    
+    glLineWidth(1.0f); // Reset line width
+}
+
 // Private helper methods
 
 Entity* EntitiesManager::getEntity(const std::string& instanceName) {
@@ -676,7 +738,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                     // Final stop logic will be handled by distance to entity.targetX/Y (which is current targetX/Y).
                 }
             }
-            // If currentPathIndex was already >= path.size(), it means we are checking distance to final entity.targetX/Y.
+            // If currentPathIndex was already >= path.size/, it means we are checking distance to final entity.targetX/Y.
             // If distance <= waypointThreshold, the main stop logic later will handle it.
         }
         // Note: The \'else if (entity.currentPathIndex == 0 && ...)\' block for initial call is removed

@@ -51,11 +51,10 @@ struct EntityInfo {
     float normalWalkingSpeed;
     float normalWalkingAnimationSpeed;
     float sprintWalkingSpeed;
-    float sprintWalkingAnimationSpeed;
-    
-    // Collision settings
+    float sprintWalkingAnimationSpeed;      // Collision settings
     bool canCollide;
-    float collisionRadius;
+    float collisionRadius = 0.4f; // Default collision radius
+    std::vector<std::pair<float, float>> collisionShapePoints;
     
     // Movement restrictions
     std::set<TextureName> nonTraversableBlocks; // Blocks this entity type cannot walk on
@@ -82,10 +81,10 @@ struct EntityConfiguration {
     float normalWalkingSpeed = 2.0f;
     float normalWalkingAnimationSpeed = 8.0f;
     float sprintWalkingSpeed = 4.0f;
-    float sprintWalkingAnimationSpeed = 12.0f;
-      // Collision settings
+    float sprintWalkingAnimationSpeed = 12.0f;      // Collision settings
     bool canCollide = true;
-    float collisionRadius = 0.4f;
+    float collisionRadius = 0.4f; // Default collision radius
+    std::vector<std::pair<float, float>> collisionShapePoints;
     
     // Movement restrictions
     std::set<TextureName> nonTraversableBlocks; // Blocks this entity type cannot walk on
@@ -110,10 +109,9 @@ struct EntityConfiguration {
         normalWalkingSpeed = info.normalWalkingSpeed;
         normalWalkingAnimationSpeed = info.normalWalkingAnimationSpeed;
         sprintWalkingSpeed = info.sprintWalkingSpeed;
-        sprintWalkingAnimationSpeed = info.sprintWalkingAnimationSpeed;
-        
-        canCollide = info.canCollide;
+        sprintWalkingAnimationSpeed = info.sprintWalkingAnimationSpeed;          canCollide = info.canCollide;
         collisionRadius = info.collisionRadius;
+        collisionShapePoints = info.collisionShapePoints;
         nonTraversableBlocks = info.nonTraversableBlocks; // Copy non-traversable blocks
     }
 };
@@ -202,6 +200,9 @@ public:
 
     // Draw debug paths for all entities
     void drawDebugPaths(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop);
+    
+    // Draw debug collision radii for all entities
+    void drawDebugCollisionRadii(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop);
     
 private:
     std::map<std::string, EntityConfiguration> configurations;    std::map<std::string, Entity> entities;    // Helper methods

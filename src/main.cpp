@@ -705,12 +705,13 @@ int main() {
 		// Reset to default state before drawing elements
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();		// Draw elements on top of the map tiles (freely placed decorations)
-		elementsManager.drawElements(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, deltaTime);
-
-        // Draw entity debug paths if enabled
+		elementsManager.drawElements(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, deltaTime);        // Draw entity debug paths if enabled
         if (DEBUG_SHOW_PATHS) {
             entitiesManager.drawDebugPaths(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop);
         }
+
+        // Draw entity collision radii if collision visualization is enabled
+        entitiesManager.drawDebugCollisionRadii(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop);
 
           // Disable scissor test when rendering is complete
         if (hideOutsideGrid) {
