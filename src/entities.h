@@ -199,9 +199,7 @@ public:
     void ensureAllEntitiesNotStuck();
 
     // Draw debug paths for all entities
-    void drawDebugPaths(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop);
-    
-    // Draw debug collision radii for all entities
+    void drawDebugPaths(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop);    // Draw debug collision radii for all entities
     void drawDebugCollisionRadii(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop);
     
 private:
@@ -216,6 +214,9 @@ private:
       // Handle waypoint arrival - added to improve movement precision
     bool handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY);
 };
+
+// Function to check entity collision with elements (uses collision shape points if available, otherwise fallback to radius)
+bool wouldEntityCollideWithElement(const EntityConfiguration& config, float x, float y);
 
 // Global instance
 extern EntitiesManager entitiesManager;

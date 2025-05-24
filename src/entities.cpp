@@ -39,7 +39,7 @@ static void initializeEntityTypes() {
     antagonist.canCollide = true;
     antagonist.collisionRadius = 0.4f;
     antagonist.collisionShapePoints = {
-        {-0.3f, -0.3f}, {0.3f, -0.3f}, {0.3f, 0.3f}, {-0.3f, 0.3f}
+        {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}
     };
       // Define non-traversable blocks for antagonist
     // Antagonists cannot walk on water blocks or through coconut trees
@@ -77,11 +77,13 @@ static void initializeEntityTypes() {
     player.normalWalkingAnimationSpeed = 4.0f;
     player.sprintWalkingSpeed = 10.0f;
     player.sprintWalkingAnimationSpeed = 12.0f;
-    
-    // Collision settings
+      // Collision settings
     player.canCollide = true;
     player.collisionRadius = 0.4f;
-      // Define non-traversable blocks for antagonist
+    player.collisionShapePoints = {
+        {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}
+    };
+      // Define non-traversable blocks for player
     // Antagonists cannot walk on water blocks or through coconut trees
     player.nonTraversableBlocks = {
         TextureName::WATER_0,
@@ -183,7 +185,7 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
     
     if (config->canCollide) {
         // Check if the target position is in a collision area
-        if (wouldCollideWithElement(safeX, safeY, config->collisionRadius) ||        wouldCollideWithMapBlock(safeX, safeY, gameMap, config->nonTraversableBlocks)) {
+        if (wouldEntityCollideWithElement(*config, safeX, safeY) ||        wouldCollideWithMapBlock(safeX, safeY, gameMap, config->nonTraversableBlocks)) {
             needsSafePosition = true;
             // Try to find a safe position nearby
             if (!findSafePosition(safeX, safeY, config->collisionRadius, gameMap, config->nonTraversableBlocks)) {
@@ -566,12 +568,12 @@ void EntitiesManager::drawDebugCollisionRadii(float startX, float endX, float st
         return;
     }
 
-    glLineWidth(2.0f); // Set line width for collision radii
+    glLineWidth(2.0f); // Set line width for collision shapes
     
     for (const auto& pair : entities) {
         const Entity& entity = pair.second;
         
-        // Get the configuration for this entity to access collisionRadius
+        // Get the configuration for this entity to access collision shape
         const EntityConfiguration* config = getConfiguration(entity.typeName);
         if (!config || !config->canCollide) {
             continue; // Skip entities without collision or configuration
@@ -584,37 +586,74 @@ void EntitiesManager::drawDebugCollisionRadii(float startX, float endX, float st
             continue; // Skip if we can't get current position
         }
 
-        // Convert entity position to screen coordinates
-        float entityScreenX = startX + (currentX - cameraLeft) / (cameraRight - cameraLeft) * (endX - startX);
-        float entityScreenY = startY + (currentY - cameraBottom) / (cameraTop - cameraBottom) * (endY - startY);        // Calculate radius in screen coordinates
-        float viewWidth = cameraRight - cameraLeft;
-        float screenWidth = endX - startX;
-        float radiusInScreenCoords = (config->collisionRadius / viewWidth) * screenWidth;
+        // Check if entity has collision shape points
+        if (!config->collisionShapePoints.empty()) {
+            // Draw polygon collision shape
+            std::vector<std::pair<float, float>> worldShapePoints;
+            
+            // Transform collision shape points to world coordinates (assuming no rotation for now)
+            for (const auto& localPoint : config->collisionShapePoints) {
+                worldShapePoints.push_back({currentX + localPoint.first, currentY + localPoint.second});
+            }
+            
+            // Convert world coordinates to screen coordinates
+            std::vector<std::pair<float, float>> screenShapePoints;
+            for (const auto& worldPoint : worldShapePoints) {
+                float screenX = startX + (worldPoint.first - cameraLeft) / (cameraRight - cameraLeft) * (endX - startX);
+                float screenY = startY + (worldPoint.second - cameraBottom) / (cameraTop - cameraBottom) * (endY - startY);
+                screenShapePoints.push_back({screenX, screenY});
+            }
+            
+            // Draw filled polygon
+            glColor4f(0.0f, 1.0f, 0.0f, 0.3f); // Semi-transparent green
+            glBegin(GL_POLYGON);
+            for (const auto& screenPoint : screenShapePoints) {
+                glVertex2f(screenPoint.first, screenPoint.second);
+            }
+            glEnd();
 
-        // Calculate square dimensions (square with side length = 2 * radius)
-        float halfSide = radiusInScreenCoords;
-        float left = entityScreenX - halfSide;
-        float right = entityScreenX + halfSide;
-        float bottom = entityScreenY - halfSide;
-        float top = entityScreenY + halfSide;
+            // Draw polygon outline
+            glColor4f(0.0f, 0.8f, 0.0f, 0.8f); // More solid green for the outline
+            glBegin(GL_LINE_LOOP);
+            for (const auto& screenPoint : screenShapePoints) {
+                glVertex2f(screenPoint.first, screenPoint.second);
+            }
+            glEnd();
+        } else {
+            // Fallback to drawing collision radius as a square (for entities without collision shape points)
+            float viewWidth = cameraRight - cameraLeft;
+            float screenWidth = endX - startX;
+            float radiusInScreenCoords = (config->collisionRadius / viewWidth) * screenWidth;
 
-        // Draw filled square for collision radius
-        glColor4f(0.0f, 1.0f, 0.0f, 0.3f); // Semi-transparent green
-        glBegin(GL_QUADS);
-        glVertex2f(left, bottom);   // Bottom-left
-        glVertex2f(right, bottom);  // Bottom-right
-        glVertex2f(right, top);     // Top-right
-        glVertex2f(left, top);      // Top-left
-        glEnd();
+            // Convert entity position to screen coordinates
+            float entityScreenX = startX + (currentX - cameraLeft) / (cameraRight - cameraLeft) * (endX - startX);
+            float entityScreenY = startY + (currentY - cameraBottom) / (cameraTop - cameraBottom) * (endY - startY);
 
-        // Draw square outline
-        glColor4f(0.0f, 0.8f, 0.0f, 0.8f); // More solid green for the outline
-        glBegin(GL_LINE_LOOP);
-        glVertex2f(left, bottom);   // Bottom-left
-        glVertex2f(right, bottom);  // Bottom-right
-        glVertex2f(right, top);     // Top-right
-        glVertex2f(left, top);      // Top-left
-        glEnd();
+            // Calculate square dimensions (square with side length = 2 * radius)
+            float halfSide = radiusInScreenCoords;
+            float left = entityScreenX - halfSide;
+            float right = entityScreenX + halfSide;
+            float bottom = entityScreenY - halfSide;
+            float top = entityScreenY + halfSide;
+
+            // Draw filled square for collision radius
+            glColor4f(0.0f, 1.0f, 0.0f, 0.3f); // Semi-transparent green
+            glBegin(GL_QUADS);
+            glVertex2f(left, bottom);   // Bottom-left
+            glVertex2f(right, bottom);  // Bottom-right
+            glVertex2f(right, top);     // Top-right
+            glVertex2f(left, top);      // Top-left
+            glEnd();
+
+            // Draw square outline
+            glColor4f(0.0f, 0.8f, 0.0f, 0.8f); // More solid green for the outline
+            glBegin(GL_LINE_LOOP);
+            glVertex2f(left, bottom);   // Bottom-left
+            glVertex2f(right, bottom);  // Bottom-right
+            glVertex2f(right, top);     // Top-right
+            glVertex2f(left, top);      // Top-left
+            glEnd();
+        }
     }
     
     glLineWidth(1.0f); // Reset line width
@@ -815,9 +854,8 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         // Calculate the new position after movement
         float newX = currentActualX + moveDx;
         float newY = currentActualY + moveDy;
-        
-        // Check if the new position would collide with any collidable element or map block
-        bool collisionWithElement = wouldCollideWithElement(newX, newY, config.collisionRadius);
+          // Check if the new position would collide with any collidable element or map block
+        bool collisionWithElement = wouldEntityCollideWithElement(config, newX, newY);
         bool collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
         
         if (collisionWithElement || collisionWithMapBlock) {
@@ -849,10 +887,9 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
             } else {
                 // If we couldn't find a safe position, try alternative movement directions
                 
-                // Try moving only in Y direction (vertical movement)
-                newX = currentActualX;
+                // Try moving only in Y direction (vertical movement)                newX = currentActualX;
                 newY = currentActualY + moveDy;
-                collisionWithElement = wouldCollideWithElement(newX, newY, config.collisionRadius);
+                collisionWithElement = wouldEntityCollideWithElement(config, newX, newY);
                 collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
                 
                 if (!collisionWithElement && !collisionWithMapBlock) {
@@ -864,11 +901,10 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                     // Set sprite phase directly based on direction
                     int phase = (entity.lastDirection == 0) ? config.spritePhaseWalkUp : config.spritePhaseWalkDown;
                     elementsManager.changeElementSpritePhase(elementName, phase);
-                } else {
-                    // Then check moving only in X direction (horizontal movement)
+                } else {                    // Then check moving only in X direction (horizontal movement)
                     newX = currentActualX + moveDx;
                     newY = currentActualY;
-                    collisionWithElement = wouldCollideWithElement(newX, newY, config.collisionRadius);
+                    collisionWithElement = wouldEntityCollideWithElement(config, newX, newY);
                     collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
                     
                     if (!collisionWithElement && !collisionWithMapBlock) {
@@ -888,12 +924,10 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                 if (entity.usePathfinding) {
                     std::cout << "Entity " << entity.instanceName << " encountered obstacle at (" 
                               << newX << ", " << newY << "), recalculating path..." << std::endl;
-                    
-                    // Identify what's blocking the entity
-                    bool hasElementCollision = wouldCollideWithElement(newX, newY, config.collisionRadius);
+                      // Identify what's blocking the entity
+                    bool hasElementCollision = wouldEntityCollideWithElement(config, newX, newY);
                     bool hasMapBlockCollision = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
-                    
-                    if (hasElementCollision) {
+                      if (hasElementCollision) {
                         std::cout << "  - Element collision detected" << std::endl;
                         // Get nearby elements for debugging
                         std::vector<std::string> nearbyElements = getNearbyElements(newX, newY, config.collisionRadius + 0.5f);
@@ -1063,6 +1097,17 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
     }
 }
 
+// Function to check entity collision with elements (uses collision shape points if available, otherwise fallback to radius)
+bool wouldEntityCollideWithElement(const EntityConfiguration& config, float x, float y) {
+    if (!config.collisionShapePoints.empty()) {
+        // Use polygon-based collision detection
+        return wouldEntityCollideWithElement(x, y, config.collisionShapePoints, 1.0f, 0.0f);
+    } else {
+        // Fallback to radius-based collision detection
+        return wouldCollideWithElement(x, y, config.collisionRadius);
+    }
+}
+
 // Helper method to get an entity's type name by its instance name
 std::string EntitiesManager::getEntityType(const std::string& instanceName) const {
     auto it = entities.find(instanceName);
@@ -1098,8 +1143,8 @@ bool EntitiesManager::ensureEntityNotStuck(const std::string& instanceName) {
     float x, y;
     if (!elementsManager.getElementPosition(elementName, x, y)) {
         return false;
-    }      // Check if entity is in a collision state
-    bool collisionWithElement = wouldCollideWithElement(x, y, config->collisionRadius);
+    }    // Check if entity is in a collision state
+    bool collisionWithElement = wouldEntityCollideWithElement(*config, x, y);
     bool collisionWithMapBlock = wouldCollideWithMapBlock(x, y, gameMap, config->nonTraversableBlocks);
         
     if (collisionWithElement || collisionWithMapBlock) {        // Add a safety buffer for better collision avoidance
@@ -1199,9 +1244,8 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
     float targetX = x;
     float targetY = y;
       // Only check for collisions if this entity type can collide
-    if (config->canCollide) {
-        // Check for collision at the teleport destination
-        bool collisionWithElement = wouldCollideWithElement(targetX, targetY, config->collisionRadius);
+    if (config->canCollide) {        // Check for collision at the teleport destination
+        bool collisionWithElement = wouldEntityCollideWithElement(*config, targetX, targetY);
         bool collisionWithMapBlock = wouldCollideWithMapBlock(targetX, targetY, gameMap, config->nonTraversableBlocks);
         
         if (collisionWithElement || collisionWithMapBlock) {

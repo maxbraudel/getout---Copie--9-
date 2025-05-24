@@ -638,3 +638,169 @@ void debugCollisionStatus(float x, float y, float collisionRadius) {
         std::cout << "No collision at (" << x << ", " << y << ") with radius " << collisionRadius << std::endl;
     }
 }
+
+// Function to check if an entity (using collision shape points) would collide with any element
+bool wouldEntityCollideWithElement(float x, float y, const std::vector<std::pair<float, float>>& entityCollisionShapePoints, float entityScale, float entityRotation) {
+    // Make sure the spatial grid is up to date
+    if (!spatialGridInitialized) {
+        updateSpatialGrid();
+    }
+    
+    // Calculate approximate radius for nearby element search
+    float maxRadius = 0.0f;
+    for (const auto& point : entityCollisionShapePoints) {
+        float dist = std::sqrt(point.first * point.first + point.second * point.second);
+        maxRadius = std::max(maxRadius, dist * entityScale);
+    }
+    
+    // Get only nearby elements instead of checking all elements
+    std::vector<std::string> nearbyElements = getNearbyElements(x, y, maxRadius + MAX_COLLISION_CHECK_RANGE);
+    
+    // Transform entity polygon points to world coordinates
+    std::vector<std::pair<float, float>> entityWorldShapePoints;
+    float angleRad = entityRotation * M_PI / 180.0f; // Convert rotation to radians
+    float cosA = cos(angleRad);
+    float sinA = sin(angleRad);
+
+    for (const auto& localPoint : entityCollisionShapePoints) {
+        // Scale first, then rotate, then translate
+        float scaledX = localPoint.first * entityScale;
+        float scaledY = localPoint.second * entityScale;
+        
+        float rotatedX = scaledX * cosA - scaledY * sinA;
+        float rotatedY = scaledX * sinA + scaledY * cosA;
+        
+        entityWorldShapePoints.push_back({x + rotatedX, y + rotatedY});
+    }
+    
+    // Check collision with each nearby element
+    for (const auto& elementName : nearbyElements) {
+        float elementX, elementY;
+        float elementScale = 1.0f;
+        float elementRotation = 0.0f;
+        std::vector<std::pair<float, float>> elementCollisionShapePoints;
+        bool elementHasCollision = false;
+
+        // Find the element to get its actual collision properties
+        const auto& elements = elementsManager.getElements();
+        const PlacedElement* currentElement = nullptr;
+        for (const auto& el : elements) {
+            if (el.instanceName == elementName) {
+                currentElement = &el;
+                break;
+            }
+        }
+
+        if (!currentElement || !currentElement->hasCollision || currentElement->collisionShapePoints.empty()) {
+            continue; // Skip elements without collision enabled or without defined shape
+        }
+
+        elementX = currentElement->x;
+        elementY = currentElement->y;
+        elementScale = currentElement->scale;
+        elementRotation = currentElement->rotation;
+        elementCollisionShapePoints = currentElement->collisionShapePoints;
+
+        // Transform element polygon points to world coordinates
+        std::vector<std::pair<float, float>> elementWorldShapePoints;
+        float elementAngleRad = elementRotation * M_PI / 180.0f;
+        float elementCosA = cos(elementAngleRad);
+        float elementSinA = sin(elementAngleRad);
+
+        for (const auto& localPoint : elementCollisionShapePoints) {
+            float scaledX = localPoint.first * elementScale;
+            float scaledY = localPoint.second * elementScale;
+            
+            float rotatedX = scaledX * elementCosA - scaledY * elementSinA;
+            float rotatedY = scaledX * elementSinA + scaledY * elementCosA;
+            
+            elementWorldShapePoints.push_back({elementX + rotatedX, elementY + rotatedY});
+        }
+
+        // Perform polygon-polygon collision detection using Separating Axis Theorem (SAT)
+        if (polygonPolygonCollision(entityWorldShapePoints, elementWorldShapePoints)) {
+            float currentTime = static_cast<float>(glfwGetTime());
+            if (playerDebugMode && currentTime - lastCollisionDebugTime > 2.0f) {
+                lastCollisionDebugTime = currentTime;
+                std::cout << "Entity polygon collision with " << elementName 
+                          << " at entity pos (" << x << ", " << y << ")" 
+                          << ", element center: (" << elementX << ", " << elementY << ")" << std::endl;
+            }
+            return true; // Collision detected
+        }
+    }
+    
+    return false; // No collision detected
+}
+
+// Helper function to check collision between two polygons using Separating Axis Theorem (SAT)
+bool polygonPolygonCollision(const std::vector<std::pair<float, float>>& poly1, const std::vector<std::pair<float, float>>& poly2) {
+    // Check if either polygon is empty
+    if (poly1.empty() || poly2.empty()) {
+        return false;
+    }
+    
+    // Function to get perpendicular axis from an edge
+    auto getAxis = [](const std::pair<float, float>& p1, const std::pair<float, float>& p2) -> std::pair<float, float> {
+        float edgeX = p2.first - p1.first;
+        float edgeY = p2.second - p1.second;
+        // Perpendicular to edge (normal)
+        return {-edgeY, edgeX};
+    };
+    
+    // Function to normalize a vector
+    auto normalize = [](std::pair<float, float>& axis) {
+        float length = std::sqrt(axis.first * axis.first + axis.second * axis.second);
+        if (length > 0.0f) {
+            axis.first /= length;
+            axis.second /= length;
+        }
+    };
+    
+    // Function to project polygon onto axis
+    auto projectPolygon = [](const std::vector<std::pair<float, float>>& polygon, const std::pair<float, float>& axis) -> std::pair<float, float> {
+        float min = polygon[0].first * axis.first + polygon[0].second * axis.second;
+        float max = min;
+        
+        for (size_t i = 1; i < polygon.size(); ++i) {
+            float projection = polygon[i].first * axis.first + polygon[i].second * axis.second;
+            if (projection < min) min = projection;
+            if (projection > max) max = projection;
+        }
+        
+        return {min, max};
+    };
+    
+    // Function to check if two projections overlap
+    auto projectionsOverlap = [](const std::pair<float, float>& proj1, const std::pair<float, float>& proj2) -> bool {
+        return !(proj1.second < proj2.first || proj2.second < proj1.first);
+    };
+    
+    // Check all axes from poly1
+    for (size_t i = 0; i < poly1.size(); ++i) {
+        std::pair<float, float> axis = getAxis(poly1[i], poly1[(i + 1) % poly1.size()]);
+        normalize(axis);
+        
+        std::pair<float, float> proj1 = projectPolygon(poly1, axis);
+        std::pair<float, float> proj2 = projectPolygon(poly2, axis);
+        
+        if (!projectionsOverlap(proj1, proj2)) {
+            return false; // Separating axis found, no collision
+        }
+    }
+    
+    // Check all axes from poly2
+    for (size_t i = 0; i < poly2.size(); ++i) {
+        std::pair<float, float> axis = getAxis(poly2[i], poly2[(i + 1) % poly2.size()]);
+        normalize(axis);
+        
+        std::pair<float, float> proj1 = projectPolygon(poly1, axis);
+        std::pair<float, float> proj2 = projectPolygon(poly2, axis);
+        
+        if (!projectionsOverlap(proj1, proj2)) {
+            return false; // Separating axis found, no collision
+        }
+    }
+    
+    return true; // No separating axis found, collision detected
+}

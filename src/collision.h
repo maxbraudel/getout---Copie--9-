@@ -16,6 +16,12 @@ extern bool playerDebugMode;
 // Function to check if a position would collide with any collidable element
 bool wouldCollideWithElement(float x, float y, float playerRadius = 0.2f);
 
+// Function to check if an entity (using collision shape points) would collide with any element
+bool wouldEntityCollideWithElement(float x, float y, const std::vector<std::pair<float, float>>& entityCollisionShapePoints, float entityScale = 1.0f, float entityRotation = 0.0f);
+
+// Helper function for polygon-polygon collision detection using Separating Axis Theorem (SAT)
+bool polygonPolygonCollision(const std::vector<std::pair<float, float>>& poly1, const std::vector<std::pair<float, float>>& poly2);
+
 // Function to check if a position would collide with a non-traversable block
 bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap);
 
