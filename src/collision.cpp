@@ -388,12 +388,10 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
         std::cerr << "Error: Player entity configuration not found in findSafePosition" << std::endl;
         return false; // Cannot proceed without player configuration
     }
-    
-    // First, check if the current position is already safe
+      // First, check if the current position is already safe
     bool hasElementCollision = wouldCollideWithElement(x, y, playerRadius);
-    bool hasMapBlockCollision = wouldCollideWithMapBlock(x, y, gameMap, playerConfig->nonTraversableBlocks);
     
-    if (!hasElementCollision && !hasMapBlockCollision) {
+    if (!hasElementCollision) {
         return false; // No adjustment needed, position is already safe
     }
     
@@ -418,8 +416,7 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
         for (float angle = 0.0f; angle < 2.0f * M_PI; angle += angleStep) {            float testX = x + distance * cos(angle);
             float testY = y + distance * sin(angle);
               // Check if this position is safe
-            if (!wouldCollideWithElement(testX, testY, playerRadius) && 
-                !wouldCollideWithMapBlock(testX, testY, gameMap, playerConfig->nonTraversableBlocks)) {
+            if (!wouldCollideWithElement(testX, testY, playerRadius)) {
                 // Found a safe position, update coordinates and return
                 if (playerDebugMode) {
                     std::cout << "Safe position found at (" << testX << ", " << testY 
@@ -462,8 +459,7 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
                 float testY = y + dy;
                 
                 // Check if this position is safe
-                if (!wouldCollideWithElement(testX, testY, playerRadius) && 
-                    !wouldCollideWithMapBlock(testX, testY, gameMap, playerConfig->nonTraversableBlocks)) {
+                if (!wouldCollideWithElement(testX, testY, playerRadius)) {
                     // Found a safe position, update coordinates and return
                     if (playerDebugMode) {
                         std::cout << "Grid search found safe position at (" << testX << ", " << testY 
@@ -488,10 +484,8 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
         // Generate random coordinates within the grid
         float testX = 1.0f + static_cast<float>(rand() % (GRID_SIZE - 2));
         float testY = 1.0f + static_cast<float>(rand() % (GRID_SIZE - 2));
-        
-        // Check if this position is safe
-        if (!wouldCollideWithElement(testX, testY, playerRadius) && 
-            !wouldCollideWithMapBlock(testX, testY, gameMap, playerConfig->nonTraversableBlocks)) {
+          // Check if this position is safe (only check element collisions for entities now)
+        if (!wouldCollideWithElement(testX, testY, playerRadius)) {
             // Found a safe position, update coordinates and return
             if (playerDebugMode) {
                 std::cout << "Random search found safe position at (" << testX << ", " << testY 
@@ -513,106 +507,7 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
     return false; // Couldn't adjust position
 }
 
-// Overloaded version of findSafePosition that uses entity-specific non-traversable blocks
-bool findSafePosition(float& x, float& y, float entityRadius, const Map& gameMap, const std::set<TextureName>& entityNonTraversableBlocks) {
-    // First, check if the current position is already safe
-    bool hasElementCollision = wouldCollideWithElement(x, y, entityRadius);
-    bool hasMapBlockCollision = wouldCollideWithMapBlock(x, y, gameMap, entityNonTraversableBlocks);
-    
-    if (!hasElementCollision && !hasMapBlockCollision) {
-        return false; // No adjustment needed, position is already safe
-    }
-    
-    if (playerDebugMode) {
-        std::cout << "Entity found stuck in collision at (" << x << ", " << y 
-                  << "), attempting to find safe position..." << std::endl;
-    }
-    
-    // Try to find a safe position by checking in a spiral pattern around the current position
-    const float step = 0.1f;  // Step size for each potential position check
-    const float maxDistance = 15.0f; // Maximum distance to check
-    float distance = step;
-    
-    // Try to find a safe position by spiraling outward
-    while (distance <= maxDistance) {
-        // Try positions in a circle at current distance
-        // Use more angles for finer granularity as the search expands
-        float angleStep = 0.2f;
-        if (distance > 2.0f) angleStep = 0.1f; // Finer search at greater distances
-        
-        for (float angle = 0.0f; angle < 2.0f * M_PI; angle += angleStep) {
-            float testX = x + distance * cos(angle);
-            float testY = y + distance * sin(angle);
-            
-            // Check if this position is safe (no element collisions and no entity-specific map block collisions)
-            if (!wouldCollideWithElement(testX, testY, entityRadius) && 
-                !wouldCollideWithMapBlock(testX, testY, gameMap, entityNonTraversableBlocks)) {
-                // Found a safe position, update coordinates and return
-                if (playerDebugMode) {
-                    std::cout << "Safe position found for entity at (" << testX << ", " << testY 
-                              << "), moved " << distance << " units" << std::endl;
-                }
-                
-                x = testX;
-                y = testY;
-                return true; // Position was adjusted
-            }
-        }
-        
-        // Increase distance for next search ring
-        distance += step;
-    }
-    
-    // If spiral search fails, try a grid search as fallback
-    if (playerDebugMode) {
-        std::cout << "Spiral search failed for entity, trying grid search..." << std::endl;
-    }
-    
-    // Increase max distance for the grid search to find positions farther away if needed
-    const float expandedMaxDistance = maxDistance * 1.5f;
-    
-    // Try a grid search in a square around the entity
-    for (float searchDist = maxDistance; searchDist <= expandedMaxDistance; searchDist += maxDistance * 0.5f) {
-        // Step size increases with distance for better performance
-        float adaptiveStep = step * (1.0f + searchDist / 5.0f);
-        
-        // Search at this particular distance
-        for (float dx = -searchDist; dx <= searchDist; dx += adaptiveStep) {
-            for (float dy = -searchDist; dy <= searchDist; dy += adaptiveStep) {
-                // Only check points near the perimeter of this search distance
-                float pointDist = std::sqrt(dx*dx + dy*dy);
-                if (pointDist < searchDist - adaptiveStep || pointDist > searchDist + adaptiveStep) {
-                    continue;
-                }
-                
-                float testX = x + dx;
-                float testY = y + dy;
-                
-                // Check if this position is safe
-                if (!wouldCollideWithElement(testX, testY, entityRadius) && 
-                    !wouldCollideWithMapBlock(testX, testY, gameMap, entityNonTraversableBlocks)) {
-                    // Found a safe position, update coordinates and return
-                    if (playerDebugMode) {
-                        std::cout << "Grid search found safe position for entity at (" << testX << ", " << testY 
-                                  << "), moved " << pointDist << " units" << std::endl;
-                    }
-                    
-                    x = testX;
-                    y = testY;
-                    return true; // Position was adjusted
-                }
-            }
-        }
-    }
-    
-    // If we got here, couldn't find a safe position
-    if (playerDebugMode) {
-        std::cout << "Warning: Could not find safe position for entity within " 
-                  << maxDistance << " units!" << std::endl;
-    }
-    
-    return false; // Couldn't adjust position
-}
+
 
 // Helper function to print information about a position's collision status
 void debugCollisionStatus(float x, float y, float collisionRadius) {

@@ -79,9 +79,7 @@ void movePlayer(float deltaX, float deltaY) {
     if (!config) {
         std::cerr << "ERROR: Cannot move player - player configuration not found!" << std::endl;
         return;
-    }
-      // Use player-specific non-traversable blocks from entity configuration
-    std::set<TextureName> playerNonTraversableBlocks = config->nonTraversableBlocks;
+    }      // Entity collision detection now uses polygon shapes only
 
     float x, y;
     if (!elementsManager.getElementPosition("player1", x, y)) {
@@ -93,9 +91,8 @@ void movePlayer(float deltaX, float deltaY) {
     // This handles the case where the player somehow got stuck in a collision area
     float currentX = x;
     float currentY = y;
-    bool wasStuck = false;      // Try to find a safe position for the player if they're currently stuck
-    if (wouldEntityCollideWithElement(*config, currentX, currentY) || 
-        wouldCollideWithMapBlock(currentX, currentY, gameMap, playerNonTraversableBlocks)) {
+    bool wasStuck = false;    // Try to find a safe position for the player if they're currently stuck
+    if (wouldEntityCollideWithElement(*config, currentX, currentY)) {
         wasStuck = findSafePosition(currentX, currentY, config->collisionRadius, gameMap);
         
         if (wasStuck) {
@@ -128,8 +125,7 @@ void movePlayer(float deltaX, float deltaY) {
             for (const auto& location : safeLocations) {
                 currentX = location.first;
                 currentY = location.second;                // Make sure this location is actually safe
-                if (!wouldEntityCollideWithElement(*config, currentX, currentY) && 
-                    !wouldCollideWithMapBlock(currentX, currentY, gameMap, playerNonTraversableBlocks)) {
+                if (!wouldEntityCollideWithElement(*config, currentX, currentY)) {
                     elementsManager.changeElementCoordinates("player1", currentX, currentY);
                     std::cout << "Player emergency teleported to (" << currentX << ", " << currentY << ")" << std::endl;
                     x = currentX;
@@ -150,8 +146,7 @@ void movePlayer(float deltaX, float deltaY) {
                         // Center of the block
                         currentX = gridX + 0.5f;
                         currentY = gridY + 0.5f;                        // Check if position is safe
-                        if (!wouldEntityCollideWithElement(*config, currentX, currentY) && 
-                            !wouldCollideWithMapBlock(currentX, currentY, gameMap, playerNonTraversableBlocks)) {
+                        if (!wouldEntityCollideWithElement(*config, currentX, currentY)) {
                             // Found a safe position
                             elementsManager.changeElementCoordinates("player1", currentX, currentY);
                             std::cout << "Player emergency teleported to (" << currentX << ", " << currentY << ")" << std::endl;
@@ -175,10 +170,9 @@ void movePlayer(float deltaX, float deltaY) {
         }
     }      // Calculate the new position after potential unstuck operation
     float newX = x + deltaX;
-    float newY = y + deltaY;      // Check if the combined movement would collide with any collidable element or map block
+    float newY = y + deltaY;      // Check if the combined movement would collide with any collidable element
     bool collisionWithElement = wouldEntityCollideWithElement(*config, newX, newY);
-    bool collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, playerNonTraversableBlocks);
-    bool canMove = !(collisionWithElement || collisionWithMapBlock);
+    bool canMove = !collisionWithElement;
     
     // If we can't move diagonally, try to move in single directions (sliding along walls)
     float actualDeltaX = 0;
@@ -188,15 +182,11 @@ void movePlayer(float deltaX, float deltaY) {
     if (!canMove && (deltaX != 0 && deltaY != 0)) {        // Try moving only horizontally
         float testX = x + deltaX;
         float testY = y; // Keep Y the same
-        
-        bool horizontalCollision = wouldEntityCollideWithElement(*config, testX, testY) || 
-                                  wouldCollideWithMapBlock(testX, testY, gameMap, playerNonTraversableBlocks);
+          bool horizontalCollision = wouldEntityCollideWithElement(*config, testX, testY);
           // Try moving only vertically
         float testX2 = x; // Keep X the same
         float testY2 = y + deltaY;
-        
-        bool verticalCollision = wouldEntityCollideWithElement(*config, testX2, testY2) || 
-                                wouldCollideWithMapBlock(testX2, testY2, gameMap, playerNonTraversableBlocks);
+          bool verticalCollision = wouldEntityCollideWithElement(*config, testX2, testY2);
         
         // If horizontal movement is possible
         if (!horizontalCollision) {

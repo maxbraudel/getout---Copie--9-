@@ -55,10 +55,7 @@ struct EntityInfo {
     bool canCollide;
     float collisionRadius = 0.4f; // Default collision radius
     std::vector<std::pair<float, float>> collisionShapePoints;
-    
-    // Movement restrictions
-    std::set<TextureName> nonTraversableBlocks; // Blocks this entity type cannot walk on
-};
+  };
 
 // Struct to hold entity configuration
 struct EntityConfiguration {
@@ -84,11 +81,7 @@ struct EntityConfiguration {
     float sprintWalkingAnimationSpeed = 12.0f;      // Collision settings
     bool canCollide = true;
     float collisionRadius = 0.4f; // Default collision radius
-    std::vector<std::pair<float, float>> collisionShapePoints;
-    
-    // Movement restrictions
-    std::set<TextureName> nonTraversableBlocks; // Blocks this entity type cannot walk on
-    
+    std::vector<std::pair<float, float>> collisionShapePoints;    
     // Constructor to create from EntityInfo
     EntityConfiguration() = default;
     
@@ -109,10 +102,9 @@ struct EntityConfiguration {
         normalWalkingSpeed = info.normalWalkingSpeed;
         normalWalkingAnimationSpeed = info.normalWalkingAnimationSpeed;
         sprintWalkingSpeed = info.sprintWalkingSpeed;
-        sprintWalkingAnimationSpeed = info.sprintWalkingAnimationSpeed;          canCollide = info.canCollide;
+        sprintWalkingAnimationSpeed = info.sprintWalkingAnimationSpeed;        canCollide = info.canCollide;
         collisionRadius = info.collisionRadius;
         collisionShapePoints = info.collisionShapePoints;
-        nonTraversableBlocks = info.nonTraversableBlocks; // Copy non-traversable blocks
     }
 };
 

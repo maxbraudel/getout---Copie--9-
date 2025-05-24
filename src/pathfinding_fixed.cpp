@@ -1,5 +1,4 @@
 #include "pathfinding.h"
-#include "entities.h" // For EntityConfiguration
 #include "globals.h" // For GRID_SIZE
 #include "collision.h" // For collision detection
 #include <vector>
@@ -34,32 +33,38 @@ float calculateHeuristic(int x1, int y1, int x2, int y2) {
     return std::abs(x1 - x2) + std::abs(y1 - y2);
 }
 
-// Check if a position is valid (within bounds and not colliding) - using entity collision shape
-bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, const Map& gameMap) {
-    // 1. Check if the entity's center is within game bounds.
-    // For polygon-based entities, we need to ensure the entire shape stays within bounds
-    float entityCollisionRadius = entityConfig.collisionRadius; // Fallback radius for bounds checking
+// Check if a position is valid (within bounds and not colliding) - simplified for entity collision only
+bool isPositionValid(float x, float y, float entityCollisionRadius, const Map& gameMap) {
+    // 1. Check if the entity's entire collision body is within game bounds.
     if (x - entityCollisionRadius < 0.0f || x + entityCollisionRadius >= GRID_SIZE ||
         y - entityCollisionRadius < 0.0f || y + entityCollisionRadius >= GRID_SIZE) {
         return false; // Entity would be partially or fully out of bounds.
     }
     
-    // 2. Check for collision with other collidable elements using proper entity collision shape.
-    if (wouldEntityCollideWithElement(entityConfig, x, y)) {
+    // 2. Check for collision with other collidable elements in the game.
+    // First check direct collision with the actual entity collision radius
+    if (wouldCollideWithElement(x, y, entityCollisionRadius)) {
+        return false;
+    }
+    
+    // Then check with margin for pathfinding safety distance
+    float effectiveRadiusForElementCheck = entityCollisionRadius + MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS;
+    if (wouldCollideWithElement(x, y, effectiveRadiusForElementCheck)) {
         return false;
     }
 
+    // Entities no longer check map block collisions - they use polygon collision detection only
     return true;
 }
 
-// The integer version of position validation using entity configuration
-bool isPositionValid(int x, int y, const EntityConfiguration& entityConfig, const Map& gameMap) {
+// The integer version of position validation
+bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap) {
     return isPositionValid(static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f, 
-                          entityConfig, gameMap);
+                          collisionRadius, gameMap);
 }
 
-// Get neighboring positions using entity collision shape detection
-std::vector<std::pair<int, int>> getNeighbors(int x, int y, const EntityConfiguration& entityConfig, const Map& gameMap) {
+// Get neighboring positions (implement the header-defined function)
+std::vector<std::pair<int, int>> getNeighbors(int x, int y, float collisionRadius, const Map& gameMap) {
     std::vector<std::pair<int, int>> neighbors;
     
     // Define possible movement directions (8 directions)
@@ -78,28 +83,28 @@ std::vector<std::pair<int, int>> getNeighbors(int x, int y, const EntityConfigur
     for (const auto& dir : directions) {
         int newX = x + dir.first;
         int newY = y + dir.second;
-        if (isPositionValid(newX, newY, entityConfig, gameMap)) {
+        if (isPositionValid(newX, newY, collisionRadius, gameMap)) {
             neighbors.push_back({newX, newY});
         }
     }
     return neighbors;
 }
 
-// Helper function to check if a line segment is valid by sampling points - using entity collision shape
+// Helper function to check if a line segment is valid by sampling points - simplified for element collision only
 static bool isSegmentValid(float x1, float y1, float x2, float y2,
-                           const EntityConfiguration& entityConfig,
+                           float entityCollisionRadius,
                            const Map& gameMap) {
     float dx = x2 - x1;
     float dy = y2 - y1;
     float distance = std::sqrt(dx * dx + dy * dy);
 
     if (distance < 0.001f) { // Essentially the same point
-        return isPositionValid(x1, y1, entityConfig, gameMap);
+        return isPositionValid(x1, y1, entityCollisionRadius, gameMap);
     }
 
     // Step size for sampling, e.g., half the collision radius.
     // Ensure a minimum step size to prevent issues with very small radii and to ensure progress.
-    float stepSize = entityConfig.collisionRadius * 0.5f;
+    float stepSize = entityCollisionRadius * 0.5f;
     if (stepSize < 0.01f) { // Minimum practical step size to avoid excessive checks or division by zero if radius is 0.
         stepSize = 0.01f;
     }
@@ -119,7 +124,7 @@ static bool isSegmentValid(float x1, float y1, float x2, float y2,
         float currentX = x1 + t * dx;
         float currentY = y1 + t * dy;
 
-        if (!isPositionValid(currentX, currentY, entityConfig, gameMap)) {
+        if (!isPositionValid(currentX, currentY, entityCollisionRadius, gameMap)) {
             return false;
         }
     }
@@ -128,14 +133,14 @@ static bool isSegmentValid(float x1, float y1, float x2, float y2,
 
 // Simplify path using "string pulling" method, ensuring segments are valid - simplified for element collision only
 static void simplifyPath(std::vector<std::pair<float, float>>& path,
-                         const EntityConfiguration& entityConfig,
+                         float entityCollisionRadius,
                          const Map& gameMap) {
     if (path.size() <= 2) {
         // For paths of 0, 1, or 2 points, no simplification is typically needed.
         // However, if it's 2 points, ensure the direct segment is valid.
         if (path.size() == 2) {
             if (!isSegmentValid(path[0].first, path[0].second, path[1].first, path[1].second,
-                                entityConfig, gameMap)) {
+                                entityCollisionRadius, gameMap)) {
                 // If the direct segment between the two points is invalid,
                 // this indicates a potential issue upstream
             }
@@ -159,10 +164,11 @@ static void simplifyPath(std::vector<std::pair<float, float>>& path,
             bool isVertical = std::abs(dx) < epsilon && std::abs(dy) > epsilon;
             // Check for non-zero dx/dy for diagonal to ensure it's a line, not a point.
             bool isDiagonal = std::abs(std::abs(dx) - std::abs(dy)) < epsilon && std::abs(dx) > epsilon;
-              if (isHorizontal || isVertical || isDiagonal) {
+            
+            if (isHorizontal || isVertical || isDiagonal) {
                 if (isSegmentValid(path[currentAnchorIndexInOriginalPath].first, path[currentAnchorIndexInOriginalPath].second,
                                    path[i].first, path[i].second,
-                                   entityConfig, gameMap)) {
+                                   entityCollisionRadius, gameMap)) {
                     furthestReachableIndexInOriginalPath = i;
                 } else {
                     // Segment is of allowed type but collides
@@ -193,7 +199,7 @@ std::vector<std::pair<float, float>> findPath(
     float startX, float startY,
     float goalX, float goalY,
     const Map& gameMap,
-    const EntityConfiguration& entityConfig
+    float collisionRadius
 ) {
     // Store original intended goal for messages, and derive initial cell indices
     float originalGoalX = goalX;
@@ -201,8 +207,10 @@ std::vector<std::pair<float, float>> findPath(
     int initialStartNodeX = static_cast<int>(startX);
     int initialStartNodeY = static_cast<int>(startY);
     int initialGoalNodeX = static_cast<int>(goalX);
-    int initialGoalNodeY = static_cast<int>(goalY);    // Check and adjust start position
-    if (!isPositionValid(startX, startY, entityConfig, gameMap)) {
+    int initialGoalNodeY = static_cast<int>(goalY);
+
+    // Check and adjust start position
+    if (!isPositionValid(startX, startY, collisionRadius, gameMap)) {
         std::cout << "Pathfinding: Start position (" << startX << ", " << startY << ") is invalid. Searching for a nearby valid start..." << std::endl;
         bool foundValidStart = false;
         for (int r = 0; r <= 3; ++r) { // Search radius: 0 (original cell), then 1, 2, 3
@@ -213,7 +221,7 @@ std::vector<std::pair<float, float>> findPath(
                     }
                     float testX = static_cast<float>(initialStartNodeX + dx_offset) + 0.5f;
                     float testY = static_cast<float>(initialStartNodeY + dy_offset) + 0.5f;
-                    if (isPositionValid(testX, testY, entityConfig, gameMap)) {
+                    if (isPositionValid(testX, testY, collisionRadius, gameMap)) {
                         startX = testX; // Update startX to the valid cell center
                         startY = testY; // Update startY to the valid cell center
                         std::cout << "Pathfinding: Adjusted start to valid cell center (" << startX << ", " << startY << ")" << std::endl;
@@ -228,8 +236,10 @@ std::vector<std::pair<float, float>> findPath(
             std::cerr << "Pathfinding Error: Could not find a valid start position near original (" << initialStartNodeX << ".5, " << initialStartNodeY << ".5)." << std::endl;
             return {};
         }
-    }    // Check and adjust goal position
-    if (!isPositionValid(goalX, goalY, entityConfig, gameMap)) {
+    }
+
+    // Check and adjust goal position
+    if (!isPositionValid(goalX, goalY, collisionRadius, gameMap)) {
         std::cout << "Pathfinding: Goal position (" << originalGoalX << ", " << originalGoalY << ") is invalid. Searching for a nearby valid goal..." << std::endl;
         bool foundValidGoal = false;
         for (int r = 0; r <= 3; ++r) { // Search radius
@@ -240,7 +250,7 @@ std::vector<std::pair<float, float>> findPath(
                     }
                     float testX = static_cast<float>(initialGoalNodeX + dx_offset) + 0.5f;
                     float testY = static_cast<float>(initialGoalNodeY + dy_offset) + 0.5f;
-                    if (isPositionValid(testX, testY, entityConfig, gameMap)) {
+                    if (isPositionValid(testX, testY, collisionRadius, gameMap)) {
                         goalX = testX; // Update goalX to the valid cell center
                         goalY = testY; // Update goalY to the valid cell center
                         std::cout << "Pathfinding: Adjusted goal to valid cell center (" << goalX << ", " << goalY << ")" << std::endl;
@@ -287,7 +297,7 @@ std::vector<std::pair<float, float>> findPath(
         iterations++;
         if (iterations > maxIterations) {
             std::cerr << "Pathfinding: Exceeded maximum iterations (" << maxIterations << "). Aborting search." << std::endl;
-            std::cerr << "Pathfinding Details: Start (" << startX << ", " << startY << ") Goal (" << goalX << ", " << goalY << ") Radius (" << entityConfig.collisionRadius << ")" << std::endl;
+            std::cerr << "Pathfinding Details: Start (" << startX << ", " << startY << ") Goal (" << goalX << ", " << goalY << ") Radius (" << collisionRadius << ")" << std::endl;
             std::cerr << "Pathfinding Details: Open set size: " << openSet.size() << ", Closed set size: " << closedSet.size() << std::endl;
             if (!openSet.empty()) {
                 Node* currentTop = openSet.top();
@@ -319,8 +329,10 @@ std::vector<std::pair<float, float>> findPath(
                 // Path has at least one point (a cell center)
                 // Snap endpoints to the (guaranteed valid or adjusted) startX/Y and goalX/Y BEFORE simplification
                 path[0] = {startX, startY};
-                path.back() = {goalX, goalY};                // Simplify the path using the new robust method (element collision only)
-                simplifyPath(path, entityConfig, gameMap);
+                path.back() = {goalX, goalY};
+
+                // Simplify the path using the new robust method (element collision only)
+                simplifyPath(path, collisionRadius, gameMap); 
 
                 // Ensure simplification didn't break start/end points, or if path became very short
                 if (!path.empty()) {
@@ -351,7 +363,7 @@ std::vector<std::pair<float, float>> findPath(
 
         closedSet.insert({currentNode->x, currentNode->y});
 
-        for (const auto& neighborPos : getNeighbors(currentNode->x, currentNode->y, entityConfig, gameMap)) {
+        for (const auto& neighborPos : getNeighbors(currentNode->x, currentNode->y, collisionRadius, gameMap)) {
             if (closedSet.count(neighborPos)) {
                 continue;
             }
@@ -388,7 +400,7 @@ std::vector<std::pair<float, float>> findPath(
     std::cerr << "  Start (final used): (" << startX << ", " << startY << "), Node: (" << startNodeX << ", " << startNodeY << ")" << std::endl;
     std::cerr << "  Goal (final used):  (" << goalX << ", " << goalY << "), Node: (" << goalNodeX << ", " << goalNodeY << ")" << std::endl;
     std::cerr << "  Original Goal:      (" << originalGoalX << ", " << originalGoalY << ")" << std::endl;
-    std::cerr << "  Collision Radius:   " << entityConfig.collisionRadius << std::endl;
+    std::cerr << "  Collision Radius:   " << collisionRadius << std::endl;
     std::cerr << "  Open Set Status:    " << (openSet.empty() ? "Empty" : "Not Empty (Error in logic?)") << std::endl;
     std::cerr << "  Nodes Explored (Closed Set Size): " << closedSet.size() << std::endl;
     std::cerr << "  Number of Iterations: " << iterations << std::endl;

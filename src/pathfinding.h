@@ -10,7 +10,7 @@
 #include <set>
 #include <cmath>
 
-// Forward declaration
+// Forward declaration for EntityConfiguration
 struct EntityConfiguration;
 
 // Minimum allowed distance between waypoints to reduce path zigzagging
@@ -41,25 +41,8 @@ struct PairHash {
     }
 };
 
-// Find a path from start to goal using A* algorithm
+// Find a path from start to goal using A* algorithm with proper entity collision shape detection
 // Returns a vector of positions (x, y) forming the path
-std::vector<std::pair<float, float>> findPath(
-    float startX, float startY,
-    float goalX, float goalY,
-    const Map& gameMap,
-    float collisionRadius
-);
-
-// Overloaded function that uses entity-specific non-traversable blocks
-std::vector<std::pair<float, float>> findPath(
-    float startX, float startY,
-    float goalX, float goalY,
-    const Map& gameMap,
-    float collisionRadius,
-    const std::set<TextureName>& nonTraversableBlocks
-);
-
-// New functions that use EntityConfiguration for collision shape points
 std::vector<std::pair<float, float>> findPath(
     float startX, float startY,
     float goalX, float goalY,
@@ -67,33 +50,15 @@ std::vector<std::pair<float, float>> findPath(
     const EntityConfiguration& entityConfig
 );
 
-// Check if a position is valid for pathfinding
-bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap);
-
-// Overloaded function that uses entity-specific non-traversable blocks
-bool isPositionValid(int x, int y, float collisionRadius, const Map& gameMap, const std::set<TextureName>& nonTraversableBlocks);
-
-// New function signatures using EntityConfiguration
+// Check if a position is valid for pathfinding using entity collision shape
+bool isPositionValid(int x, int y, const EntityConfiguration& entityConfig, const Map& gameMap);
 bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, const Map& gameMap);
 
 // Calculate the heuristic value (estimated cost to goal)
-// Using Euclidean distance for natural movement
+// Using Manhattan distance for grid-based pathfinding
 float calculateHeuristic(int x1, int y1, int x2, int y2);
 
-// Get all valid neighbors for a position with collision checking
-std::vector<std::pair<int, int>> getNeighbors(int x, int y, float collisionRadius, const Map& gameMap);
-
-// Overloaded function that uses entity-specific non-traversable blocks
-std::vector<std::pair<int, int>> getNeighbors(int x, int y, float collisionRadius, const Map& gameMap, const std::set<TextureName>& nonTraversableBlocks);
-
-// New function signatures using EntityConfiguration
+// Get all valid neighbors for a position with collision checking using entity shape
 std::vector<std::pair<int, int>> getNeighbors(int x, int y, const EntityConfiguration& entityConfig, const Map& gameMap);
-
-// Simplify a path by removing unnecessary waypoints
-// This reduces zigzagging and makes movement smoother
-void simplifyPath(std::vector<std::pair<float, float>>& path);
-
-// Check if a path is clear of element collisions
-bool isPathClear(const std::vector<std::pair<float, float>>& path, float collisionRadius);
 
 #endif // PATHFINDING_H

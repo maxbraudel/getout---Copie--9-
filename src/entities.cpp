@@ -37,19 +37,8 @@ static void initializeEntityTypes() {
     antagonist.sprintWalkingSpeed = 10.0f;
     antagonist.sprintWalkingAnimationSpeed = 12.0f;      // Collision settings
     antagonist.canCollide = true;
-    antagonist.collisionRadius = 0.4f;
-    antagonist.collisionShapePoints = {
-        {-0.3f, -1.3f}, {0.3f, -1.3f}, {0.3f, 1.3f}, {-0.3f, 1.3f}
-    };
-      // Define non-traversable blocks for antagonist
-    // Antagonists cannot walk on water blocks or through coconut trees
-    antagonist.nonTraversableBlocks = {
-        TextureName::WATER_0,
-        TextureName::WATER_1,
-        TextureName::WATER_2,
-        TextureName::WATER_3,
-        TextureName::WATER_4
-        // Note: Coconut trees are elements, not map blocks, so they're handled via element collision detection
+    antagonist.collisionRadius = 0.4f;    antagonist.collisionShapePoints = {
+        {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}
     };
       
     // Add to the list
@@ -78,20 +67,9 @@ static void initializeEntityTypes() {
     player.sprintWalkingSpeed = 10.0f;
     player.sprintWalkingAnimationSpeed = 12.0f;
       // Collision settings
-    player.canCollide = true;
-    player.collisionRadius = 0.4f;
+    player.canCollide = true;    player.collisionRadius = 0.4f;
     player.collisionShapePoints = {
         {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}
-    };
-      // Define non-traversable blocks for player
-    // Antagonists cannot walk on water blocks or through coconut trees
-    player.nonTraversableBlocks = {
-        TextureName::WATER_0,
-        TextureName::WATER_1,
-        TextureName::WATER_2,
-        TextureName::WATER_3,
-        TextureName::WATER_4
-        // Note: Coconut trees are elements, not map blocks, so they're handled via element collision detection
     };
       
     // Add to the list
@@ -182,13 +160,12 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
     float safeX = x;
     float safeY = y;
     bool needsSafePosition = false;
-    
-    if (config->canCollide) {
+      if (config->canCollide) {
         // Check if the target position is in a collision area
-        if (wouldEntityCollideWithElement(*config, safeX, safeY) ||        wouldCollideWithMapBlock(safeX, safeY, gameMap, config->nonTraversableBlocks)) {
+        if (wouldEntityCollideWithElement(*config, safeX, safeY)) {
             needsSafePosition = true;
             // Try to find a safe position nearby
-            if (!findSafePosition(safeX, safeY, config->collisionRadius, gameMap, config->nonTraversableBlocks)) {
+            if (!findSafePosition(safeX, safeY, config->collisionRadius, gameMap)) {
                 std::cerr << "WARNING: Could not find a safe starting position for entity near (" 
                         << x << ", " << y << "). Proceeding with original position." << std::endl;
                 safeX = x;
@@ -850,12 +827,10 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
     bool canMove = true;      if (config.canCollide) {
         // Calculate the new position after movement
         float newX = currentActualX + moveDx;
-        float newY = currentActualY + moveDy;
-          // Check if the new position would collide with any collidable element or map block
+        float newY = currentActualY + moveDy;        // Check if the new position would collide with any collidable element
         bool collisionWithElement = wouldEntityCollideWithElement(config, newX, newY);
-        bool collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
         
-        if (collisionWithElement || collisionWithMapBlock) {
+        if (collisionWithElement) {
             // Collision detected, don't move but keep trying to reach the target
             canMove = false;
             
@@ -866,9 +841,8 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
             // Add some safety buffer for better collision avoidance
             float safetyBuffer = 0.2f;
             float safeRadius = config.collisionRadius + safetyBuffer;
-            
-            // Try to find a safe position that takes into account entity-specific blocks
-            if (findSafePosition(safeX, safeY, safeRadius, gameMap, config.nonTraversableBlocks)) {
+              // Try to find a safe position
+            if (findSafePosition(safeX, safeY, safeRadius, gameMap)) {
                 // Found a safe position, use it instead
                 moveDx = safeX - currentActualX;
                 moveDy = safeY - currentActualY;
@@ -883,13 +857,11 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                 }
             } else {
                 // If we couldn't find a safe position, try alternative movement directions
-                
-                // Try moving only in Y direction (vertical movement)                newX = currentActualX;
+                  // Try moving only in Y direction (vertical movement)                newX = currentActualX;
                 newY = currentActualY + moveDy;
                 collisionWithElement = wouldEntityCollideWithElement(config, newX, newY);
-                collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
                 
-                if (!collisionWithElement && !collisionWithMapBlock) {
+                if (!collisionWithElement) {
                     moveDx = 0; // Only move in Y
                     canMove = true;
                     // Force update sprite direction based on Y movement only
@@ -902,9 +874,8 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                     newX = currentActualX + moveDx;
                     newY = currentActualY;
                     collisionWithElement = wouldEntityCollideWithElement(config, newX, newY);
-                    collisionWithMapBlock = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
                     
-                    if (!collisionWithElement && !collisionWithMapBlock) {
+                    if (!collisionWithElement) {
                         moveDy = 0; // Only move in X
                         canMove = true;
                         // Force update sprite direction based on X movement only
@@ -920,10 +891,8 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                 // Entity is stuck, let's try to recalculate the path if using pathfinding
                 if (entity.usePathfinding) {
                     std::cout << "Entity " << entity.instanceName << " encountered obstacle at (" 
-                              << newX << ", " << newY << "), recalculating path..." << std::endl;
-                      // Identify what's blocking the entity
+                              << newX << ", " << newY << "), recalculating path..." << std::endl;                      // Identify what's blocking the entity
                     bool hasElementCollision = wouldEntityCollideWithElement(config, newX, newY);
-                    bool hasMapBlockCollision = wouldCollideWithMapBlock(newX, newY, gameMap, config.nonTraversableBlocks);
                       if (hasElementCollision) {
                         std::cout << "  - Element collision detected" << std::endl;
                         // Get nearby elements for debugging
@@ -934,21 +903,15 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                                 std::cout << name << " ";
                             }
                             std::cout << std::endl;
-                        }
-                    }
-                    
-                    if (hasMapBlockCollision) {
-                        std::cout << "  - Map block collision detected with entity-specific non-traversable blocks" << std::endl;
-                    }
+                        }                    }
                     
                     // Try to find a safe position first before recalculating
                     float safeX = currentActualX;
                     float safeY = currentActualY;
                     float safetyBuffer = 0.3f;
                     float safeRadius = config.collisionRadius + safetyBuffer;
-                    
-                    // Try with the entity-specific non-traversable blocks
-                    bool foundSafePos = findSafePosition(safeX, safeY, safeRadius, gameMap, config.nonTraversableBlocks);
+                      // Try with the simpler find safe position function
+                    bool foundSafePos = findSafePosition(safeX, safeY, safeRadius, gameMap);
                     
                     if (foundSafePos) {
                         // Found a safe position, teleport there
@@ -978,15 +941,12 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                             elementsManager.changeElementSpriteFrame(elementName, 0);
                             return;
                         }                        // Recalculate the path from the current position
-                        // Create a modified config with enlarged collision radius for safer paths
-                        EntityConfiguration pathConfig = config;
-                        pathConfig.collisionRadius += 0.3f;
-                        
-                        std::vector<std::pair<float, float>> newPath = findPath(
+                        // Use an enlarged collision radius for safer paths
+                        float pathPlanningRadius = config.collisionRadius + 0.3f;                        std::vector<std::pair<float, float>> newPath = findPath(
                             curX, curY,
                             entity.targetX, entity.targetY,
                             gameMap,
-                            pathConfig
+                            config
                         );
                         
                         // Check if a new path was found
@@ -1015,19 +975,13 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                             // No path found, try with an alternative approach
                             // Find a safe position near the target first
                             float safeTargetX = entity.targetX;
-                            float safeTargetY = entity.targetY;
-                              // Try to find a safe position near the target
-                            float pathPlanningRadius = config.collisionRadius + 0.3f;
-                            if (findSafePosition(safeTargetX, safeTargetY, pathPlanningRadius, gameMap, config.nonTraversableBlocks)) {
-                                // Found a safe position near the target, try pathfinding to it
-                                EntityConfiguration pathConfig = config;
-                                pathConfig.collisionRadius = pathPlanningRadius;
-                                
+                            float safeTargetY = entity.targetY;                            // Try to find a safe position near the target
+                            if (findSafePosition(safeTargetX, safeTargetY, pathPlanningRadius, gameMap)) {                                // Found a safe position near the target, try pathfinding to it
                                 newPath = findPath(
                                     curX, curY,
                                     safeTargetX, safeTargetY,
                                     gameMap,
-                                    pathConfig
+                                    config
                                 );
                                 
                                 if (!newPath.empty()) {
@@ -1142,16 +1096,17 @@ bool EntitiesManager::ensureEntityNotStuck(const std::string& instanceName) {
     float x, y;
     if (!elementsManager.getElementPosition(elementName, x, y)) {
         return false;
-    }    // Check if entity is in a collision state
+    }
+    
+    // Check if entity is in a collision state
     bool collisionWithElement = wouldEntityCollideWithElement(*config, x, y);
-    bool collisionWithMapBlock = wouldCollideWithMapBlock(x, y, gameMap, config->nonTraversableBlocks);
-        
-    if (collisionWithElement || collisionWithMapBlock) {        // Add a safety buffer for better collision avoidance
+    
+    if (collisionWithElement) {
+        // Add a safety buffer for better collision avoidance
         float safetyBuffer = 0.2f;
         float safeRadius = config->collisionRadius + safetyBuffer;
-        
-        // Entity is stuck, try to find a safe position with entity-specific non-traversable blocks
-        if (findSafePosition(x, y, safeRadius, gameMap, config->nonTraversableBlocks)) {
+          // Entity is stuck, try to find a safe position
+        if (findSafePosition(x, y, safeRadius, gameMap)) {
             // Found a safe position, move entity there
             elementsManager.changeElementCoordinates(elementName, x, y);
             
@@ -1240,39 +1195,31 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
     // Get the element name
     std::string elementName = getElementName(instanceName);
     
-    float targetX = x;
+        float targetX = x;
     float targetY = y;
-      // Only check for collisions if this entity type can collide
-    if (config->canCollide) {        // Check for collision at the teleport destination
+    
+    // Only check for collisions if this entity type can collide
+    if (config->canCollide) {
+        // Check for collision at the teleport destination
         bool collisionWithElement = wouldEntityCollideWithElement(*config, targetX, targetY);
-        bool collisionWithMapBlock = wouldCollideWithMapBlock(targetX, targetY, gameMap, config->nonTraversableBlocks);
         
-        if (collisionWithElement || collisionWithMapBlock) {
+        if (collisionWithElement) {
             // Log the collision type for debugging
             std::cout << "Teleport destination has collision: ";
-            if (collisionWithMapBlock) {
-                int gridX = static_cast<int>(targetX);
-                int gridY = static_cast<int>(targetY);
-                TextureName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
-                std::cout << "Map block type: " << static_cast<int>(blockType) << " ";
-            }
             if (collisionWithElement) {
                 std::cout << "Element collision";
             }
             std::cout << std::endl;
-                  // Try to find a safe position near the requested coordinates
-            if (findSafePosition(targetX, targetY, config->collisionRadius, gameMap, config->nonTraversableBlocks)) {
+            
+            // Try to find a safe position near the requested coordinates
+            if (findSafePosition(targetX, targetY, config->collisionRadius, gameMap)) {
                 // Found a safe position near the requested coordinates
                 std::cout << "Adjusted entity teleport position from (" << x << ", " << y << ") to ("
                         << targetX << ", " << targetY << ") to avoid collisions." << std::endl;
-            } else {
-                // Could not find a safe position
+            } else {                // Could not find a safe position
                 std::cout << "Cannot teleport entity to (" << x << ", " << y << ") - ";
                 if (collisionWithElement) {
                     std::cout << "position is occupied by a collidable element";
-                }
-                if (collisionWithMapBlock) {
-                    std::cout << (collisionWithElement ? " and " : "") << "position has a non-traversable map block";
                 }
                 std::cout << "." << std::endl;
                 return false;
