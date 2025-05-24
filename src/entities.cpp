@@ -577,16 +577,7 @@ void EntitiesManager::drawDebugCollisionRadii(float startX, float endX, float st
                 float screenY = startY + (worldPoint.second - cameraBottom) / (cameraTop - cameraBottom) * (endY - startY);
                 screenShapePoints.push_back({screenX, screenY});
             }
-            
-            // Draw filled polygon
-            glColor4f(0.0f, 1.0f, 0.0f, 0.3f); // Semi-transparent green
-            glBegin(GL_POLYGON);
-            for (const auto& screenPoint : screenShapePoints) {
-                glVertex2f(screenPoint.first, screenPoint.second);
-            }
-            glEnd();
-
-            // Draw polygon outline
+              // Draw polygon outline only (no fill)
             glColor4f(0.0f, 0.8f, 0.0f, 0.8f); // More solid green for the outline
             glBegin(GL_LINE_LOOP);
             for (const auto& screenPoint : screenShapePoints) {
@@ -608,18 +599,7 @@ void EntitiesManager::drawDebugCollisionRadii(float startX, float endX, float st
             float left = entityScreenX - halfSide;
             float right = entityScreenX + halfSide;
             float bottom = entityScreenY - halfSide;
-            float top = entityScreenY + halfSide;
-
-            // Draw filled square for collision radius
-            glColor4f(0.0f, 1.0f, 0.0f, 0.3f); // Semi-transparent green
-            glBegin(GL_QUADS);
-            glVertex2f(left, bottom);   // Bottom-left
-            glVertex2f(right, bottom);  // Bottom-right
-            glVertex2f(right, top);     // Top-right
-            glVertex2f(left, top);      // Top-left
-            glEnd();
-
-            // Draw square outline
+            float top = entityScreenY + halfSide;            // Draw square outline only (no fill)
             glColor4f(0.0f, 0.8f, 0.0f, 0.8f); // More solid green for the outline
             glBegin(GL_LINE_LOOP);
             glVertex2f(left, bottom);   // Bottom-left
@@ -821,73 +801,66 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
     if (!entity.usePathfinding) {
         updateDirectionAndSprite(entity, elementName, config, dx, dy);
     }
-    // For pathfinding, sprite direction is handled by handleWaypointArrival.
-
-    // Check for collisions before moving the entity
-    bool canMove = true;      if (config.canCollide) {
+    // For pathfinding, sprite direction is handled by handleWaypointArrival.    // Check for collisions before moving the entity using axis-separated collision detection
+    bool canMove = true;
+    float actualMoveDx = moveDx;
+    float actualMoveDy = moveDy;
+    
+    if (config.canCollide) {
         // Calculate the new position after movement
         float newX = currentActualX + moveDx;
-        float newY = currentActualY + moveDy;        // Check if the new position would collide with any collidable element
+        float newY = currentActualY + moveDy;
+        
+        // Check if the combined movement would collide with any collidable element
         bool collisionWithElement = wouldEntityCollideWithElement(config, newX, newY);
         
-        if (collisionWithElement) {
-            // Collision detected, don't move but keep trying to reach the target
+        if (collisionWithElement && (moveDx != 0 || moveDy != 0)) {
+            // If diagonal movement fails, try axis-separated movement (like player system)
+            actualMoveDx = 0;
+            actualMoveDy = 0;
             canMove = false;
             
-            // Try to find a safe position directly
-            float safeX = newX;
-            float safeY = newY;
-            
-            // Add some safety buffer for better collision avoidance
-            float safetyBuffer = 0.2f;
-            float safeRadius = config.collisionRadius + safetyBuffer;
-              // Try to find a safe position
-            if (findSafePosition(safeX, safeY, safeRadius, gameMap)) {
-                // Found a safe position, use it instead
-                moveDx = safeX - currentActualX;
-                moveDy = safeY - currentActualY;
-                canMove = true;
+            // If we're trying to move diagonally, test each axis separately
+            if (moveDx != 0 && moveDy != 0) {
+                // Try moving only horizontally
+                float testX = currentActualX + moveDx;
+                float testY = currentActualY; // Keep Y the same
+                bool horizontalCollision = wouldEntityCollideWithElement(config, testX, testY);
                 
-                // Update direction based on actual movement
-                float actualDx = safeX - currentActualX;
-                float actualDy = safeY - currentActualY;
-                // Update sprite if moving directly (not pathfinding) or if pathfinding sprite logic needs this
-                if (!entity.usePathfinding) { // Or some other condition if pathfinding needs it
-                    updateDirectionAndSprite(entity, elementName, config, actualDx, actualDy);
+                // Try moving only vertically
+                float testX2 = currentActualX; // Keep X the same
+                float testY2 = currentActualY + moveDy;
+                bool verticalCollision = wouldEntityCollideWithElement(config, testX2, testY2);
+                
+                // If horizontal movement is possible
+                if (!horizontalCollision) {
+                    actualMoveDx = moveDx;
+                    canMove = true;
+                }
+                
+                // If vertical movement is possible
+                if (!verticalCollision) {
+                    actualMoveDy = moveDy;
+                    canMove = true;
                 }
             } else {
-                // If we couldn't find a safe position, try alternative movement directions
-                  // Try moving only in Y direction (vertical movement)                newX = currentActualX;
-                newY = currentActualY + moveDy;
-                collisionWithElement = wouldEntityCollideWithElement(config, newX, newY);
-                
-                if (!collisionWithElement) {
-                    moveDx = 0; // Only move in Y
-                    canMove = true;
-                    // Force update sprite direction based on Y movement only
-                    entity.lastDirection = (moveDy > 0) ? 0 : 1; // 0 = up, 1 = down
-                    
-                    // Set sprite phase directly based on direction
-                    int phase = (entity.lastDirection == 0) ? config.spritePhaseWalkUp : config.spritePhaseWalkDown;
-                    elementsManager.changeElementSpritePhase(elementName, phase);
-                } else {                    // Then check moving only in X direction (horizontal movement)
-                    newX = currentActualX + moveDx;
-                    newY = currentActualY;
-                    collisionWithElement = wouldEntityCollideWithElement(config, newX, newY);
-                    
-                    if (!collisionWithElement) {
-                        moveDy = 0; // Only move in X
-                        canMove = true;
-                        // Force update sprite direction based on X movement only
-                        entity.lastDirection = (moveDx > 0) ? 3 : 2; // 3 = right, 2 = left
-                        
-                        // Set sprite phase directly based on direction
-                        int phase = (entity.lastDirection == 3) ? config.spritePhaseWalkRight : config.spritePhaseWalkLeft;
-                        elementsManager.changeElementSpritePhase(elementName, phase);
-                    }
-                }            }
+                // Single-axis movement that's blocked - no alternative
+                canMove = false;
+            }
             
-            if (!canMove) {
+            // Update movement deltas based on what's actually possible
+            moveDx = actualMoveDx;
+            moveDy = actualMoveDy;
+        } else if (!collisionWithElement) {
+            // No collision, can move normally
+            canMove = true;
+        } else {
+            // No movement requested, but still blocked (shouldn't happen normally)
+            canMove = false;
+        }
+        
+        // If still can't move after axis separation, try pathfinding recalculation
+        if (!canMove) {
                 // Entity is stuck, let's try to recalculate the path if using pathfinding
                 if (entity.usePathfinding) {
                     std::cout << "Entity " << entity.instanceName << " encountered obstacle at (" 
@@ -995,7 +968,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                                     // Update direction
                                     if (entity.path.size() > 0) {
                                         float nextX = entity.path[0].first;
-                                        float nextY = entity.path[0].second;
+                                                                                float nextY = entity.path[0].second;
                                         float dirX = nextX - curX;
                                         float dirY = nextY - curY;
                                         
@@ -1018,7 +991,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                 }
             }
         }
-    }
+    
     // Move the entity if no collision
     if (canMove) {
         if (!elementsManager.moveElement(elementName, moveDx, moveDy)) {
@@ -1035,10 +1008,9 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
             //                   config.normalWalkingAnimationSpeed : 
             //                   config.sprintWalkingAnimationSpeed;
             // elementsManager.changeElementAnimationSpeed(elementName, animationSpeed);
-        }
-    } else { // canMove is false (collision)
+        }    } else { // canMove is false (collision)
         // We have a collision but we want to keep trying to reach the target
-        // Update the sprite direction to match the intended movement even if we can\'t actually move
+        // Update the sprite direction to match the intended movement even if we can't actually move
         // This call was missing arguments
         // updateDirectionAndSprite(dx, dy);
         // For pathfinding, sprite is set by handleWaypointArrival. For direct, it was set earlier.
