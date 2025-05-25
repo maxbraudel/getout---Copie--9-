@@ -535,7 +535,7 @@ int main() {
         // Periodically move antagonist1
         if (currentTime - lastAntagonistMoveTime >= antagonistMoveInterval) {
             std::cout << "Attempting to move antagonist1 to (10.0f, 48.0f) at time: " << currentTime << std::endl;
-            entitiesManager.moveEntity("antagonist1", 10.0f, 49.0f);
+            entitiesManager.moveEntity("antagonist1", 10.0f, 46.0f);
             lastAntagonistMoveTime = currentTime;
         }
 

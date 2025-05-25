@@ -336,9 +336,7 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
     if (!config) {
         std::cerr << "Entity configuration not found: " << entity->typeName << std::endl;
         return false;
-    }
-
-    // Get the element name
+    }    // Get the element name
     std::string elementName = getElementName(instanceName);
 
     // Get current position from entity if available, otherwise from element
@@ -346,7 +344,16 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
     if (!elementsManager.getElementPosition(elementName, startPathX, startPathY)) {
         std::cerr << "Error getting position for entity: " << instanceName << std::endl;
         return false;
-    }    // Pathfinding logic
+    }
+    
+    // Check if destination would cause entity collision shape to overlap with map boundaries
+    if (config->offMapCollision && wouldEntityCollideWithMapBounds(*config, x, y)) {
+        std::cout << "Cannot move entity " << instanceName << " to (" << x << ", " << y 
+                  << ") - destination would cause collision with map boundaries" << std::endl;
+        return false;
+    }
+    
+    // Pathfinding logic
     std::vector<std::pair<float, float>> path = findPath(
         startPathX, startPathY,
         x, y,
