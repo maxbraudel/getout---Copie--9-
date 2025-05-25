@@ -53,10 +53,13 @@ struct EntityInfo {
     float sprintWalkingSpeed;
     float sprintWalkingAnimationSpeed;      // Collision settings
     bool canCollide;
-    std::vector<std::pair<float, float>> collisionShapePoints;
-      // Granular collision control - specify which element types to avoid or collide with
+    std::vector<std::pair<float, float>> collisionShapePoints;      // Granular collision control - specify which element types to avoid or collide with
     std::vector<ElementTextureName> avoidanceElements; // Elements this entity will pathfind around (but can overlap if forced)
     std::vector<ElementTextureName> collisionElements; // Elements this entity cannot overlap with at all
+    
+    // Granular block collision control - specify which block types to avoid or collide with
+    std::vector<TextureName> avoidanceBlocks; // Blocks this entity will pathfind around (but can overlap if forced)
+    std::vector<TextureName> collisionBlocks; // Blocks this entity cannot overlap with at all
     
     // Map boundary control
     bool offMapAvoidance = true; // Entity pathfinding will avoid going outside the map grid
@@ -87,10 +90,13 @@ struct EntityConfiguration {
     float sprintWalkingAnimationSpeed = 12.0f;    // Collision settings
     bool canCollide = true;
     std::vector<std::pair<float, float>> collisionShapePoints;
-    
-    // Granular collision control - specify which element types to avoid or collide with
+      // Granular collision control - specify which element types to avoid or collide with
     std::vector<ElementTextureName> avoidanceElements; // Elements this entity will pathfind around (but can overlap if forced)
     std::vector<ElementTextureName> collisionElements; // Elements this entity cannot overlap with at all
+    
+    // Granular block collision control - specify which block types to avoid or collide with
+    std::vector<TextureName> avoidanceBlocks; // Blocks this entity will pathfind around (but can overlap if forced)
+    std::vector<TextureName> collisionBlocks; // Blocks this entity cannot overlap with at all
     
     // Map boundary control
     bool offMapAvoidance = true; // Entity pathfinding will avoid going outside the map grid
@@ -118,10 +124,13 @@ struct EntityConfiguration {
         sprintWalkingAnimationSpeed = info.sprintWalkingAnimationSpeed;
         
         canCollide = info.canCollide;
-        collisionShapePoints = info.collisionShapePoints;
-          // Copy granular collision settings
+        collisionShapePoints = info.collisionShapePoints;        // Copy granular collision settings
         avoidanceElements = info.avoidanceElements;
         collisionElements = info.collisionElements;
+        
+        // Copy granular block collision settings
+        avoidanceBlocks = info.avoidanceBlocks;
+        collisionBlocks = info.collisionBlocks;
         
         // Copy map boundary control settings
         offMapAvoidance = info.offMapAvoidance;
@@ -224,6 +233,10 @@ bool wouldEntityCollideWithElement(const EntityConfiguration& config, float x, f
 // Enhanced collision function that respects granular collision settings
 // useAvoidanceList: true = check avoidanceElements, false = check collisionElements
 bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, float x, float y, bool useAvoidanceList = false);
+
+// Enhanced block collision function that respects granular block collision settings
+// useAvoidanceList: true = check avoidanceBlocks, false = check collisionBlocks
+bool wouldEntityCollideWithBlocksGranular(const EntityConfiguration& config, float x, float y, bool useAvoidanceList = false);
 
 // Global instance
 extern EntitiesManager entitiesManager;

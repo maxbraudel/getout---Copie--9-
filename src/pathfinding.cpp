@@ -31,12 +31,18 @@ bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, 
             return false; // Entity collision shape would extend outside map boundaries
         }
     }
-    
-    // 2. Check for collision with elements using granular collision control
+      // 2. Check for collision with elements using granular collision control
     // For pathfinding, we only check avoidance elements as obstacles to route around
     // Collision elements only prevent direct physical overlap during movement, not pathfinding
     if (wouldEntityCollideWithElementsGranular(entityConfig, x, y, true)) {
         return false; // Avoidance element detected - pathfinding should find alternate route
+    }
+    
+    // 3. Check for collision with blocks using granular block collision control
+    // For pathfinding, we only check avoidance blocks as obstacles to route around
+    // Collision blocks only prevent direct physical overlap during movement, not pathfinding
+    if (wouldEntityCollideWithBlocksGranular(entityConfig, x, y, true)) {
+        return false; // Avoidance block detected - pathfinding should find alternate route
     }
 
     return true;

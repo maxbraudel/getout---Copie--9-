@@ -92,25 +92,33 @@ void movePlayer(float deltaX, float deltaY) {
 
     // COLLISION RESOLUTION MECHANISMS REMOVED
     // Players will no longer be automatically moved to "safe positions" when stuck
-    
-    // Calculate the new position
+      // Calculate the new position
     float newX = x + deltaX;
-    float newY = y + deltaY;    // Check if the combined movement would collide with any collidable element
+    float newY = y + deltaY;
+    
+    // Check if the combined movement would collide with any collidable element or block
     bool collisionWithElement = wouldEntityCollideWithElementsGranular(*config, newX, newY, false);
-    bool canMove = !collisionWithElement;
+    bool collisionWithBlock = wouldEntityCollideWithBlocksGranular(*config, newX, newY, false);
+    bool canMove = !(collisionWithElement || collisionWithBlock);
     
     // If we can't move diagonally, try to move in single directions (sliding along walls)
     float actualDeltaX = 0;
     float actualDeltaY = 0;
     bool movedPartially = false;
-    
-    if (!canMove && (deltaX != 0 && deltaY != 0)) {        // Try moving only horizontally
+      if (!canMove && (deltaX != 0 && deltaY != 0)) {
+        // Try moving only horizontally
         float testX = x + deltaX;
         float testY = y; // Keep Y the same
-        bool horizontalCollision = wouldEntityCollideWithElementsGranular(*config, testX, testY, false);        // Try moving only vertically
+        bool horizontalElementCollision = wouldEntityCollideWithElementsGranular(*config, testX, testY, false);
+        bool horizontalBlockCollision = wouldEntityCollideWithBlocksGranular(*config, testX, testY, false);
+        bool horizontalCollision = horizontalElementCollision || horizontalBlockCollision;
+        
+        // Try moving only vertically
         float testX2 = x; // Keep X the same
         float testY2 = y + deltaY;
-        bool verticalCollision = wouldEntityCollideWithElementsGranular(*config, testX2, testY2, false);
+        bool verticalElementCollision = wouldEntityCollideWithElementsGranular(*config, testX2, testY2, false);
+        bool verticalBlockCollision = wouldEntityCollideWithBlocksGranular(*config, testX2, testY2, false);
+        bool verticalCollision = verticalElementCollision || verticalBlockCollision;
         
         // If horizontal movement is possible
         if (!horizontalCollision) {

@@ -52,6 +52,22 @@ static void initializeEntityTypes() {
         ElementTextureName::COCONUT_TREE_2,
         ElementTextureName::COCONUT_TREE_2,
     };
+      // Block collision configuration - Antagonist avoids water during pathfinding and movement
+    antagonist.avoidanceBlocks = {
+        TextureName::WATER_0,
+        TextureName::WATER_1,
+        TextureName::WATER_2,
+        TextureName::WATER_3,
+        TextureName::WATER_4
+    };
+    
+    antagonist.collisionBlocks = {
+        TextureName::WATER_0,
+        TextureName::WATER_1,
+        TextureName::WATER_2,
+        TextureName::WATER_3,
+        TextureName::WATER_4
+    };
     
     // Map boundary control settings
     antagonist.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
@@ -97,13 +113,128 @@ static void initializeEntityTypes() {
         ElementTextureName::COCONUT_TREE_2,
         
     };
+      // Block collision configuration - Player demonstrates different behavior than antagonist
+    // Player can walk through sand but avoids water for pathfinding
+    // This shows how entities can have different block interaction behaviors
+    player.avoidanceBlocks = {
+        TextureName::WATER_0,
+        TextureName::WATER_1,
+        TextureName::WATER_2,
+        TextureName::WATER_3,
+        TextureName::WATER_4
+    };
+    
+    // Player physically collides with deep water but can walk through shallow water
+    player.collisionBlocks = {
+        TextureName::WATER_0,
+        TextureName::WATER_1,
+        TextureName::WATER_2,
+        TextureName::WATER_3,
+        TextureName::WATER_4 // Only deep water blocks movement
+    };
     
     // Map boundary control settings
     player.offMapAvoidance = true; // Player pathfinding avoids map borders
     player.offMapCollision = true; // Player collides with map borders
-      
-    // Add to the list
+        // Add to the list
     entityTypes.push_back(player);
+
+    // Example: Amphibious entity that can traverse water but avoids sand
+    EntityInfo amphibious;
+    amphibious.typeName = "amphibious";
+    amphibious.textureName = ElementTextureName::CHARACTER1;
+    amphibious.scale = 1.0f;
+    
+    // Default sprite configuration (simplified for example)
+    amphibious.defaultSpriteSheetPhase = 2;
+    amphibious.defaultSpriteSheetFrame = 0;
+    amphibious.defaultAnimationSpeed = 11.0f;
+    
+    // Walking animation phases
+    amphibious.spritePhaseWalkUp = 0;
+    amphibious.spritePhaseWalkDown = 3;
+    amphibious.spritePhaseWalkLeft = 2;
+    amphibious.spritePhaseWalkRight = 1;
+    
+    // Movement speeds
+    amphibious.normalWalkingSpeed = 2.0f;
+    amphibious.normalWalkingAnimationSpeed = 5.0f;
+    amphibious.sprintWalkingSpeed = 8.0f;
+    amphibious.sprintWalkingAnimationSpeed = 10.0f;
+    
+    // Collision settings
+    amphibious.canCollide = true;
+    amphibious.collisionShapePoints = {
+        {-1.5f, -1.5f}, {1.5f, -1.5f}, {1.5f, 1.5f}, {-1.5f, 1.5f}
+    };
+    
+    // Element collision (empty lists for this example)
+    amphibious.avoidanceElements = {};
+    amphibious.collisionElements = {};
+    
+    // Block collision configuration - Amphibious entity prefers water, avoids sand
+    amphibious.avoidanceBlocks = {
+        TextureName::SAND  // Pathfinding avoids sand blocks
+    };
+    
+    amphibious.collisionBlocks = {
+        // Empty - can move through all blocks during movement
+    };
+    
+    // Map boundary control
+    amphibious.offMapAvoidance = true;
+    amphibious.offMapCollision = true;
+    
+    // Add to the list
+    entityTypes.push_back(amphibious);
+
+    // Example: Flying entity that ignores all block collision
+    EntityInfo flying;
+    flying.typeName = "flying";
+    flying.textureName = ElementTextureName::ANTAGONIST1;
+    flying.scale = 0.8f;
+    
+    // Default sprite configuration (simplified for example)
+    flying.defaultSpriteSheetPhase = 1;
+    flying.defaultSpriteSheetFrame = 0;
+    flying.defaultAnimationSpeed = 15.0f;
+    
+    // Walking animation phases
+    flying.spritePhaseWalkUp = 0;
+    flying.spritePhaseWalkDown = 3;
+    flying.spritePhaseWalkLeft = 2;
+    flying.spritePhaseWalkRight = 1;
+    
+    // Movement speeds
+    flying.normalWalkingSpeed = 3.0f;
+    flying.normalWalkingAnimationSpeed = 8.0f;
+    flying.sprintWalkingSpeed = 15.0f;
+    flying.sprintWalkingAnimationSpeed = 20.0f;
+    
+    // Collision settings
+    flying.canCollide = true;
+    flying.collisionShapePoints = {
+        {-1.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 1.0f}, {-1.0f, 1.0f}
+    };
+    
+    // Element collision (only avoids trees during pathfinding)
+    flying.avoidanceElements = {
+        ElementTextureName::COCONUT_TREE_1,
+        ElementTextureName::COCONUT_TREE_2,
+        ElementTextureName::COCONUT_TREE_3
+    };
+    flying.collisionElements = {};  // Can fly through elements during movement
+    
+    // Block collision configuration - Flying entity ignores all blocks
+    flying.avoidanceBlocks = {};    // No blocks avoided during pathfinding
+    flying.collisionBlocks = {};    // No block collision during movement
+    
+    // Map boundary control (still respects map boundaries)
+    flying.offMapAvoidance = true;
+    flying.offMapCollision = true;
+    
+    // Add to the list
+    entityTypes.push_back(flying);
 
 
 }
@@ -345,9 +476,7 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
 }
 
 void EntitiesManager::update(double deltaTime) {
-    // COLLISION RESOLUTION MECHANISMS DISABLED
-    // Stuck entity checking removed - entities will no longer be automatically repositioned
-    
+
     // Update all walking entities
     for (auto& pair : entities) {
         Entity& entity = pair.second;
@@ -669,29 +798,32 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         // Calculate the new position after movement
         float newX = currentActualX + moveDx;
         float newY = currentActualY + moveDy;
-        
-        // Check if the combined movement would collide with collision elements (hard collision only)
+          // Check if the combined movement would collide with collision elements (hard collision only)
         // Note: We only check collision elements here, not avoidance elements
         // This allows entities to move through avoidance elements during direct movement
         bool collisionWithElement = wouldEntityCollideWithElementsGranular(config, newX, newY, false);
         
-        if (collisionWithElement && (moveDx != 0 || moveDy != 0)) {
+        // Also check for collision with blocks using granular block collision control
+        bool collisionWithBlock = wouldEntityCollideWithBlocksGranular(config, newX, newY, false);
+        
+        if ((collisionWithElement || collisionWithBlock) && (moveDx != 0 || moveDy != 0)) {
             // If diagonal movement fails, try axis-separated movement (like player system)
             actualMoveDx = 0;
             actualMoveDy = 0;
             canMove = false;
             
             // If we're trying to move diagonally, test each axis separately
-            if (moveDx != 0 && moveDy != 0) {
-                // Try moving only horizontally
+            if (moveDx != 0 && moveDy != 0) {                // Try moving only horizontally
                 float testX = currentActualX + moveDx;
                 float testY = currentActualY; // Keep Y the same
-                bool horizontalCollision = wouldEntityCollideWithElementsGranular(config, testX, testY, false);
+                bool horizontalCollision = wouldEntityCollideWithElementsGranular(config, testX, testY, false) || 
+                                           wouldEntityCollideWithBlocksGranular(config, testX, testY, false);
                 
                 // Try moving only vertically
                 float testX2 = currentActualX; // Keep X the same
                 float testY2 = currentActualY + moveDy;
-                bool verticalCollision = wouldEntityCollideWithElementsGranular(config, testX2, testY2, false);
+                bool verticalCollision = wouldEntityCollideWithElementsGranular(config, testX2, testY2, false) || 
+                                        wouldEntityCollideWithBlocksGranular(config, testX2, testY2, false);
                 
                 // If horizontal movement is possible
                 if (!horizontalCollision) {
@@ -708,11 +840,10 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                 // Single-axis movement that's blocked - no alternative
                 canMove = false;
             }
-            
-            // Update movement deltas based on what's actually possible
+              // Update movement deltas based on what's actually possible
             moveDx = actualMoveDx;
             moveDy = actualMoveDy;
-        } else if (!collisionWithElement) {
+        } else if (!collisionWithElement && !collisionWithBlock) {
             // No collision, can move normally
             canMove = true;
         } else {
@@ -851,6 +982,105 @@ bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, f
     }
     
     return false; // No collision detected with specified element types
+}
+
+// Enhanced block collision function that respects granular block collision settings
+bool wouldEntityCollideWithBlocksGranular(const EntityConfiguration& config, float x, float y, bool useAvoidanceList) {
+    if (!config.canCollide) {
+        return false; // Entity doesn't have collision enabled
+    }
+    
+    // Check map boundary collision if offMapCollision is enabled
+    if (config.offMapCollision) {
+        if (wouldEntityCollideWithMapBounds(config, x, y)) {
+            return true; // Entity collision shape would collide with map boundary
+        }
+    }
+    
+    // Determine which block list to check based on collision type
+    const std::vector<TextureName>& blocksToCheck = useAvoidanceList ? config.avoidanceBlocks : config.collisionBlocks;
+    
+    // If the list is empty, don't check any blocks (granular collision control)
+    // This allows entities to have fine-grained control over what they collide with
+    if (blocksToCheck.empty()) {
+        return false; // No blocks to check = no collision
+    }
+    
+    // Convert to std::set for faster lookup
+    std::set<TextureName> blockSet(blocksToCheck.begin(), blocksToCheck.end());
+    
+    // If entity has no collision shape, fall back to point-based collision
+    if (config.collisionShapePoints.empty()) {
+        return wouldCollideWithMapBlock(x, y, gameMap, blockSet);
+    }
+    
+    // Use collision shape for precise block collision detection
+    // Transform entity collision shape points to world coordinates
+    std::vector<std::pair<float, float>> entityWorldShapePoints;
+    float entityAngleRad = 0.0f; // Entities don't rotate currently
+    float entityCosA = cos(entityAngleRad);
+    float entitySinA = sin(entityAngleRad);
+    
+    for (const auto& localPoint : config.collisionShapePoints) {
+        float scaledX = localPoint.first;
+        float scaledY = localPoint.second;
+        
+        float rotatedX = scaledX * entityCosA - scaledY * entitySinA;
+        float rotatedY = scaledX * entitySinA + scaledY * entityCosA;
+        
+        entityWorldShapePoints.push_back({x + rotatedX, y + rotatedY});
+    }
+    
+    // Find the bounding box of the entity's collision shape
+    float minX = entityWorldShapePoints[0].first;
+    float maxX = entityWorldShapePoints[0].first;
+    float minY = entityWorldShapePoints[0].second;
+    float maxY = entityWorldShapePoints[0].second;
+    
+    for (const auto& point : entityWorldShapePoints) {
+        minX = std::min(minX, point.first);
+        maxX = std::max(maxX, point.first);
+        minY = std::min(minY, point.second);
+        maxY = std::max(maxY, point.second);
+    }
+    
+    // Check all grid cells that the entity's bounding box overlaps
+    int startGridX = static_cast<int>(std::floor(minX));
+    int endGridX = static_cast<int>(std::ceil(maxX));
+    int startGridY = static_cast<int>(std::floor(minY));
+    int endGridY = static_cast<int>(std::ceil(maxY));
+    
+    // Clamp to valid grid coordinates
+    startGridX = std::max(0, startGridX);
+    endGridX = std::min(GRID_SIZE - 1, endGridX);
+    startGridY = std::max(0, startGridY);
+    endGridY = std::min(GRID_SIZE - 1, endGridY);
+    
+    // Check each grid cell that might overlap with the entity
+    for (int gridY = startGridY; gridY <= endGridY; ++gridY) {
+        for (int gridX = startGridX; gridX <= endGridX; ++gridX) {
+            // Get the block type at this grid position
+            TextureName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
+            
+            // Check if this block type is in our collision list
+            if (blockSet.find(blockType) != blockSet.end()) {
+                // Create a polygon for the block (full grid cell)
+                std::vector<std::pair<float, float>> blockShapePoints = {
+                    {static_cast<float>(gridX), static_cast<float>(gridY)},         // Bottom-left
+                    {static_cast<float>(gridX + 1), static_cast<float>(gridY)},     // Bottom-right  
+                    {static_cast<float>(gridX + 1), static_cast<float>(gridY + 1)}, // Top-right
+                    {static_cast<float>(gridX), static_cast<float>(gridY + 1)}      // Top-left
+                };
+                
+                // Check if entity collision shape overlaps with this block
+                if (polygonPolygonCollision(entityWorldShapePoints, blockShapePoints)) {
+                    return true; // Collision detected with block
+                }
+            }
+        }
+    }
+    
+    return false; // No collision detected with specified block types
 }
 
 // Teleport an entity to specific coordinates immediately (handles collisions)

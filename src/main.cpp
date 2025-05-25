@@ -490,10 +490,10 @@ int main() {
  */
 
 
-    gameMap.placeBlockArea(TextureName::WATER_3, 0, 35, 50, 35); // Place a water block at (0, 0)
+    gameMap.placeBlockArea(TextureName::WATER_3, 0, 33, 50, 33); // Place a water block at (0, 0)
 
 
-    gameMap.placeBlock(TextureName::GRASS_0, 5, 35); // Place a water block at (0, 0)
+    gameMap.placeBlockArea(TextureName::GRASS_2, 5, 33, 10, 33); // Place a water block at (0, 0)
     
     // Place the antagonist entity at coordinates (10, 10)
 
