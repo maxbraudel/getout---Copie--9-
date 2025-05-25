@@ -190,17 +190,10 @@ public:
     // Teleport an entity to specific coordinates immediately (handles collisions)
     bool teleportEntity(const std::string& instanceName, float x, float y);
       // Walk an entity to specific coordinates
-    bool walkEntityToCoordinates(const std::string& instanceName, float x, float y, WalkType walkType = WalkType::NORMAL);
     
     // Walk an entity to specific coordinates using pathfinding
     bool walkEntityWithPathfinding(const std::string& instanceName, float x, float y, WalkType walkType = WalkType::NORMAL);
-    
-    // Stop an entity's walking
-    bool stopEntityWalk(const std::string& instanceName);
-    
-    // Change an entity's walking state
-    bool changeEntityWalkingState(const std::string& instanceName, WalkType walkType);
-    
+            
     // Update all entities (called once per frame)
     void update(double deltaTime);
       // Collision resolution functions removed - entities will no longer be automatically moved
@@ -223,7 +216,6 @@ private:
     // COLLISION RESOLUTION FUNCTIONS (DISABLED)
     // These functions are disabled but declarations kept for compatibility
     bool ensureEntityNotStuck(const std::string& instanceName);
-    void ensureAllEntitiesNotStuck();
 };
 
 // Function to check entity collision with elements (uses collision shape points if available, otherwise fallback to radius)

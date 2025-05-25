@@ -29,6 +29,5 @@ void togglePlayerDebugMode();
 // Function to ensure player is not stuck in any collision areas (DISABLED)
 // Collision resolution mechanisms removed - players will no longer be automatically moved
 // Returns false - no automatic position adjustment
-bool ensurePlayerNotStuck(const Map& gameMap);
 
 #endif // PLAYER_H

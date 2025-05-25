@@ -233,8 +233,4 @@ void togglePlayerDebugMode() {
 }
 
 // Function to ensure player is not stuck using entity system (DISABLED)
-bool ensurePlayerNotStuck(const Map& gameMap) {
-    // COLLISION RESOLUTION MECHANISMS DISABLED
-    // Players will no longer be automatically moved to "safe positions"
-    return false; // Always return false - no automatic position adjustment
-}
+

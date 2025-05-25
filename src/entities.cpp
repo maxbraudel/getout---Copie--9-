@@ -251,78 +251,6 @@ bool EntitiesManager::moveEntity(const std::string& instanceName, float x, float
     return walkEntityWithPathfinding(instanceName, x, y, entity->walkType);
 }
 
-bool EntitiesManager::walkEntityToCoordinates(const std::string& instanceName, float x, float y, WalkType walkType) {
-    // Get the entity
-    Entity* entity = getEntity(instanceName);
-    if (!entity) {
-        std::cerr << "Entity not found: " << instanceName << std::endl;
-        return false;
-    }
-    
-    // Get the configuration
-    const EntityConfiguration* config = getConfiguration(entity->typeName);
-    if (!config) {
-        std::cerr << "Entity configuration not found: " << entity->typeName << std::endl;
-        return false;
-    }
-    
-    // Get the element name
-    std::string elementName = getElementName(instanceName);
-    
-    // Set up the walking target
-    entity->isWalking = true;
-    entity->targetX = x;
-    entity->targetY = y;
-    entity->walkType = walkType;
-    entity->usePathfinding = false; // Explicitly set usePathfinding to false
-    entity->path.clear(); // Ensure path is empty for direct movement
-      // Enable animation
-    elementsManager.changeElementAnimationStatus(elementName, true);
-    
-    // Set the animation speed based on walk type
-    float animationSpeed = (walkType == WalkType::NORMAL) ? 
-                          config->normalWalkingAnimationSpeed : 
-                          config->sprintWalkingAnimationSpeed;
-    elementsManager.changeElementAnimationSpeed(elementName, animationSpeed);
-    
-    // Set initial sprite direction based on movement direction
-    float currentX, currentY;
-    if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
-        float dx = x - currentX;
-        float dy = y - currentY;
-        
-        // Determine the primary direction
-        int direction;
-        if (std::abs(dx) > std::abs(dy)) {
-            // Horizontal movement dominates
-            direction = (dx > 0) ? 3 : 2;  // 3 = right, 2 = left
-        } else {
-            // Vertical movement dominates or is equal
-            direction = (dy > 0) ? 0 : 1;  // 0 = up, 1 = down
-        }
-        
-        // Set sprite direction
-        entity->lastDirection = direction;
-        
-        // Set the appropriate sprite phase based on direction
-        int phase;
-        switch (direction) {
-            case 0: phase = config->spritePhaseWalkUp; break;
-            case 1: phase = config->spritePhaseWalkDown; break;
-            case 2: phase = config->spritePhaseWalkLeft; break;
-            case 3: phase = config->spritePhaseWalkRight; break;
-            default: phase = config->defaultSpriteSheetPhase; break;
-        }
-        
-        // Change the sprite phase
-        elementsManager.changeElementSpritePhase(elementName, phase);
-    }
-    
-    std::cout << "Entity " << instanceName << " starting to walk to (" << x << ", " << y << ") with " 
-              << ((walkType == WalkType::NORMAL) ? "normal" : "sprint") << " speed" << std::endl;
-    return true;
-}
-
 bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName, float x, float y, WalkType walkType) {
     // Get the entity
     Entity* entity = getEntity(instanceName);
@@ -416,73 +344,9 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
     return true;
 }
 
-bool EntitiesManager::stopEntityWalk(const std::string& instanceName) {
-    // Get the entity
-    Entity* entity = getEntity(instanceName);
-    if (!entity) {
-        std::cerr << "Entity not found: " << instanceName << std::endl;
-        return false;
-    }
-    
-    // Stop walking
-    entity->isWalking = false;
-    
-    // Clear any active path
-    if (entity->usePathfinding) {
-        entity->path.clear();
-        entity->currentPathIndex = 0;
-    }
-    
-    // Get the element name
-    std::string elementName = getElementName(instanceName);
-    
-    // Disable animation
-    elementsManager.changeElementAnimationStatus(elementName, false);
-    
-    // Reset to frame 0 (standing frame)
-    elementsManager.changeElementSpriteFrame(elementName, 0);
-    
-    std::cout << "Entity " << instanceName << " stopped walking" << std::endl;
-    return true;
-}
-
-bool EntitiesManager::changeEntityWalkingState(const std::string& instanceName, WalkType walkType) {
-    // Get the entity
-    Entity* entity = getEntity(instanceName);
-    if (!entity) {
-        std::cerr << "Entity not found: " << instanceName << std::endl;
-        return false;
-    }
-    
-    // Change the walk type
-    entity->walkType = walkType;
-    
-    // If the entity is currently walking, update the animation speed
-    if (entity->isWalking) {
-        // Get the configuration
-        const EntityConfiguration* config = getConfiguration(entity->typeName);
-        if (!config) {
-            std::cerr << "Entity configuration not found: " << entity->typeName << std::endl;
-            return false;
-        }
-        
-        // Get the element name
-        std::string elementName = getElementName(instanceName);
-        
-        // Set the animation speed based on the new walk type
-        float animationSpeed = (walkType == WalkType::NORMAL) ? 
-                              config->normalWalkingAnimationSpeed : 
-                              config->sprintWalkingAnimationSpeed;
-        elementsManager.changeElementAnimationSpeed(elementName, animationSpeed);
-    }      std::cout << "Entity " << instanceName << " walk type changed to " 
-              << ((walkType == WalkType::NORMAL) ? "normal" : "sprint") << std::endl;
-    return true;
-}
-
 void EntitiesManager::update(double deltaTime) {
     // COLLISION RESOLUTION MECHANISMS DISABLED
     // Stuck entity checking removed - entities will no longer be automatically repositioned
-    // ensureAllEntitiesNotStuck(); // DISABLED
     
     // Update all walking entities
     for (auto& pair : entities) {
@@ -1037,16 +901,8 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
     return true;
 }
 
-// Collision resolution functions removed - entities will no longer be automatically moved
-// Function to ensure no entities are stuck in collision areas (DISABLED)
-bool EntitiesManager::ensureEntityNotStuck(const std::string& instanceName) {
-    return true; // Always return true - no automatic position adjustment
-}
 
-// Function to check if all entities are in safe positions (DISABLED)
-void EntitiesManager::ensureAllEntitiesNotStuck() {
-    // Do nothing - collision resolution mechanisms disabled
-}
+
 
 // Handle waypoint arrival - added to improve movement precision
 bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY) {

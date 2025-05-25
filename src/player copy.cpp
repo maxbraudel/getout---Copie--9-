@@ -99,9 +99,3 @@ void togglePlayerDebugMode() {
     playerDebugMode = !playerDebugMode;
     std::cout << "Player debug mode " << (playerDebugMode ? "enabled" : "disabled") << std::endl;
 }
-
-// Function to ensure player is not stuck using entity system
-bool ensurePlayerNotStuck(const Map& gameMap) {
-    // Delegate to the entity system's collision checking
-    return entitiesManager.ensureEntityNotStuck(PLAYER_INSTANCE_NAME);
-}
