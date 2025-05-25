@@ -38,6 +38,10 @@ void resetCollisionCache();
 void updateSpatialGrid();
 std::vector<std::string> getNearbyElements(float x, float y, float radius);
 
+// External declarations for collision system variables
+extern bool spatialGridInitialized;
+extern const float MAX_COLLISION_CHECK_RANGE;
+
 // Set of non-traversable block types (water, lava, etc.)
 extern std::set<TextureName> nonTraversableBlocks;
 

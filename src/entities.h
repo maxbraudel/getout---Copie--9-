@@ -55,6 +55,10 @@ struct EntityInfo {
     bool canCollide;
     float collisionRadius = 0.4f; // Default collision radius
     std::vector<std::pair<float, float>> collisionShapePoints;
+    
+    // Granular collision control - specify which element types to avoid or collide with
+    std::vector<ElementTextureName> avoidanceElements; // Elements this entity will pathfind around (but can overlap if forced)
+    std::vector<ElementTextureName> collisionElements; // Elements this entity cannot overlap with at all
   };
 
 // Struct to hold entity configuration
@@ -82,6 +86,11 @@ struct EntityConfiguration {
     bool canCollide = true;
     float collisionRadius = 0.4f; // Default collision radius
     std::vector<std::pair<float, float>> collisionShapePoints;    
+    
+    // Granular collision control - specify which element types to avoid or collide with
+    std::vector<ElementTextureName> avoidanceElements; // Elements this entity will pathfind around (but can overlap if forced)
+    std::vector<ElementTextureName> collisionElements; // Elements this entity cannot overlap with at all
+    
     // Constructor to create from EntityInfo
     EntityConfiguration() = default;
     
@@ -105,6 +114,10 @@ struct EntityConfiguration {
         sprintWalkingAnimationSpeed = info.sprintWalkingAnimationSpeed;        canCollide = info.canCollide;
         collisionRadius = info.collisionRadius;
         collisionShapePoints = info.collisionShapePoints;
+        
+        // Copy granular collision settings
+        avoidanceElements = info.avoidanceElements;
+        collisionElements = info.collisionElements;
     }
 };
 
@@ -209,6 +222,10 @@ private:
 
 // Function to check entity collision with elements (uses collision shape points if available, otherwise fallback to radius)
 bool wouldEntityCollideWithElement(const EntityConfiguration& config, float x, float y);
+
+// Enhanced collision function that respects granular collision settings
+// useAvoidanceList: true = check avoidanceElements, false = check collisionElements
+bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, float x, float y, bool useAvoidanceList = false);
 
 // Global instance
 extern EntitiesManager entitiesManager;

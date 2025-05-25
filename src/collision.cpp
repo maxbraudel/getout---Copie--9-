@@ -28,7 +28,7 @@ static bool collisionCacheInitialized = false;
 // with elements in the same or neighboring cells
 const int SPATIAL_GRID_SIZE = 10; // Size of each spatial grid cell
 static std::unordered_map<int, std::vector<std::string>> spatialGrid;
-static bool spatialGridInitialized = false;
+bool spatialGridInitialized = false;
 static float lastSpatialGridUpdateTime = 0.0f;
 
 // Last time debug messages were printed to reduce spam

@@ -9,18 +9,7 @@
 #include <cmath>
 #include <algorithm>
 #include <iostream>
-#include <limits> // Added to resolve std::numeric_limits error
-
-// Maximum distance for pathfinding to prevent performance issues with very long paths
-const float MAX_PATHFINDING_DISTANCE = 100.0f; // Maximum straight-line distance to attempt pathfinding
-
-// Minimum distance that path points must maintain from non-walkable blocks (map terrain)
-const float MIN_DISTANCE_FROM_NON_WALKABLE_BLOCKS = 0.05f;
-
-// Minimum distance that path points must maintain from non-walkable elements (objects with collision)
-const float MIN_DISTANCE_FROM_NON_WALKABLE_ELEMENTS = 0.5f;
-
-// Using Node structure defined in pathfinding.h
+#include <limits> // Added to resolve std::numeric_limits errors
 
 // Custom comparison for priority queue
 struct CompareNodes {
@@ -43,10 +32,11 @@ bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, 
         y - entityCollisionRadius < 0.0f || y + entityCollisionRadius >= GRID_SIZE) {
         return false; // Entity would be partially or fully out of bounds.
     }
-    
-    // 2. Check for collision with other collidable elements using proper entity collision shape.
-    if (wouldEntityCollideWithElement(entityConfig, x, y)) {
-        return false;
+      // 2. Check for collision with elements using granular collision control
+    // For pathfinding, we only check avoidance elements as obstacles to route around
+    // Collision elements only prevent direct physical overlap during movement, not pathfinding
+    if (wouldEntityCollideWithElementsGranular(entityConfig, x, y, true)) {
+        return false; // Avoidance element detected - pathfinding should find alternate route
     }
 
     return true;

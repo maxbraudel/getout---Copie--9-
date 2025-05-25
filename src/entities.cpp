@@ -35,10 +35,24 @@ static void initializeEntityTypes() {
     antagonist.normalWalkingSpeed = 1.5f;
     antagonist.normalWalkingAnimationSpeed = 4.0f;
     antagonist.sprintWalkingSpeed = 10.0f;
-    antagonist.sprintWalkingAnimationSpeed = 12.0f;      // Collision settings
+    antagonist.sprintWalkingAnimationSpeed = 12.0f;    // Collision settings
     antagonist.canCollide = true;
-    antagonist.collisionRadius = 0.4f;    antagonist.collisionShapePoints = {
+    antagonist.collisionRadius = 0.4f;
+    antagonist.collisionShapePoints = {
         {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}
+    };    // Granular collision control - antagonist avoids trees but can move through player
+    // For testing: Leave lists empty to allow movement through all elements
+    antagonist.avoidanceElements = {
+        // Empty - no elements to avoid for pathfinding
+        /* ElementTextureName::COCONUT_TREE_1,
+        ElementTextureName::COCONUT_TREE_2,
+        ElementTextureName::COCONUT_TREE_2, */
+    };
+    antagonist.collisionElements = {
+        // Empty - no elements to collide with during movement
+        /* ElementTextureName::COCONUT_TREE_1,
+        ElementTextureName::COCONUT_TREE_2,
+        ElementTextureName::COCONUT_TREE_2, */
     };
       
     // Add to the list
@@ -65,11 +79,19 @@ static void initializeEntityTypes() {
     player.normalWalkingSpeed = 1.5f;
     player.normalWalkingAnimationSpeed = 4.0f;
     player.sprintWalkingSpeed = 10.0f;
-    player.sprintWalkingAnimationSpeed = 12.0f;
-      // Collision settings
-    player.canCollide = true;    player.collisionRadius = 0.4f;
+    player.sprintWalkingAnimationSpeed = 12.0f;    // Collision settings
+    player.canCollide = true;
+    player.collisionRadius = 0.4f;
     player.collisionShapePoints = {
         {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}
+    };    // Granular collision control - player avoids trees and other characters
+    // For testing: Leave lists empty to allow movement through all elements
+    player.avoidanceElements = {
+        // Empty - no elements to avoid for pathfinding
+    };
+    player.collisionElements = {
+        // Empty - no elements to collide with during movement
+        
     };
       
     // Add to the list
@@ -155,14 +177,13 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
         std::cerr << "Entity configuration not found: " << typeName << std::endl;
         return false;
     }
-    
-    // Check for a safe starting position if this entity type has collisions enabled
+      // Check for a safe starting position if this entity type has collisions enabled
     float safeX = x;
     float safeY = y;
     bool needsSafePosition = false;
       if (config->canCollide) {
-        // Check if the target position is in a collision area
-        if (wouldEntityCollideWithElement(*config, safeX, safeY)) {
+        // Check if the target position is in a collision area (check collision elements only)
+        if (wouldEntityCollideWithElementsGranular(*config, safeX, safeY, false)) {
             needsSafePosition = true;
             // Try to find a safe position nearby
             if (!findSafePosition(safeX, safeY, config->collisionRadius, gameMap)) {
@@ -799,20 +820,22 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
 
     // If not using pathfinding, update sprite direction based on direct movement to targetX, targetY
     if (!entity.usePathfinding) {
-        updateDirectionAndSprite(entity, elementName, config, dx, dy);
-    }
-    // For pathfinding, sprite direction is handled by handleWaypointArrival.    // Check for collisions before moving the entity using axis-separated collision detection
+        updateDirectionAndSprite(entity, elementName, config, dx, dy);    }
+    // For pathfinding, sprite direction is handled by handleWaypointArrival.
+    
+    // Check for collisions before moving the entity using axis-separated collision detection
     bool canMove = true;
-    float actualMoveDx = moveDx;
-    float actualMoveDy = moveDy;
+    float actualMoveDx = moveDx;    float actualMoveDy = moveDy;
     
     if (config.canCollide) {
         // Calculate the new position after movement
         float newX = currentActualX + moveDx;
         float newY = currentActualY + moveDy;
         
-        // Check if the combined movement would collide with any collidable element
-        bool collisionWithElement = wouldEntityCollideWithElement(config, newX, newY);
+        // Check if the combined movement would collide with collision elements (hard collision only)
+        // Note: We only check collision elements here, not avoidance elements
+        // This allows entities to move through avoidance elements during direct movement
+        bool collisionWithElement = wouldEntityCollideWithElementsGranular(config, newX, newY, false);
         
         if (collisionWithElement && (moveDx != 0 || moveDy != 0)) {
             // If diagonal movement fails, try axis-separated movement (like player system)
@@ -825,12 +848,12 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                 // Try moving only horizontally
                 float testX = currentActualX + moveDx;
                 float testY = currentActualY; // Keep Y the same
-                bool horizontalCollision = wouldEntityCollideWithElement(config, testX, testY);
+                bool horizontalCollision = wouldEntityCollideWithElementsGranular(config, testX, testY, false);
                 
                 // Try moving only vertically
                 float testX2 = currentActualX; // Keep X the same
                 float testY2 = currentActualY + moveDy;
-                bool verticalCollision = wouldEntityCollideWithElement(config, testX2, testY2);
+                bool verticalCollision = wouldEntityCollideWithElementsGranular(config, testX2, testY2, false);
                 
                 // If horizontal movement is possible
                 if (!horizontalCollision) {
@@ -864,8 +887,8 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                 // Entity is stuck, let's try to recalculate the path if using pathfinding
                 if (entity.usePathfinding) {
                     std::cout << "Entity " << entity.instanceName << " encountered obstacle at (" 
-                              << newX << ", " << newY << "), recalculating path..." << std::endl;                      // Identify what's blocking the entity
-                    bool hasElementCollision = wouldEntityCollideWithElement(config, newX, newY);
+                              << newX << ", " << newY << "), recalculating path..." << std::endl;                    // Identify what's blocking the entity
+                    bool hasElementCollision = wouldEntityCollideWithElementsGranular(config, newX, newY, false);
                       if (hasElementCollision) {
                         std::cout << "  - Element collision detected" << std::endl;
                         // Get nearby elements for debugging
@@ -1033,122 +1056,125 @@ bool wouldEntityCollideWithElement(const EntityConfiguration& config, float x, f
     }
 }
 
-// Helper method to get an entity's type name by its instance name
-std::string EntitiesManager::getEntityType(const std::string& instanceName) const {
-    auto it = entities.find(instanceName);
-    if (it != entities.end()) {
-        return it->second.typeName;
+// Enhanced collision function that respects granular collision settings
+bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, float x, float y, bool useAvoidanceList) {
+    if (!config.canCollide) {
+        return false; // Entity doesn't have collision enabled
     }
-    return ""; // Empty string if entity not found
-}
-
-// Function to ensure entity is not stuck in any collision areas
-bool EntitiesManager::ensureEntityNotStuck(const std::string& instanceName) {
-    // Get the entity
-    Entity* entity = getEntity(instanceName);
-    if (!entity) {
-        return false;
+      // Determine which element list to check based on collision type
+    const std::vector<ElementTextureName>& elementsToCheck = useAvoidanceList ? config.avoidanceElements : config.collisionElements;
+    
+    // If the list is empty, don't check any elements (granular collision control)
+    // This allows entities to have fine-grained control over what they collide with
+    if (elementsToCheck.empty()) {
+        return false; // No elements to check = no collision
     }
     
-    // Get the configuration for this entity type
-    const EntityConfiguration* config = getConfiguration(entity->typeName);
-    if (!config) {
-        return false;
+    // Make sure the spatial grid is up to date
+    if (!spatialGridInitialized) {
+        updateSpatialGrid();
     }
     
-    // Skip if entity doesn't have collisions enabled
-    if (!config->canCollide) {
-        return false;
+    // Calculate approximate radius for nearby element search
+    float searchRadius = config.collisionRadius;
+    if (!config.collisionShapePoints.empty()) {
+        float maxRadius = 0.0f;
+        for (const auto& point : config.collisionShapePoints) {
+            float dist = std::sqrt(point.first * point.first + point.second * point.second);
+            maxRadius = std::max(maxRadius, dist);
+        }
+        searchRadius = maxRadius;
     }
     
-    // Get the element name
-    std::string elementName = getElementName(instanceName);
+    // Get only nearby elements instead of checking all elements
+    std::vector<std::string> nearbyElements = getNearbyElements(x, y, searchRadius + MAX_COLLISION_CHECK_RANGE);
     
-    // Get current position
-    float x, y;
-    if (!elementsManager.getElementPosition(elementName, x, y)) {
-        return false;
-    }
-    
-    // Check if entity is in a collision state
-    bool collisionWithElement = wouldEntityCollideWithElement(*config, x, y);
-    
-    if (collisionWithElement) {
-        // Add a safety buffer for better collision avoidance
-        float safetyBuffer = 0.2f;
-        float safeRadius = config->collisionRadius + safetyBuffer;
-          // Entity is stuck, try to find a safe position
-        if (findSafePosition(x, y, safeRadius, gameMap)) {
-            // Found a safe position, move entity there
-            elementsManager.changeElementCoordinates(elementName, x, y);
+    // Check collision only with elements that match the specified texture types
+    for (const auto& elementName : nearbyElements) {
+        // Find the element to get its texture type
+        const auto& elements = elementsManager.getElements();
+        const PlacedElement* currentElement = nullptr;
+        for (const auto& el : elements) {
+            if (el.instanceName == elementName) {
+                currentElement = &el;
+                break;
+            }
+        }
+        
+        if (!currentElement || !currentElement->hasCollision) {
+            continue; // Skip elements without collision enabled
+        }
+        
+        // Check if this element's texture type is in our list to check
+        bool shouldCheckThisElement = false;
+        for (const auto& textureType : elementsToCheck) {
+            if (currentElement->textureName == textureType) {
+                shouldCheckThisElement = true;
+                break;
+            }
+        }
+        
+        if (!shouldCheckThisElement) {
+            continue; // Skip elements not in our collision/avoidance list
+        }
+        
+        // Perform the actual collision check for this specific element
+        if (!config.collisionShapePoints.empty() && !currentElement->collisionShapePoints.empty()) {
+            // Use polygon-polygon collision detection
+            std::vector<std::pair<float, float>> entityWorldShapePoints;
+            std::vector<std::pair<float, float>> elementWorldShapePoints;
             
-            // Only log this in debug mode once every 10 seconds to reduce spam
-            static float lastStuckDebugTime = 0.0f;
-            float currentTime = static_cast<float>(glfwGetTime());
-            if (playerDebugMode && currentTime - lastStuckDebugTime > 10.0f) {
-                lastStuckDebugTime = currentTime;
-                std::cout << "Entity " << instanceName << " was stuck, moved to safe position: (" 
-                        << x << ", " << y << ")" << std::endl;
+            // Transform entity polygon points to world coordinates
+            float entityAngleRad = 0.0f; // Entities don't rotate currently
+            float entityCosA = cos(entityAngleRad);
+            float entitySinA = sin(entityAngleRad);
+            
+            for (const auto& localPoint : config.collisionShapePoints) {
+                float scaledX = localPoint.first;
+                float scaledY = localPoint.second;
+                
+                float rotatedX = scaledX * entityCosA - scaledY * entitySinA;
+                float rotatedY = scaledX * entitySinA + scaledY * entityCosA;
+                
+                entityWorldShapePoints.push_back({x + rotatedX, y + rotatedY});
             }
-            return true; // Position was adjusted
+            
+            // Transform element polygon points to world coordinates
+            float elementAngleRad = currentElement->rotation * M_PI / 180.0f;
+            float elementCosA = cos(elementAngleRad);
+            float elementSinA = sin(elementAngleRad);
+            
+            for (const auto& localPoint : currentElement->collisionShapePoints) {
+                float scaledX = localPoint.first * currentElement->scale;
+                float scaledY = localPoint.second * currentElement->scale;
+                
+                float rotatedX = scaledX * elementCosA - scaledY * elementSinA;
+                float rotatedY = scaledX * elementSinA + scaledY * elementCosA;
+                
+                elementWorldShapePoints.push_back({currentElement->x + rotatedX, currentElement->y + rotatedY});
+            }
+            
+            // Perform polygon-polygon collision detection using Separating Axis Theorem (SAT)
+            if (polygonPolygonCollision(entityWorldShapePoints, elementWorldShapePoints)) {
+                return true; // Collision detected
+            }
         } else {
-            // Could not find a safe position - only log in debug mode with throttling
-            static float lastFailedDebugTime = 0.0f;
-            float currentTime = static_cast<float>(glfwGetTime());
-            if (playerDebugMode && currentTime - lastFailedDebugTime > 15.0f) {
-                lastFailedDebugTime = currentTime;
-                std::cout << "Warning: Entity " << instanceName << " is stuck at (" << x << ", " << y 
-                          << ") and no safe position could be found!" << std::endl;
+            // Fallback to circle-circle collision detection
+            float dx = x - currentElement->x;
+            float dy = y - currentElement->y;
+            float distance = std::sqrt(dx * dx + dy * dy);
+            float combinedRadius = config.collisionRadius + 0.3f; // Assume default element radius
+            
+            if (distance < combinedRadius) {
+                return true; // Collision detected
             }
         }
     }
     
-    return false; // No adjustment needed or possible
+    return false; // No collision detected with specified element types
 }
 
-// Function to check if all entities are in safe positions, moving them if needed
-void EntitiesManager::ensureAllEntitiesNotStuck() {
-    // Track when we last checked each entity to avoid checking too frequently
-    static std::map<std::string, float> lastCheckTimes;
-    static float lastGlobalCheckTime = 0.0f;
-    
-    // Only run this check every 3.0 seconds to avoid performance impact
-    float currentTime = static_cast<float>(glfwGetTime());
-    if (currentTime - lastGlobalCheckTime < 3.0f) {
-        return; // Skip this check if not enough time has passed
-    }
-    
-    lastGlobalCheckTime = currentTime;
-    
-    // Count how many entities we actually check
-    int entityChecksPerformed = 0;
-    
-    // Iterate through all entities and check if they're stuck, but throttle checks
-    for (auto& pair : entities) {
-        const std::string& entityName = pair.first;
-        
-        // Only check each entity at most once every several seconds
-        auto it = lastCheckTimes.find(entityName);
-        if (it != lastCheckTimes.end() && currentTime - it->second < 5.0f) {
-            continue; // Skip this entity if checked recently
-        }
-        
-        // Update the last check time for this entity
-        lastCheckTimes[entityName] = currentTime;
-        
-        // Check and unstick if needed
-        if (ensureEntityNotStuck(entityName)) {
-            // Entity was adjusted, count it 
-            entityChecksPerformed++;
-        }
-    }
-      // Only print debug info if we performed any entity checks
-    if (entityChecksPerformed > 0 && playerDebugMode) {
-        std::cout << "Safety check: " << entityChecksPerformed 
-                  << " entities repositioned during collision check" << std::endl;
-    }
-}
-
+// Teleport an entity to specific coordinates immediately (handles collisions)
 bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, float y) {
     // Get the entity
     Entity* entity = getEntity(instanceName);
@@ -1167,109 +1193,135 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
     // Get the element name
     std::string elementName = getElementName(instanceName);
     
-        float targetX = x;
-    float targetY = y;
+    // Check for a safe teleport position if this entity type has collisions enabled
+    float safeX = x;
+    float safeY = y;
+    bool needsSafePosition = false;
     
-    // Only check for collisions if this entity type can collide
     if (config->canCollide) {
-        // Check for collision at the teleport destination
-        bool collisionWithElement = wouldEntityCollideWithElement(*config, targetX, targetY);
-        
-        if (collisionWithElement) {
-            // Log the collision type for debugging
-            std::cout << "Teleport destination has collision: ";
-            if (collisionWithElement) {
-                std::cout << "Element collision";
-            }
-            std::cout << std::endl;
-            
-            // Try to find a safe position near the requested coordinates
-            if (findSafePosition(targetX, targetY, config->collisionRadius, gameMap)) {
-                // Found a safe position near the requested coordinates
-                std::cout << "Adjusted entity teleport position from (" << x << ", " << y << ") to ("
-                        << targetX << ", " << targetY << ") to avoid collisions." << std::endl;
-            } else {                // Could not find a safe position
-                std::cout << "Cannot teleport entity to (" << x << ", " << y << ") - ";
-                if (collisionWithElement) {
-                    std::cout << "position is occupied by a collidable element";
-                }
-                std::cout << "." << std::endl;
-                return false;
+        // Check if the target position is in a collision area (check collision elements only)
+        if (wouldEntityCollideWithElementsGranular(*config, safeX, safeY, false)) {
+            needsSafePosition = true;
+            // Try to find a safe position nearby
+            if (!findSafePosition(safeX, safeY, config->collisionRadius, gameMap)) {
+                std::cerr << "WARNING: Could not find a safe teleport position for entity near (" 
+                        << x << ", " << y << "). Proceeding with original position." << std::endl;
+                safeX = x;
+                safeY = y;
+            } else {
+                std::cout << "Adjusted teleport position from (" << x << ", " << y 
+                        << ") to (" << safeX << ", " << safeY << ") to avoid collisions." << std::endl;
             }
         }
     }
     
-    // Directly set entity position
-    elementsManager.changeElementCoordinates(elementName, targetX, targetY);
-    
-    // If this entity was walking, stop it
-    if (entity->isWalking) {
-        entity->isWalking = false;
-        elementsManager.changeElementAnimationStatus(elementName, false);
-        elementsManager.changeElementSpriteFrame(elementName, 0);
+    // Stop any current walking
+    entity->isWalking = false;
+    entity->path.clear();
+    entity->currentPathIndex = 0;
+      // Teleport the element on the map
+    if (!elementsManager.changeElementCoordinates(elementName, safeX, safeY)) {
+        std::cerr << "Failed to teleport entity element: " << instanceName << std::endl;
+        return false;
     }
     
-    // Update entity's target position in case it starts walking again
-    entity->targetX = targetX;
-    entity->targetY = targetY;
+    // Disable animation (entity is not walking after teleport)
+    elementsManager.changeElementAnimationStatus(elementName, false);
     
-    std::cout << "Entity " << instanceName << " teleported to (" << targetX << ", " << targetY << ")" << std::endl;
+    // Reset to default sprite
+    if (config) {
+        elementsManager.changeElementSpriteFrame(elementName, config->defaultSpriteSheetFrame);
+        elementsManager.changeElementSpritePhase(elementName, config->defaultSpriteSheetPhase);
+    }
+    
+    std::cout << "Teleported entity " << instanceName << " to (" << safeX << ", " << safeY << ")" << std::endl;
     return true;
 }
 
-// Handle waypoint arrival with direction smoothing
-bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float segmentStartX, float segmentStartY) {
-    if (entity.currentPathIndex >= entity.path.size()) {
-        // No valid next target waypoint in the path array.
-        // This might occur if path is exhausted or index is otherwise invalid.
-        // std::cout << "hWA: currentPathIndex " << entity.currentPathIndex << " is invalid for path size " << entity.path.size() << ". No sprite update." << std::endl;
-        return false;
-    }
-
-    const auto& targetWaypoint = entity.path[entity.currentPathIndex]; // This is the END of the current segment
-    float dxToWaypoint = targetWaypoint.first - segmentStartX;
-    float dyToWaypoint = targetWaypoint.second - segmentStartY;
-
-    const float epsilon = 0.001f; // A small epsilon for floating point comparisons
-
-    if (std::abs(dxToWaypoint) < epsilon && std::abs(dyToWaypoint) < epsilon) {
-        // Segment is zero length (segmentStart is effectively identical to targetWaypoint).
-        // This means we can't determine a direction from it.
-        // This could happen if path contains duplicate points, or if start/goal were same.
-        // std::cout << "hWA: Zero length segment detected for " << elementName << " from (" << segmentStartX << "," << segmentStartY << ") to (" << targetWaypoint.first << "," << targetWaypoint.second << "). No sprite change." << std::endl;
-        // Keep current sprite, don't change phase.
-        return false; 
-    }
-
-    // Determine sprite direction based on the segment from segmentStartX,Y to targetWaypoint
-    float dirX = dxToWaypoint;
-    float dirY = dyToWaypoint;
-    
-    // Normalize direction vector
-    float length = std::sqrt(dirX * dirX + dirY * dirY);
-    if (length > 0.0001f) {
-        dirX /= length;
-        dirY /= length;
+// Function to ensure no entities are stuck in collision areas
+bool EntitiesManager::ensureEntityNotStuck(const std::string& instanceName) {
+    // Get the entity
+    Entity* entity = getEntity(instanceName);
+    if (!entity) {
+        return false; // Entity doesn't exist
     }
     
-    // Store this as our current segment direction
-    entity.lastSegmentDirection = {dirX, dirY};
+    // Get the configuration
+    const EntityConfiguration* config = getConfiguration(entity->typeName);
+    if (!config || !config->canCollide) {
+        return true; // Entity doesn't have collision or doesn't exist
+    }
     
-    // Update sprite direction immediately based on the new segment direction
-    int newDirection;
-    if (std::abs(dirX) > std::abs(dirY)) {
+    // Get the element name and current position
+    std::string elementName = getElementName(instanceName);
+    float currentX, currentY;
+    if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
+        return false; // Can't get position
+    }
+    
+    // Check if entity is in a collision state (check collision elements only)
+    bool hasCollision = wouldEntityCollideWithElementsGranular(*config, currentX, currentY, false);
+    
+    if (hasCollision) {
+        // Entity is stuck, try to find a safe position
+        float safeX = currentX;
+        float safeY = currentY;
+          if (findSafePosition(safeX, safeY, config->collisionRadius, gameMap)) {
+            // Move entity to safe position
+            elementsManager.changeElementCoordinates(elementName, safeX, safeY);
+            std::cout << "Moved stuck entity " << instanceName << " from (" << currentX << ", " << currentY 
+                      << ") to (" << safeX << ", " << safeY << ")" << std::endl;
+            return true;
+        } else {
+            std::cerr << "WARNING: Could not find safe position for stuck entity " << instanceName 
+                      << " at (" << currentX << ", " << currentY << ")" << std::endl;
+            return false;
+        }
+    }
+    
+    return true; // Entity is not stuck
+}
+
+// Function to check if all entities are in safe positions, moving them if needed
+void EntitiesManager::ensureAllEntitiesNotStuck() {
+    for (const auto& pair : entities) {
+        const std::string& instanceName = pair.first;
+        ensureEntityNotStuck(instanceName);
+    }
+}
+
+// Handle waypoint arrival - added to improve movement precision
+bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY) {
+    // Check if we're using pathfinding
+    if (!entity.usePathfinding || entity.path.empty() || entity.currentPathIndex >= entity.path.size()) {
+        return false; // Not using pathfinding or no valid path
+    }
+    
+    // Get the current target waypoint
+    const auto& targetWaypoint = entity.path[entity.currentPathIndex];
+    float targetX = targetWaypoint.first;
+    float targetY = targetWaypoint.second;
+    
+    // Calculate direction to target
+    float dx = targetX - currentX;
+    float dy = targetY - currentY;
+    
+    // Determine the primary direction for sprite updates
+    int direction;
+    if (std::abs(dx) > std::abs(dy)) {
         // Horizontal movement dominates
-        newDirection = (dirX > 0) ? 3 : 2;  // 3 = right, 2 = left
+        direction = (dx > 0) ? 3 : 2;  // 3 = right, 2 = left
     } else {
-        // Vertical movement dominates
-        newDirection = (dirY > 0) ? 0 : 1;  // 0 = up, 1 = down
+        // Vertical movement dominates or is equal
+        direction = (dy > 0) ? 0 : 1;  // 0 = up, 1 = down
     }
     
-    entity.lastDirection = newDirection;
+    // Update entity direction
+    entity.lastDirection = direction;
     
     // Set the appropriate sprite phase based on direction
     int phase;
-    switch (entity.lastDirection) {
+    switch (direction) {
         case 0: phase = config.spritePhaseWalkUp; break;
         case 1: phase = config.spritePhaseWalkDown; break;
         case 2: phase = config.spritePhaseWalkLeft; break;

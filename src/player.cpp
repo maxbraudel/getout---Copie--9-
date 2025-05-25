@@ -170,8 +170,8 @@ void movePlayer(float deltaX, float deltaY) {
         }
     }      // Calculate the new position after potential unstuck operation
     float newX = x + deltaX;
-    float newY = y + deltaY;      // Check if the combined movement would collide with any collidable element
-    bool collisionWithElement = wouldEntityCollideWithElement(*config, newX, newY);
+    float newY = y + deltaY;    // Check if the combined movement would collide with any collidable element
+    bool collisionWithElement = wouldEntityCollideWithElementsGranular(*config, newX, newY, false);
     bool canMove = !collisionWithElement;
     
     // If we can't move diagonally, try to move in single directions (sliding along walls)
@@ -182,11 +182,10 @@ void movePlayer(float deltaX, float deltaY) {
     if (!canMove && (deltaX != 0 && deltaY != 0)) {        // Try moving only horizontally
         float testX = x + deltaX;
         float testY = y; // Keep Y the same
-          bool horizontalCollision = wouldEntityCollideWithElement(*config, testX, testY);
-          // Try moving only vertically
+        bool horizontalCollision = wouldEntityCollideWithElementsGranular(*config, testX, testY, false);        // Try moving only vertically
         float testX2 = x; // Keep X the same
         float testY2 = y + deltaY;
-          bool verticalCollision = wouldEntityCollideWithElement(*config, testX2, testY2);
+        bool verticalCollision = wouldEntityCollideWithElementsGranular(*config, testX2, testY2, false);
         
         // If horizontal movement is possible
         if (!horizontalCollision) {
