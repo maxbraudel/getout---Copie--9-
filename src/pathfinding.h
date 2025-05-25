@@ -61,4 +61,7 @@ float calculateHeuristic(int x1, int y1, int x2, int y2);
 // Get all valid neighbors for a position with collision checking using entity shape
 std::vector<std::pair<int, int>> getNeighbors(int x, int y, const EntityConfiguration& entityConfig, const Map& gameMap);
 
+// Check if a segment between two points is valid (no collisions along the path)
+bool isSegmentValid(float x1, float y1, float x2, float y2, const EntityConfiguration& entityConfig, const Map& gameMap);
+
 #endif // PATHFINDING_H

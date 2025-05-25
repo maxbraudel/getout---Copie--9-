@@ -388,32 +388,6 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
 }
 
 
-
-// Helper function to print information about a position's collision status
-void debugCollisionStatus(float x, float y, float collisionRadius) {
-    // Check if there's a collision
-    bool hasElementCollision = wouldCollideWithElement(x, y, collisionRadius);
-    
-    if (hasElementCollision) {
-        // Get nearby collidable elements
-        std::vector<std::string> nearbyElements = getNearbyElements(x, y, collisionRadius + 1.0f);
-        
-        std::cout << "Collision detected at (" << x << ", " << y << ") with radius " << collisionRadius << std::endl;
-        std::cout << "Nearby elements: ";
-        
-        for (const auto& elementName : nearbyElements) {
-            float elementX, elementY;
-            if (elementsManager.getElementPosition(elementName, elementX, elementY)) {
-                float distance = std::sqrt(std::pow(x - elementX, 2) + std::pow(y - elementY, 2));
-                std::cout << elementName << " (distance: " << distance << "), ";
-            }
-        }
-        std::cout << std::endl;
-    } else {
-        std::cout << "No collision at (" << x << ", " << y << ") with radius " << collisionRadius << std::endl;
-    }
-}
-
 // Function to check if an entity (using collision shape points) would collide with any element
 bool wouldEntityCollideWithElement(float x, float y, const std::vector<std::pair<float, float>>& entityCollisionShapePoints, float entityScale, float entityRotation) {
     // Make sure the spatial grid is up to date
@@ -578,4 +552,42 @@ bool polygonPolygonCollision(const std::vector<std::pair<float, float>>& poly1, 
     }
     
     return true; // No separating axis found, collision detected
+}
+
+// Helper function to check if an entity's collision shape would go beyond map boundaries
+bool wouldEntityCollideWithMapBounds(float x, float y, const std::vector<std::pair<float, float>>& collisionShapePoints, float entityScale, float entityRotation) {
+    if (collisionShapePoints.empty()) {
+        // If no collision shape is defined, check only the center point
+        return (x < 0.0f || y < 0.0f || x >= static_cast<float>(GRID_SIZE) || y >= static_cast<float>(GRID_SIZE));
+    }
+    
+    // Transform collision shape points to world coordinates
+    std::vector<std::pair<float, float>> worldShapePoints;
+    float angleRad = entityRotation * M_PI / 180.0f;
+    float cosA = cos(angleRad);
+    float sinA = sin(angleRad);
+    
+    for (const auto& localPoint : collisionShapePoints) {
+        // Scale first, then rotate, then translate
+        float scaledX = localPoint.first * entityScale;
+        float scaledY = localPoint.second * entityScale;
+        
+        float rotatedX = scaledX * cosA - scaledY * sinA;
+        float rotatedY = scaledX * sinA + scaledY * cosA;
+        
+        float worldX = x + rotatedX;
+        float worldY = y + rotatedY;
+        
+        // Check if any point of the collision shape is outside map bounds
+        if (worldX < 0.0f || worldY < 0.0f || worldX >= static_cast<float>(GRID_SIZE) || worldY >= static_cast<float>(GRID_SIZE)) {
+            return true; // Collision shape extends beyond map boundaries
+        }
+    }
+    
+    return false; // All points of collision shape are within map bounds
+}
+
+// Overloaded function that uses EntityConfiguration
+bool wouldEntityCollideWithMapBounds(const EntityConfiguration& config, float x, float y) {
+    return wouldEntityCollideWithMapBounds(x, y, config.collisionShapePoints, 1.0f, 0.0f);
 }

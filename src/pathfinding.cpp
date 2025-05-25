@@ -25,14 +25,14 @@ float calculateHeuristic(int x1, int y1, int x2, int y2) {
 
 // Check if a position is valid (within bounds and not colliding) - using entity collision shape
 bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, const Map& gameMap) {
-    // 1. Check if the entity's center is within game bounds.
-    // For polygon-based entities, we need to ensure the entire shape stays within bounds
-    float entityCollisionRadius = entityConfig.collisionRadius; // Fallback radius for bounds checking
-    if (x - entityCollisionRadius < 0.0f || x + entityCollisionRadius >= GRID_SIZE ||
-        y - entityCollisionRadius < 0.0f || y + entityCollisionRadius >= GRID_SIZE) {
-        return false; // Entity would be partially or fully out of bounds.
+    // 1. Check map boundaries if offMapAvoidance is enabled
+    if (entityConfig.offMapAvoidance) {
+        if (wouldEntityCollideWithMapBounds(entityConfig, x, y)) {
+            return false; // Entity collision shape would extend outside map boundaries
+        }
     }
-      // 2. Check for collision with elements using granular collision control
+    
+    // 2. Check for collision with elements using granular collision control
     // For pathfinding, we only check avoidance elements as obstacles to route around
     // Collision elements only prevent direct physical overlap during movement, not pathfinding
     if (wouldEntityCollideWithElementsGranular(entityConfig, x, y, true)) {
@@ -75,46 +75,6 @@ std::vector<std::pair<int, int>> getNeighbors(int x, int y, const EntityConfigur
     return neighbors;
 }
 
-// Helper function to check if a line segment is valid by sampling points - using entity collision shape
-static bool isSegmentValid(float x1, float y1, float x2, float y2,
-                           const EntityConfiguration& entityConfig,
-                           const Map& gameMap) {
-    float dx = x2 - x1;
-    float dy = y2 - y1;
-    float distance = std::sqrt(dx * dx + dy * dy);
-
-    if (distance < 0.001f) { // Essentially the same point
-        return isPositionValid(x1, y1, entityConfig, gameMap);
-    }
-
-    // Step size for sampling, e.g., half the collision radius.
-    // Ensure a minimum step size to prevent issues with very small radii and to ensure progress.
-    float stepSize = entityConfig.collisionRadius * 0.5f;
-    if (stepSize < 0.01f) { // Minimum practical step size to avoid excessive checks or division by zero if radius is 0.
-        stepSize = 0.01f;
-    }
-    if (stepSize == 0.0f) { // If radius was 0 and somehow stepSize became 0
-         stepSize = 0.1f; // A fallback small step
-    }
-
-    int numSteps = static_cast<int>(distance / stepSize);
-    if (numSteps == 0 && distance > 0.001f) numSteps = 1; // Ensure at least one check for distinct points if distance > epsilon
-
-    // Check points along the segment, including endpoints
-    for (int i = 0; i <= numSteps; ++i) {
-        float t = (numSteps == 0) ? 0.0f : static_cast<float>(i) / static_cast<float>(numSteps);
-        // Ensure the last point is exactly (x2, y2) to avoid floating point drift
-        if (i == numSteps) t = 1.0f; 
-
-        float currentX = x1 + t * dx;
-        float currentY = y1 + t * dy;
-
-        if (!isPositionValid(currentX, currentY, entityConfig, gameMap)) {
-            return false;
-        }
-    }
-    return true;
-}
 
 // Simplify path using "string pulling" method, ensuring segments are valid - simplified for element collision only
 static void simplifyPath(std::vector<std::pair<float, float>>& path,
@@ -176,6 +136,24 @@ static void simplifyPath(std::vector<std::pair<float, float>>& path,
         currentAnchorIndexInOriginalPath = furthestReachableIndexInOriginalPath;
     }
     path = simplifiedPath;
+}
+
+// Check if a segment between two points is valid (no collisions along the path)
+bool isSegmentValid(float x1, float y1, float x2, float y2, const EntityConfiguration& entityConfig, const Map& gameMap) {
+    const int numSteps = 10; // Number of steps to check along the segment
+    
+    for (int i = 0; i <= numSteps; ++i) {
+        float t = static_cast<float>(i) / static_cast<float>(numSteps);
+        float x = x1 + t * (x2 - x1);
+        float y = y1 + t * (y2 - y1);
+        
+        // Check if this point along the segment is valid
+        if (!isPositionValid(x, y, entityConfig, gameMap)) {
+            return false; // Found invalid position along the segment
+        }
+    }
+    
+    return true; // All points along the segment are valid
 }
 
 // Find path using A* algorithm - simplified for element collision only
@@ -277,7 +255,7 @@ std::vector<std::pair<float, float>> findPath(
         iterations++;
         if (iterations > maxIterations) {
             std::cerr << "Pathfinding: Exceeded maximum iterations (" << maxIterations << "). Aborting search." << std::endl;
-            std::cerr << "Pathfinding Details: Start (" << startX << ", " << startY << ") Goal (" << goalX << ", " << goalY << ") Radius (" << entityConfig.collisionRadius << ")" << std::endl;
+            std::cerr << "Pathfinding Details: Start (" << startX << ", " << startY << ") Goal (" << goalX << ", " << goalY << ")" << std::endl;
             std::cerr << "Pathfinding Details: Open set size: " << openSet.size() << ", Closed set size: " << closedSet.size() << std::endl;
             if (!openSet.empty()) {
                 Node* currentTop = openSet.top();
@@ -378,7 +356,6 @@ std::vector<std::pair<float, float>> findPath(
     std::cerr << "  Start (final used): (" << startX << ", " << startY << "), Node: (" << startNodeX << ", " << startNodeY << ")" << std::endl;
     std::cerr << "  Goal (final used):  (" << goalX << ", " << goalY << "), Node: (" << goalNodeX << ", " << goalNodeY << ")" << std::endl;
     std::cerr << "  Original Goal:      (" << originalGoalX << ", " << originalGoalY << ")" << std::endl;
-    std::cerr << "  Collision Radius:   " << entityConfig.collisionRadius << std::endl;
     std::cerr << "  Open Set Status:    " << (openSet.empty() ? "Empty" : "Not Empty (Error in logic?)") << std::endl;
     std::cerr << "  Nodes Explored (Closed Set Size): " << closedSet.size() << std::endl;
     std::cerr << "  Number of Iterations: " << iterations << std::endl;

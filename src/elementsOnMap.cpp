@@ -29,7 +29,6 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     coconutTree1Texture.anchorOffsetY = 0.2f; // No Y offset
     coconutTree1Texture.hasCollision = true;  // Enable collision for this tree
     // Define a rectangular collision shape. Points are relative to the anchor point.
-    // Based on previous collisionRadius = 0.4f, let's make a 0.8x0.8 box.
     // Anchor is BOTTOM_CENTER, with offsets. The shape should be centered around this effective anchor.
     // For BOTTOM_CENTER, y=0 is the bottom.
     // Example: A 0.8 wide, 0.8 tall box centered at the anchor.
@@ -248,7 +247,6 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
                 
                 // Copy collision properties from the texture definition
                 element.hasCollision = texInfo.hasCollision;
-                // element.collisionRadius = texInfo.collisionRadius; // Old line
                 element.collisionShapePoints = texInfo.collisionShapePoints; // New line
                 
                 found = true;
@@ -827,7 +825,6 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
           // Draw collision box if visualization is enabled and this element has collision
         if (isShowingCollisionBoxes() && element.hasCollision) {
             // Scale the collision radius to match the grid cell dimensions
-            // float halfSideLength = element.collisionRadius * cellWidth; // collisionRadius is now half side length // Old line
 
             // Draw the collision polygon centered on the anchor point
             // The anchor point is at (anchorX, anchorY) before the -anchorX, -anchorY translation,

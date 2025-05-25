@@ -22,6 +22,10 @@ bool wouldEntityCollideWithElement(float x, float y, const std::vector<std::pair
 // Helper function for polygon-polygon collision detection using Separating Axis Theorem (SAT)
 bool polygonPolygonCollision(const std::vector<std::pair<float, float>>& poly1, const std::vector<std::pair<float, float>>& poly2);
 
+// Helper functions to check map boundary collisions with entity collision shapes
+bool wouldEntityCollideWithMapBounds(float x, float y, const std::vector<std::pair<float, float>>& collisionShapePoints, float entityScale = 1.0f, float entityRotation = 0.0f);
+bool wouldEntityCollideWithMapBounds(const EntityConfiguration& config, float x, float y);
+
 // Function to check if a position would collide with a non-traversable block
 bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap);
 

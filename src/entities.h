@@ -53,12 +53,14 @@ struct EntityInfo {
     float sprintWalkingSpeed;
     float sprintWalkingAnimationSpeed;      // Collision settings
     bool canCollide;
-    float collisionRadius = 0.4f; // Default collision radius
     std::vector<std::pair<float, float>> collisionShapePoints;
-    
-    // Granular collision control - specify which element types to avoid or collide with
+      // Granular collision control - specify which element types to avoid or collide with
     std::vector<ElementTextureName> avoidanceElements; // Elements this entity will pathfind around (but can overlap if forced)
     std::vector<ElementTextureName> collisionElements; // Elements this entity cannot overlap with at all
+    
+    // Map boundary control
+    bool offMapAvoidance = true; // Entity pathfinding will avoid going outside the map grid
+    bool offMapCollision = true; // Entity will collide with map borders during movement
   };
 
 // Struct to hold entity configuration
@@ -82,14 +84,17 @@ struct EntityConfiguration {
     float normalWalkingSpeed = 2.0f;
     float normalWalkingAnimationSpeed = 8.0f;
     float sprintWalkingSpeed = 4.0f;
-    float sprintWalkingAnimationSpeed = 12.0f;      // Collision settings
+    float sprintWalkingAnimationSpeed = 12.0f;    // Collision settings
     bool canCollide = true;
-    float collisionRadius = 0.4f; // Default collision radius
-    std::vector<std::pair<float, float>> collisionShapePoints;    
+    std::vector<std::pair<float, float>> collisionShapePoints;
     
     // Granular collision control - specify which element types to avoid or collide with
     std::vector<ElementTextureName> avoidanceElements; // Elements this entity will pathfind around (but can overlap if forced)
     std::vector<ElementTextureName> collisionElements; // Elements this entity cannot overlap with at all
+    
+    // Map boundary control
+    bool offMapAvoidance = true; // Entity pathfinding will avoid going outside the map grid
+    bool offMapCollision = true; // Entity will collide with map borders during movement
     
     // Constructor to create from EntityInfo
     EntityConfiguration() = default;
@@ -107,17 +112,20 @@ struct EntityConfiguration {
         spritePhaseWalkDown = info.spritePhaseWalkDown;
         spritePhaseWalkLeft = info.spritePhaseWalkLeft;
         spritePhaseWalkRight = info.spritePhaseWalkRight;
-        
-        normalWalkingSpeed = info.normalWalkingSpeed;
+          normalWalkingSpeed = info.normalWalkingSpeed;
         normalWalkingAnimationSpeed = info.normalWalkingAnimationSpeed;
         sprintWalkingSpeed = info.sprintWalkingSpeed;
-        sprintWalkingAnimationSpeed = info.sprintWalkingAnimationSpeed;        canCollide = info.canCollide;
-        collisionRadius = info.collisionRadius;
-        collisionShapePoints = info.collisionShapePoints;
+        sprintWalkingAnimationSpeed = info.sprintWalkingAnimationSpeed;
         
-        // Copy granular collision settings
+        canCollide = info.canCollide;
+        collisionShapePoints = info.collisionShapePoints;
+          // Copy granular collision settings
         avoidanceElements = info.avoidanceElements;
         collisionElements = info.collisionElements;
+        
+        // Copy map boundary control settings
+        offMapAvoidance = info.offMapAvoidance;
+        offMapCollision = info.offMapCollision;
     }
 };
 
