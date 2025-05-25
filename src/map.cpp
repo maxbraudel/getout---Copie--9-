@@ -49,7 +49,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     }
     
     // Define texture configurations
-    // std::map<TextureName, TextureInfo> textureConfigs = { // C++11 might struggle with this direct initialization
+    // std::map<TextureName, BlockInfo> textureConfigs = { // C++11 might struggle with this direct initialization
     //     {TextureName::SAND, {
     //         "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\sand.png", 
     //         TextureAnimationType::STATIC
@@ -66,37 +66,37 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     // };
 
     // C++11 compatible way to initialize the map
-    std::map<TextureName, TextureInfo> textureConfigs;
+    std::map<TextureName, BlockInfo> textureConfigs;
 
-    TextureInfo grass0Info;
+    BlockInfo grass0Info;
     grass0Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass0.png";
     grass0Info.animType = TextureAnimationType::STATIC;
     grass0Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
     textureConfigs[TextureName::GRASS_0] = grass0Info;
 
-    TextureInfo grass1Info;
+    BlockInfo grass1Info;
     grass1Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass1.png";
     grass1Info.animType = TextureAnimationType::STATIC;
     grass1Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
     textureConfigs[TextureName::GRASS_1] = grass1Info;
 
-    TextureInfo grass2Info;
+    BlockInfo grass2Info;
     grass2Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass2.png";
     grass2Info.animType = TextureAnimationType::STATIC;
     grass2Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
     textureConfigs[TextureName::GRASS_2] = grass2Info;
 
-    TextureInfo sandInfo;
+    BlockInfo sandInfo;
     sandInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\sand.png";
     sandInfo.animType = TextureAnimationType::STATIC;
     textureConfigs[TextureName::SAND] = sandInfo;
 
-    TextureInfo waterInfo; // For non-animated water, if you still have it
+    BlockInfo waterInfo; // For non-animated water, if you still have it
     waterInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water.png"; // Assuming you might have a static water.png
     waterInfo.animType = TextureAnimationType::STATIC;
     // textureConfigs[TextureName::WATER] = waterInfo; // Uncomment if you have a WATER enum and texture
 
-    TextureInfo water0Info;
+    BlockInfo water0Info;
     water0Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water0.png";
     water0Info.animType = TextureAnimationType::ANIMATED;
     water0Info.animationSpeed = 20.0f; // Example speed, adjust as needed
@@ -104,7 +104,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     water0Info.animationStartRandomFrame = true; // Enable random start frame
     textureConfigs[TextureName::WATER_0] = water0Info;
 
-    TextureInfo water1Info;
+    BlockInfo water1Info;
     water1Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water1.png";
     water1Info.animType = TextureAnimationType::ANIMATED;
     water1Info.animationSpeed = 20.0f; // Example speed, adjust as needed
@@ -112,7 +112,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     water1Info.animationStartRandomFrame = true; // Enable random start frame
     textureConfigs[TextureName::WATER_1] = water1Info;
 
-    TextureInfo water2Info;
+    BlockInfo water2Info;
     water2Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water2.png";
     water2Info.animType = TextureAnimationType::ANIMATED;
     water2Info.animationSpeed = 20.0f; // Example speed, adjust as needed
@@ -121,7 +121,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     water2Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
     textureConfigs[TextureName::WATER_2] = water2Info;
 
-    TextureInfo water3Info;
+    BlockInfo water3Info;
     water3Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water3.png";
     water3Info.animType = TextureAnimationType::ANIMATED;
     water3Info.animationSpeed = 20.0f; // Example speed, adjust as needed
@@ -129,7 +129,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     water3Info.animationStartRandomFrame = true; // Enable random start frame
     textureConfigs[TextureName::WATER_3] = water3Info;
 
-    TextureInfo water4Info;
+    BlockInfo water4Info;
     water4Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water4.png";
     water4Info.animType = TextureAnimationType::ANIMATED;
     water4Info.animationSpeed = 20.0f; // Example speed, adjust as needed
@@ -143,7 +143,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
 
     for (auto it = textureConfigs.begin(); it != textureConfigs.end(); ++it) { // Changed to iterator loop
         TextureName name = it->first;
-        TextureInfo& info = it->second; // Get a reference to modify
+        BlockInfo& info = it->second; // Get a reference to modify
 
         std::cout << "Attempting to load texture for type " << static_cast<int>(name) << " from: " << info.path << std::endl;
         std::ifstream testFile(info.path.c_str());
@@ -253,7 +253,7 @@ void Map::placeBlock(TextureName name, int x, int y) {
     // Initialize currentFrame for the block
     auto it = textureDetails.find(name);
     if (it != textureDetails.end()) {
-        const TextureInfo& texInfo = it->second;
+        const BlockInfo& texInfo = it->second;
         if (texInfo.animType == TextureAnimationType::ANIMATED && texInfo.animationStartRandomFrame && texInfo.frameCount > 0) {
             // Generate a random starting frame for this block instance
             newBlock.currentFrame = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / texInfo.frameCount));
@@ -307,7 +307,7 @@ void Map::placeBlocks(const std::map<std::pair<int, int>, TextureName>& blocksTo
                 // Reset animation parameters
                 auto texIt = textureDetails.find(name);
                 if (texIt != textureDetails.end()) {
-                    const TextureInfo& texInfo = texIt->second;
+                    const BlockInfo& texInfo = texIt->second;
                     if (texInfo.animType == TextureAnimationType::ANIMATED && texInfo.animationStartRandomFrame && texInfo.frameCount > 0) {
                         block.currentFrame = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / texInfo.frameCount));
                         if (block.currentFrame >= texInfo.frameCount) {
@@ -335,7 +335,7 @@ void Map::placeBlocks(const std::map<std::pair<int, int>, TextureName>& blocksTo
             // Initialize animation parameters
             auto texIt = textureDetails.find(name);
             if (texIt != textureDetails.end()) {
-                const TextureInfo& texInfo = texIt->second;
+                const BlockInfo& texInfo = texIt->second;
                 if (texInfo.animType == TextureAnimationType::ANIMATED && texInfo.animationStartRandomFrame && texInfo.frameCount > 0) {
                     newBlock.currentFrame = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / texInfo.frameCount));
                     if (newBlock.currentFrame >= texInfo.frameCount) {
@@ -424,7 +424,7 @@ void Map::drawBlocks(float startX, float endX, float startY, float endY, float c
         if (it == textureDetails.end()) {
             std::cerr << "Texture details not found for block type " << static_cast<int>(block.name) << std::endl;
             continue;
-        }        const TextureInfo& texInfo = it->second; // New: Read-only for shared info
+        }        const BlockInfo& texInfo = it->second; // New: Read-only for shared info
         Block& currentBlock = block; // Get reference to the current block instance
         
         // Convert block world coordinates to screen coordinates based on the camera view

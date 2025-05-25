@@ -478,7 +478,7 @@ int main() {
     elementsManager.placeElement("bush47",ElementTextureName::COCONUT_TREE_1,10.0f,39,49,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush48",ElementTextureName::COCONUT_TREE_1,10.0f,39,50,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f); */
 
-    elementsManager.placeElement("bush40",ElementTextureName::COCONUT_TREE_1,10.0f,11,42,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
+    /* elementsManager.placeElement("bush40",ElementTextureName::COCONUT_TREE_1,10.0f,11,42,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush41",ElementTextureName::COCONUT_TREE_1,10.0f,11,43,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush42",ElementTextureName::COCONUT_TREE_1,10.0f,11,44,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush43",ElementTextureName::COCONUT_TREE_1,10.0f,11,45,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
@@ -487,7 +487,7 @@ int main() {
     elementsManager.placeElement("bush46",ElementTextureName::COCONUT_TREE_1,10.0f,11,48,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush47",ElementTextureName::COCONUT_TREE_1,10.0f,11,49,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush48",ElementTextureName::COCONUT_TREE_1,10.0f,11,50,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
-
+ */
 
 
     gameMap.placeBlockArea(TextureName::WATER_3, 0, 35, 50, 35); // Place a water block at (0, 0)

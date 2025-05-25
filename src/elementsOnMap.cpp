@@ -11,16 +11,16 @@
 ElementsOnMap elementsManager;
 
 // Define textures to load - using C++11 compatible initialization syntax
-static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
-    std::vector<ElementTextureInfo> textures;
+static std::vector<ElementInfo> createElementTexturesToLoad() {
+    std::vector<ElementInfo> textures;
       // Static texture for test/grass
-    ElementTextureInfo testTexture;
+    ElementInfo testTexture;
     testTexture.name = ElementTextureName::TEST;
     testTexture.path = "C:\\\\Users\\\\famillebraudel\\\\Documents\\\\Developpement\\\\getout - Copie (9)\\\\assets\\\\textures\\\\blocks\\\\grass.png";
     testTexture.type = ElementTextureType::STATIC;
     testTexture.anchorPoint = AnchorPoint::CENTER; // Default center anchor
     textures.push_back(testTexture);    // Static texture for coconut tree 1
-    ElementTextureInfo coconutTree1Texture;
+    ElementInfo coconutTree1Texture;
     coconutTree1Texture.name = ElementTextureName::COCONUT_TREE_1;
     coconutTree1Texture.path = "C:\\\\Users\\\\famillebraudel\\\\Documents\\\\Developpement\\\\getout - Copie (9)\\\\assets\\\\textures\\\\decorations\\\\coconut_tree_1.png";
     coconutTree1Texture.type = ElementTextureType::STATIC;
@@ -36,7 +36,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     coconutTree1Texture.collisionShapePoints = {
         {-0.07f, 0.0f}, {-0.07f, 0.1}, {0.07f, 0.1f}, {0.07f, 0.0f}
     };
-    textures.push_back(coconutTree1Texture);    ElementTextureInfo coconutTree2Texture;
+    textures.push_back(coconutTree1Texture);    ElementInfo coconutTree2Texture;
     coconutTree2Texture.name = ElementTextureName::COCONUT_TREE_2;
     coconutTree2Texture.path = "C:\\\\Users\\\\famillebraudel\\\\Documents\\\\Developpement\\\\getout - Copie (9)\\\\assets\\\\textures\\\\decorations\\\\coconut_tree_2.png";
     coconutTree2Texture.type = ElementTextureType::STATIC;
@@ -47,7 +47,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     coconutTree2Texture.collisionShapePoints = {
         {-0.07f, 0.0f}, {-0.07f, 0.1}, {0.07f, 0.1f}, {0.07f, 0.0f}
     };
-    textures.push_back(coconutTree2Texture);    ElementTextureInfo coconutTree3Texture;
+    textures.push_back(coconutTree2Texture);    ElementInfo coconutTree3Texture;
     coconutTree3Texture.name = ElementTextureName::COCONUT_TREE_3;
     coconutTree3Texture.path = "C:\\\\Users\\\\famillebraudel\\\\Documents\\\\Developpement\\\\getout - Copie (9)\\\\assets\\\\textures\\\\decorations\\\\coconut_tree_3.png";
     coconutTree3Texture.type = ElementTextureType::STATIC;    coconutTree3Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
@@ -59,7 +59,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     };
     textures.push_back(coconutTree3Texture);
       // Sprite sheet texture for character
-    ElementTextureInfo characterTexture;
+    ElementInfo characterTexture;
     characterTexture.name = ElementTextureName::CHARACTER1;
     characterTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\entities\\player.png";
     characterTexture.type = ElementTextureType::SPRITESHEET;
@@ -70,7 +70,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
     characterTexture.hasCollision = false; // Enable collision for player
     textures.push_back(characterTexture);
 
-    ElementTextureInfo antagonistTexture;
+    ElementInfo antagonistTexture;
     antagonistTexture.name = ElementTextureName::ANTAGONIST1;
     antagonistTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\entities\\player3.png";
     antagonistTexture.type = ElementTextureType::SPRITESHEET;
@@ -87,7 +87,7 @@ static std::vector<ElementTextureInfo> createElementTexturesToLoad() {
 }
 
 // Create textures vector using the function
-static const std::vector<ElementTextureInfo> elementTexturesToLoad = createElementTexturesToLoad();
+static const std::vector<ElementInfo> elementTexturesToLoad = createElementTexturesToLoad();
 
 ElementsOnMap::ElementsOnMap() {
     // Constructor - elementIndexMap initialized implicitly
@@ -111,7 +111,7 @@ bool ElementsOnMap::init(glbasimac::GLBI_Engine& engine) {
     
     for (auto texInfo : elementTexturesToLoad) { // Copy to modify
         // Create a mutable copy of the texture info
-        ElementTextureInfo textureDetails = texInfo;
+        ElementInfo textureDetails = texInfo;
         
         // Load the texture and get dimensions
         int width, height;

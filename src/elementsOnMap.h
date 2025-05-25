@@ -37,7 +37,7 @@ enum class AnchorPoint {
 };
 
 // Struct to hold texture information
-struct ElementTextureInfo {
+struct ElementInfo {
     ElementTextureName name;
     std::string path;
     ElementTextureType type = ElementTextureType::STATIC; // Type of texture (static or spritesheet)

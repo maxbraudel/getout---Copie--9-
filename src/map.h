@@ -43,7 +43,7 @@ enum class TextureAnimationType {
 };
 
 // Struct to hold all details for a texture
-struct TextureInfo {
+struct BlockInfo {
     std::string path;
     TextureAnimationType animType = TextureAnimationType::STATIC;
     bool animationStartRandomFrame = false; // Added for random start frame
@@ -94,7 +94,7 @@ private:
     };
 
     std::vector<Block> blocks;
-    std::map<TextureName, TextureInfo> textureDetails; // Stores detailed info for each texture
+    std::map<TextureName, BlockInfo> textureDetails; // Stores detailed info for each texture
     std::map<std::pair<int, int>, size_t> blockPositionMap; // Maps coordinates to block index for faster lookups
     glbasimac::GLBI_Engine* enginePtr;
 };
