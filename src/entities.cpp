@@ -44,15 +44,15 @@ static void initializeEntityTypes() {
     // For testing: Leave lists empty to allow movement through all elements
     antagonist.avoidanceElements = {
         // Empty - no elements to avoid for pathfinding
-        /* ElementTextureName::COCONUT_TREE_1,
+        ElementTextureName::COCONUT_TREE_1,
         ElementTextureName::COCONUT_TREE_2,
-        ElementTextureName::COCONUT_TREE_2, */
+        ElementTextureName::COCONUT_TREE_2,
     };
     antagonist.collisionElements = {
         // Empty - no elements to collide with during movement
-        /* ElementTextureName::COCONUT_TREE_1,
+        ElementTextureName::COCONUT_TREE_1,
         ElementTextureName::COCONUT_TREE_2,
-        ElementTextureName::COCONUT_TREE_2, */
+        ElementTextureName::COCONUT_TREE_2,
     };
       
     // Add to the list
@@ -91,6 +91,10 @@ static void initializeEntityTypes() {
     };
     player.collisionElements = {
         // Empty - no elements to collide with during movement
+        // Empty - no elements to avoid for pathfinding
+        ElementTextureName::COCONUT_TREE_1,
+        ElementTextureName::COCONUT_TREE_2,
+        ElementTextureName::COCONUT_TREE_2,
         
     };
       
@@ -176,27 +180,12 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
     if (!config) {
         std::cerr << "Entity configuration not found: " << typeName << std::endl;
         return false;
-    }
-      // Check for a safe starting position if this entity type has collisions enabled
+    }      // COLLISION RESOLUTION MECHANISMS DISABLED
+    // Entities will no longer be automatically moved to "safe positions" during placement
     float safeX = x;
     float safeY = y;
     bool needsSafePosition = false;
-      if (config->canCollide) {
-        // Check if the target position is in a collision area (check collision elements only)
-        if (wouldEntityCollideWithElementsGranular(*config, safeX, safeY, false)) {
-            needsSafePosition = true;
-            // Try to find a safe position nearby
-            if (!findSafePosition(safeX, safeY, config->collisionRadius, gameMap)) {
-                std::cerr << "WARNING: Could not find a safe starting position for entity near (" 
-                        << x << ", " << y << "). Proceeding with original position." << std::endl;
-                safeX = x;
-                safeY = y;
-            } else {
-                std::cout << "Adjusted entity position from (" << x << ", " << y 
-                        << ") to (" << safeX << ", " << safeY << ") to avoid collisions." << std::endl;
-            }
-        }
-    }
+    // Safe position checking removed - entities will be placed at requested coordinates
     
     // Generate the element name
     std::string elementName = getElementName(instanceName);
@@ -211,7 +200,7 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
         elementName,
         config->textureName,
         config->scale,
-        safeX, safeY,  // Use the potentially adjusted safe position
+        safeX, safeY,  // Use the requested position (no automatic adjustment)
         0.0f,  // rotation
         config->defaultSpriteSheetPhase,
         config->defaultSpriteSheetFrame,
@@ -222,10 +211,10 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
     
     // Add the entity to our entities map
     entities[instanceName] = entity;
-    
-    if (needsSafePosition && safeX != x && safeY != y) {
-        std::cout << "Entity " << instanceName << " created at safe position (" << safeX << "," << safeY 
-                << ") instead of requested (" << x << "," << y << ")" << std::endl;
+      if (needsSafePosition && safeX != x && safeY != y) {
+        // This block should never execute since safe position checking is disabled
+        std::cout << "Entity " << instanceName << " created at requested position (" << safeX << "," << safeY 
+                << ") - safe position adjustment disabled" << std::endl;
     } else {
         std::cout << "Placed entity: " << instanceName << " (type: " << typeName << ") at (" 
                 << safeX << ", " << safeY << ")" << std::endl;
@@ -484,8 +473,9 @@ bool EntitiesManager::changeEntityWalkingState(const std::string& instanceName, 
 }
 
 void EntitiesManager::update(double deltaTime) {
-    // First, ensure all entities are not stuck in collision areas
-    ensureAllEntitiesNotStuck();
+    // COLLISION RESOLUTION MECHANISMS DISABLED
+    // Stuck entity checking removed - entities will no longer be automatically repositioned
+    // ensureAllEntitiesNotStuck(); // DISABLED
     
     // Update all walking entities
     for (auto& pair : entities) {
@@ -900,25 +890,26 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                             }
                             std::cout << std::endl;
                         }                    }
+                      // COLLISION RESOLUTION MECHANISMS DISABLED
+                    // Entities will no longer be automatically moved to "safe positions" when stuck
+                    // Try to find a safe position first before recalculating - DISABLED
+                    // float safeX = currentActualX;
+                    // float safeY = currentActualY;
+                    // float safetyBuffer = 0.3f;
+                    // float safeRadius = config.collisionRadius + safetyBuffer;                      // COLLISION RESOLUTION MECHANISMS DISABLED
+                    // Safe position teleportation removed - entities will remain in current position
+                    // bool foundSafePos = findSafePosition(safeX, safeY, safeRadius, gameMap);
                     
-                    // Try to find a safe position first before recalculating
-                    float safeX = currentActualX;
-                    float safeY = currentActualY;
-                    float safetyBuffer = 0.3f;
-                    float safeRadius = config.collisionRadius + safetyBuffer;
-                      // Try with the simpler find safe position function
-                    bool foundSafePos = findSafePosition(safeX, safeY, safeRadius, gameMap);
-                    
-                    if (foundSafePos) {
-                        // Found a safe position, teleport there
-                        elementsManager.changeElementCoordinates(elementName, safeX, safeY);
-                        std::cout << "Found safe position at (" << safeX << ", " << safeY 
-                                  << "), moving entity there before recalculating path" << std::endl;
-                        
-                        // Update current position
-                        currentActualX = safeX;
-                        currentActualY = safeY;
-                    }
+                    // if (foundSafePos) {
+                    //     // Found a safe position, teleport there
+                    //     elementsManager.changeElementCoordinates(elementName, safeX, safeY);
+                    //     std::cout << "Found safe position at (" << safeX << ", " << safeY 
+                    //               << "), moving entity there before recalculating path" << std::endl;
+                    //     
+                    //     // Update current position
+                    //     currentActualX = safeX;
+                    //     currentActualY = safeY;
+                    // }
                     
                     // Get current position (which might have been updated)
                     float curX, curY;
@@ -967,45 +958,49 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                             // Make sure we're moving next frame
                             canMove = true;
                             return; // Skip the rest of this update cycle, we'll calculate movement next frame
-                        } else {
-                            // No path found, try with an alternative approach
+                        } else {                            // COLLISION RESOLUTION MECHANISMS DISABLED
+                            // Safe position finding near target removed - entities will use original target
+                            // No path found, try with an alternative approach - DISABLED
                             // Find a safe position near the target first
-                            float safeTargetX = entity.targetX;
-                            float safeTargetY = entity.targetY;                            // Try to find a safe position near the target
-                            if (findSafePosition(safeTargetX, safeTargetY, pathPlanningRadius, gameMap)) {                                // Found a safe position near the target, try pathfinding to it
-                                newPath = findPath(
-                                    curX, curY,
-                                    safeTargetX, safeTargetY,
-                                    gameMap,
-                                    config
-                                );
+                            // float safeTargetX = entity.targetX;
+                            // float safeTargetY = entity.targetY;
+
+                            // Try to find a safe position near the target - DISABLED
+                            // if (findSafePosition(safeTargetX, safeTargetY, pathPlanningRadius, gameMap)) {                                // COLLISION RESOLUTION MECHANISMS DISABLED
+                                // Found a safe position near the target, try pathfinding to it - DISABLED
+                                // newPath = findPath(
+                                //     curX, curY,
+                                //     safeTargetX, safeTargetY,
+                                //     gameMap,
+                                //     config
+                                // );
                                 
-                                if (!newPath.empty()) {
-                                    // Found a path to the safe target position
-                                    entity.path = newPath;
-                                    entity.currentPathIndex = 0;
-                                    entity.targetX = safeTargetX;
-                                    entity.targetY = safeTargetY;
-                                    std::cout << "Found path to safe target with " << newPath.size() << " waypoints" << std::endl;
-                                    
-                                    // Update direction
-                                    if (entity.path.size() > 0) {
-                                        float nextX = entity.path[0].first;
-                                                                                float nextY = entity.path[0].second;
-                                        float dirX = nextX - curX;
-                                        float dirY = nextY - curY;
-                                        
-                                        // Update direction and sprite
-                                        // This call was missing arguments
-                                        // updateDirectionAndSprite(dirX, dirY);
-                                        // Sprite for pathfinding is set by handleWaypointArrival
-                                    }
-                                    
-                                    // Make sure we're moving next frame
-                                    canMove = true;
-                                    return; // Skip the rest of this update cycle
-                                }
-                            }
+                                // if (!newPath.empty()) {
+                                //     // Found a path to the safe target position
+                                //     entity.path = newPath;
+                                //     entity.currentPathIndex = 0;
+                                //     entity.targetX = safeTargetX;
+                                //     entity.targetY = safeTargetY;
+                                //     std::cout << "Found path to safe target with " << newPath.size() << " waypoints" << std::endl;
+                                //     
+                                //     // Update direction
+                                //     if (entity.path.size() > 0) {
+                                //         float nextX = entity.path[0].first;
+                                //                                         float nextY = entity.path[0].second;
+                                //         float dirX = nextX - curX;
+                                //         float dirY = nextY - curY;
+                                //         
+                                //         // Update direction and sprite
+                                //         // This call was missing arguments
+                                //         // updateDirectionAndSprite(dirX, dirY);
+                                //         // Sprite for pathfinding is set by handleWaypointArrival
+                                //     }
+                                //     
+                                //     // Make sure we're moving next frame
+                                //     canMove = true;
+                                //     return; // Skip the rest of this update cycle
+                                // }
+                            // }
                         }
                     }
                     // If no path found or not using pathfinding, just stop and try again next frame
@@ -1037,7 +1032,8 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         // This call was missing arguments
         // updateDirectionAndSprite(dx, dy);
         // For pathfinding, sprite is set by handleWaypointArrival. For direct, it was set earlier.
-        // If it's a direct movement and we are here, it means the initial check passed, but findSafePosition failed or wasn't used.
+        // If it's a direct movement and we are here, it means collision was detected
+        // COLLISION RESOLUTION DISABLED - findSafePosition no longer used
         // The sprite direction should reflect the intended dx, dy if not using pathfinding.
         if (!entity.usePathfinding) {
             updateDirectionAndSprite(entity, elementName, config, dx, dy);
@@ -1192,28 +1188,12 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
     
     // Get the element name
     std::string elementName = getElementName(instanceName);
-    
-    // Check for a safe teleport position if this entity type has collisions enabled
+      // COLLISION RESOLUTION MECHANISMS DISABLED  
+    // Entities will no longer be automatically moved to "safe positions" during teleportation
     float safeX = x;
     float safeY = y;
     bool needsSafePosition = false;
-    
-    if (config->canCollide) {
-        // Check if the target position is in a collision area (check collision elements only)
-        if (wouldEntityCollideWithElementsGranular(*config, safeX, safeY, false)) {
-            needsSafePosition = true;
-            // Try to find a safe position nearby
-            if (!findSafePosition(safeX, safeY, config->collisionRadius, gameMap)) {
-                std::cerr << "WARNING: Could not find a safe teleport position for entity near (" 
-                        << x << ", " << y << "). Proceeding with original position." << std::endl;
-                safeX = x;
-                safeY = y;
-            } else {
-                std::cout << "Adjusted teleport position from (" << x << ", " << y 
-                        << ") to (" << safeX << ", " << safeY << ") to avoid collisions." << std::endl;
-            }
-        }
-    }
+    // Safe position checking removed - entities will be teleported to requested coordinates
     
     // Stop any current walking
     entity->isWalking = false;
@@ -1238,56 +1218,15 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
     return true;
 }
 
-// Function to ensure no entities are stuck in collision areas
+// Collision resolution functions removed - entities will no longer be automatically moved
+// Function to ensure no entities are stuck in collision areas (DISABLED)
 bool EntitiesManager::ensureEntityNotStuck(const std::string& instanceName) {
-    // Get the entity
-    Entity* entity = getEntity(instanceName);
-    if (!entity) {
-        return false; // Entity doesn't exist
-    }
-    
-    // Get the configuration
-    const EntityConfiguration* config = getConfiguration(entity->typeName);
-    if (!config || !config->canCollide) {
-        return true; // Entity doesn't have collision or doesn't exist
-    }
-    
-    // Get the element name and current position
-    std::string elementName = getElementName(instanceName);
-    float currentX, currentY;
-    if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
-        return false; // Can't get position
-    }
-    
-    // Check if entity is in a collision state (check collision elements only)
-    bool hasCollision = wouldEntityCollideWithElementsGranular(*config, currentX, currentY, false);
-    
-    if (hasCollision) {
-        // Entity is stuck, try to find a safe position
-        float safeX = currentX;
-        float safeY = currentY;
-          if (findSafePosition(safeX, safeY, config->collisionRadius, gameMap)) {
-            // Move entity to safe position
-            elementsManager.changeElementCoordinates(elementName, safeX, safeY);
-            std::cout << "Moved stuck entity " << instanceName << " from (" << currentX << ", " << currentY 
-                      << ") to (" << safeX << ", " << safeY << ")" << std::endl;
-            return true;
-        } else {
-            std::cerr << "WARNING: Could not find safe position for stuck entity " << instanceName 
-                      << " at (" << currentX << ", " << currentY << ")" << std::endl;
-            return false;
-        }
-    }
-    
-    return true; // Entity is not stuck
+    return true; // Always return true - no automatic position adjustment
 }
 
-// Function to check if all entities are in safe positions, moving them if needed
+// Function to check if all entities are in safe positions (DISABLED)
 void EntitiesManager::ensureAllEntitiesNotStuck() {
-    for (const auto& pair : entities) {
-        const std::string& instanceName = pair.first;
-        ensureEntityNotStuck(instanceName);
-    }
+    // Do nothing - collision resolution mechanisms disabled
 }
 
 // Handle waypoint arrival - added to improve movement precision

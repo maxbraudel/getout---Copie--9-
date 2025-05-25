@@ -26,9 +26,9 @@ void setPlayerAnimationState(bool isAnimating);
 // Function to toggle player debug mode - shows grid position
 void togglePlayerDebugMode();
 
-// Function to ensure player is not stuck in any collision areas
-// Should be called at the beginning of each game frame
-// Returns true if player position was adjusted
+// Function to ensure player is not stuck in any collision areas (DISABLED)
+// Collision resolution mechanisms removed - players will no longer be automatically moved
+// Returns false - no automatic position adjustment
 bool ensurePlayerNotStuck(const Map& gameMap);
 
 #endif // PLAYER_H

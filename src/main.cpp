@@ -527,34 +527,15 @@ int main() {
       		// First check if the player exists before processing movements
 		float playerX, playerY;
 		bool playerExists = elementsManager.getElementPosition("player1", playerX, playerY);
-		
-		if (!playerExists) {
+				if (!playerExists) {
 			std::cerr << "WARNING: Player doesn't exist in movement processing! Listing elements:" << std::endl;
 			elementsManager.listElements();
 			std::cerr << "Creating new player since the original one is missing..." << std::endl;
 			// createPlayer(10.0f, 10.0f);
 			playerExists = true;
 		}
-						// Safety check - make sure the player is never stuck in collision areas
-		// This is important in case the player somehow ends up in a collision area
-		// Throttled to only check periodically to avoid performance impact
-		if (playerExists) {
-			static float lastCollisionCheckTime = 0.0f;
-			// Reduced frequency: check for collisions every 3.0 seconds instead of 1.0
-			if (currentTime - lastCollisionCheckTime > 3.0f) {
-				// Run the collision check to ensure player isn't stuck
-				lastCollisionCheckTime = currentTime;
-				
-				if (ensurePlayerNotStuck(gameMap)) {
-					// If position was adjusted, get the new position for debug info
-					getPlayerPosition(playerX, playerY);
-					std::cout << "Player position adjusted to safe position: (" << playerX << ", " << playerY << ")" << std::endl;
-				}
-				
-				// We don't need to check entities here as they're already checked in entitiesManager.update()
-				// entitiesManager.ensureAllEntitiesNotStuck();
-			}
-		}
+		// COLLISION RESOLUTION MECHANISMS REMOVED
+		// Players and entities will no longer be automatically moved to "safe positions"
 		// Apply speed based on whether shift is held
 		float currentSpeed = 0.0f;
 		

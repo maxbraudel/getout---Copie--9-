@@ -195,13 +195,7 @@ public:
     
     // Update all entities (called once per frame)
     void update(double deltaTime);
-    
-    // Function to ensure no entities are stuck in collision areas
-    // Should be called at the beginning of each game frame
-    bool ensureEntityNotStuck(const std::string& instanceName);
-    
-    // Function to check if all entities are in safe positions, moving them if needed
-    void ensureAllEntitiesNotStuck();
+      // Collision resolution functions removed - entities will no longer be automatically moved
 
     // Draw debug paths for all entities
     void drawDebugPaths(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop);    // Draw debug collision radii for all entities
@@ -213,11 +207,15 @@ private:
     
     // Get the next waypoint from the entity's path
     bool getNextPathWaypoint(Entity& entity, float& nextX, float& nextY);
-    
-    // Update entity walking (internal method)
+      // Update entity walking (internal method)
     void updateEntityWalking(Entity& entity, const EntityConfiguration& config, double deltaTime);
       // Handle waypoint arrival - added to improve movement precision
     bool handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY);
+    
+    // COLLISION RESOLUTION FUNCTIONS (DISABLED)
+    // These functions are disabled but declarations kept for compatibility
+    bool ensureEntityNotStuck(const std::string& instanceName);
+    void ensureAllEntitiesNotStuck();
 };
 
 // Function to check entity collision with elements (uses collision shape points if available, otherwise fallback to radius)

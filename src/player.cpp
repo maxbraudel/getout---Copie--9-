@@ -20,8 +20,9 @@ static const std::string PLAYER_INSTANCE_NAME = "player1";
 
 // Create a player character at the specified position using the entity system
 void createPlayer(float x, float y) {
-    // Use the entity system to create the player
-    // The entity system will handle collision checking, safe positioning, and all configuration
+    // COLLISION RESOLUTION MECHANISMS DISABLED
+    // Use the entity system to create the player at the exact requested coordinates
+    // No automatic safe positioning - player will be placed exactly where requested
     bool success = entitiesManager.placeEntity(PLAYER_INSTANCE_NAME, "player", x, y);
     
     if (success) {
@@ -78,97 +79,21 @@ void movePlayer(float deltaX, float deltaY) {
     const EntityConfiguration* config = getPlayerConfig();
     if (!config) {
         std::cerr << "ERROR: Cannot move player - player configuration not found!" << std::endl;
-        return;
-    }      // Entity collision detection now uses polygon shapes only
-
+        return;    }
+    
+    // Entity collision detection now uses polygon shapes only
     float x, y;
     if (!elementsManager.getElementPosition("player1", x, y)) {
         std::cerr << "ERROR: Cannot move player - player1 does not exist!" << std::endl;
         std::cout << "Current elements in the system:" << std::endl;
         elementsManager.listElements();
         return;
-    }      // First, check if the player is already in a collision state and try to fix it
-    // This handles the case where the player somehow got stuck in a collision area
-    float currentX = x;
-    float currentY = y;
-    bool wasStuck = false;    // Try to find a safe position for the player if they're currently stuck
-    if (wouldEntityCollideWithElement(*config, currentX, currentY)) {
-        wasStuck = findSafePosition(currentX, currentY, config->collisionRadius, gameMap);
-        
-        if (wasStuck) {
-            // Player was stuck and we found a safe position, teleport them there
-            elementsManager.changeElementCoordinates("player1", currentX, currentY);
-            if (playerDebugMode) {
-                std::cout << "Player was stuck in collision, moved to safe position: (" 
-                          << currentX << ", " << currentY << ")" << std::endl;
-            }
-            x = currentX;
-            y = currentY;
-        }else {
-            // Failed to find a safe position - try with a larger radius search
-            // This is a more aggressive attempt to get the player unstuck
-            std::cout << "WARNING: Player is stuck in collision and standard recovery failed." << std::endl;
-            std::cout << "Attempting emergency teleport to find a safe location..." << std::endl;
-            
-            // Scan the entire map if needed to find a safe position
-            // Try first at logical starting points like (10,10) and then expand search
-            
-            // Start with potential safe locations rather than just the center
-            std::vector<std::pair<float, float>> safeLocations = {
-                {10.0f, 10.0f},  // Center area
-                {20.0f, 20.0f},  // Another likely safe spot
-                {15.0f, 15.0f},  // Another region
-                {5.0f, 5.0f}     // Near the start
-            };
-            
-            bool foundSafe = false;
-            for (const auto& location : safeLocations) {
-                currentX = location.first;
-                currentY = location.second;                // Make sure this location is actually safe
-                if (!wouldEntityCollideWithElement(*config, currentX, currentY)) {
-                    elementsManager.changeElementCoordinates("player1", currentX, currentY);
-                    std::cout << "Player emergency teleported to (" << currentX << ", " << currentY << ")" << std::endl;
-                    x = currentX;
-                    y = currentY;
-                    wasStuck = true;
-                    foundSafe = true;
-                    break;
-                }
-            }
-            
-            // If still stuck, use a grid search over large areas of the map
-            if (!foundSafe) {
-                std::cout << "Initial safe locations failed, scanning map grid..." << std::endl;
-                
-                // Grid search with larger step size for efficiency
-                for (int gridX = 0; gridX < GRID_SIZE && !foundSafe; gridX += 5) {
-                    for (int gridY = 0; gridY < GRID_SIZE && !foundSafe; gridY += 5) {
-                        // Center of the block
-                        currentX = gridX + 0.5f;
-                        currentY = gridY + 0.5f;                        // Check if position is safe
-                        if (!wouldEntityCollideWithElement(*config, currentX, currentY)) {
-                            // Found a safe position
-                            elementsManager.changeElementCoordinates("player1", currentX, currentY);
-                            std::cout << "Player emergency teleported to (" << currentX << ", " << currentY << ")" << std::endl;
-                            x = currentX;
-                            y = currentY;
-                            wasStuck = true;
-                            foundSafe = true;
-                        }
-                    }
-                }
-            }
-            
-            // If for some extreme reason all failed, force the player to a position and disable collisions temporarily
-            if (!foundSafe) {
-                std::cout << "CRITICAL: All safe position searches failed! Forcing player to center of map." << std::endl;
-                elementsManager.changeElementCoordinates("player1", 10.0f, 10.0f);
-                x = 10.0f;
-                y = 10.0f;
-                wasStuck = true;
-            }
-        }
-    }      // Calculate the new position after potential unstuck operation
+    }
+
+    // COLLISION RESOLUTION MECHANISMS REMOVED
+    // Players will no longer be automatically moved to "safe positions" when stuck
+    
+    // Calculate the new position
     float newX = x + deltaX;
     float newY = y + deltaY;    // Check if the combined movement would collide with any collidable element
     bool collisionWithElement = wouldEntityCollideWithElementsGranular(*config, newX, newY, false);
@@ -307,15 +232,9 @@ void togglePlayerDebugMode() {
     std::cout << "Player debug mode " << (playerDebugMode ? "enabled" : "disabled") << std::endl;
 }
 
-// Function to ensure player is not stuck using entity system
+// Function to ensure player is not stuck using entity system (DISABLED)
 bool ensurePlayerNotStuck(const Map& gameMap) {
-    // Get the player entity configuration to use correct collision settings
-    const EntityConfiguration* playerConfig = getPlayerConfig();
-    if (!playerConfig) {
-        std::cerr << "ERROR: Cannot ensure player not stuck - player configuration not found!" << std::endl;
-        return false;
-    }
-    
-    // Delegate to the entity system's collision checking
-    return entitiesManager.ensureEntityNotStuck(PLAYER_INSTANCE_NAME);
+    // COLLISION RESOLUTION MECHANISMS DISABLED
+    // Players will no longer be automatically moved to "safe positions"
+    return false; // Always return false - no automatic position adjustment
 }

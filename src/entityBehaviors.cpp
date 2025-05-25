@@ -2,7 +2,7 @@
 #include "entities.h"
 #include "globals.h" // For GRID_SIZE
 #include "map.h" // For accessing block types
-#include "collision.h" // For wouldCollideWithElement and findSafePosition
+#include "collision.h" // For wouldCollideWithElement (findSafePosition disabled)
 #include <iostream>
 #include <cmath>
 #include <algorithm>
@@ -316,48 +316,51 @@ void EntityBehaviorManager::antagonistBehavior(EntityBehaviorState& state, float
         if (manager.getRandomPositionNearOnBlockTypes(state.instanceName, newTargetX, newTargetY, 10.0f)) {
             // Set the new target
             state.targetX = newTargetX;
-            state.targetY = newTargetY;              // Check if target position has element collisions using the expanded radius
-            if (wouldCollideWithElement(state.targetX, state.targetY, pathPlanningRadius)) {
-                
-                // If collision detected, try to find a position nearby that doesn't have collisions
-                float safeX = state.targetX;
-                float safeY = state.targetY;
-                  // Try to find a safe position using our enhanced collision detection radius
-                if (!findSafePosition(safeX, safeY, pathPlanningRadius, gameMap)) {
+            state.targetY = newTargetY;              // COLLISION RESOLUTION MECHANISMS DISABLED
+            // Safe position finding removed - entities will use original target coordinates
+            // Check if target position has element collisions using the expanded radius - DISABLED
+            // if (wouldCollideWithElement(state.targetX, state.targetY, pathPlanningRadius)) {                
+                // COLLISION RESOLUTION MECHANISMS DISABLED
+                // If collision detected, try to find a position nearby that doesn't have collisions - DISABLED
+                // float safeX = state.targetX;
+                // float safeY = state.targetY;
+                  // Try to find a safe position using our enhanced collision detection radius - DISABLED
+                // if (!findSafePosition(safeX, safeY, pathPlanningRadius, gameMap)) {
                     // If we couldn't find a safe position, try again with a different random position
-                    // and a smaller radius to search closer to the entity
-                    bool foundSafePos = false;
+                    // and a smaller radius to search closer to the entity - DISABLED
+                    // bool foundSafePos = false;
                     
-                    // Try three different random positions with different radii
-                    for (float tryRadius = 8.0f; tryRadius >= 4.0f && !foundSafePos; tryRadius -= 2.0f) {
-                        if (manager.getRandomPositionNearOnBlockTypes(state.instanceName, safeX, safeY, tryRadius)) {                            // Verify this new position is actually safe
-                            if (!wouldCollideWithElement(safeX, safeY, pathPlanningRadius)) {
-                                state.targetX = safeX;
-                                state.targetY = safeY;
-                                foundSafePos = true;
-                                
-                                std::cout << "Entity " << state.instanceName << " found safe position at reduced radius " 
-                                          << tryRadius << std::endl;
-                            }
-                        }
-                    }
+                    // Try three different random positions with different radii - DISABLED
+                    // for (float tryRadius = 8.0f; tryRadius >= 4.0f && !foundSafePos; tryRadius -= 2.0f) {
+                    //     if (manager.getRandomPositionNearOnBlockTypes(state.instanceName, safeX, safeY, tryRadius)) {
+                    //         // Verify this new position is actually safe
+                    //         if (!wouldCollideWithElement(safeX, safeY, pathPlanningRadius)) {
+                    //             state.targetX = safeX;
+                    //             state.targetY = safeY;
+                    //             foundSafePos = true;
+                    //             
+                    //             std::cout << "Entity " << state.instanceName << " found safe position at reduced radius " 
+                    //                       << tryRadius << std::endl;
+                    //         }
+                    //     }
+                    // }
                     
-                    // If all attempts failed, don't move the entity this time
-                    if (!foundSafePos) {
+                    // If all attempts failed, don't move the entity this time - DISABLED
+                    // if (!foundSafePos) {
                         // Reset the action timer but with a shorter delay before next attempt
-                        state.lastActionTime = currentTime;
-                        state.nextActionDelay = manager.getRandomDelay(1.0f, 3.0f); // Shorter delay before trying again
+                        // state.lastActionTime = currentTime;
+                        // state.nextActionDelay = manager.getRandomDelay(1.0f, 3.0f); // Shorter delay before trying again
                         
-                        std::cout << "Entity " << state.instanceName << " couldn't find safe position, will try again in " 
-                                  << state.nextActionDelay << " seconds" << std::endl;
-                        return;
-                    }
-                } else {
+                        // std::cout << "Entity " << state.instanceName << " couldn't find safe position, will try again in " 
+                        //           << state.nextActionDelay << " seconds" << std::endl;
+                        // return;
+                    // }
+                // } else {
                     // Use the adjusted safe position
-                    state.targetX = safeX;
-                    state.targetY = safeY;
-                }
-            }
+                    // state.targetX = safeX;
+                    // state.targetY = safeY;
+                // }
+            // }
               // Move the entity to the new target, interrupting any current movement
             manager.moveEntityTo(state.instanceName, state.targetX, state.targetY);
             
