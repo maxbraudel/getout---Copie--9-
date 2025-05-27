@@ -1,5 +1,6 @@
 #include "elementsOnMap.h"
 #include "debug.h"
+#include "globals.h" // For GRID_SIZE
 #include <iostream>
 #include <algorithm> // Added for std::find_if
 
@@ -149,7 +150,7 @@ bool ElementsOnMap::init(glbasimac::GLBI_Engine& engine) {
               // Store in the textureIDs map for backward compatibility
             textureIDs[texInfo.name] = textureID;
         } else {
-            std::cerr << "Failed to load element texture: " << texInfo.path << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Failed to load element texture: " << texInfo.path << std::endl; }
             allLoaded = false;
         }
     }
@@ -167,7 +168,7 @@ GLuint ElementsOnMap::loadTexture(const std::string& path) {
     unsigned char* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
     
     if (!data) {
-        std::cerr << "Failed to load texture: " << path << " (" << stbi_failure_reason() << ")" << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Failed to load texture: " << path << " (" << stbi_failure_reason() << ")" << std::endl; }
         return 0;
     }
     
@@ -216,7 +217,7 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
     // Check if an element with this name already exists
     auto mapIt = elementIndexMap.find(instanceName);
     if (mapIt != elementIndexMap.end()) {
-        std::cerr << "WARNING: Element with name '" << instanceName << "' already exists at index " << mapIt->second << std::endl;
+if (DEBUG_LOGS) { std::cerr << "WARNING: Element with name '" << instanceName << "' already exists at index " << mapIt->second << std::endl; }
         
         // Print detailed information about the existing element
         size_t existingIndex = mapIt->second;
@@ -226,7 +227,7 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
                       << "), texture=" << static_cast<int>(existingElement.textureName) << std::endl;
         }
         
-        std::cerr << "To modify the existing element, use functions like changeElementCoordinates() instead." << std::endl;
+if (DEBUG_LOGS) { std::cerr << "To modify the existing element, use functions like changeElementCoordinates() instead." << std::endl; }
         return;
     }    // Create a PlacedElement explicitly instead of using initializer list (C++11 compatibility)
     PlacedElement element;
@@ -307,7 +308,7 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementTexture
                   << ", frames in phase: " << element.numFramesInPhase;
     }
     
-    std::cout << std::endl;
+if (DEBUG_LOGS) { std::cout << std::endl; }
 }
 
 bool ElementsOnMap::changeElementCoordinates(const std::string& instanceName, float newX, float newY, float newRotation) {
@@ -318,7 +319,7 @@ bool ElementsOnMap::changeElementCoordinates(const std::string& instanceName, fl
         });
         
     if (it == elements.end()) {
-        std::cerr << "Element not found for moving: " << instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Element not found for moving: " << instanceName << std::endl; }
         return false;
     }
     
@@ -331,7 +332,7 @@ bool ElementsOnMap::changeElementCoordinates(const std::string& instanceName, fl
         it->rotation = newRotation;
     }
     
-    std::cout << "Moved element: " << instanceName << " to (" << newX << ", " << newY << ")" << std::endl;
+if (DEBUG_LOGS) { std::cout << "Moved element: " << instanceName << " to (" << newX << ", " << newY << ")" << std::endl; }
     return true;
 }
 
@@ -344,11 +345,11 @@ bool ElementsOnMap::moveElement(const std::string& instanceName, float deltaX, f
         });
     
     if (it == elements.end()) {
-        std::cerr << "Element not found for relative movement: " << instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Element not found for relative movement: " << instanceName << std::endl; }
         // List available elements to help debug
-        std::cout << "Available elements:" << std::endl;
+if (DEBUG_LOGS) { std::cout << "Available elements:" << std::endl; }
         for (const auto& elem : elements) {
-            std::cout << "  - " << elem.instanceName << " at (" << elem.x << ", " << elem.y << ")" << std::endl;
+if (DEBUG_LOGS) { std::cout << "  - " << elem.instanceName << " at (" << elem.x << ", " << elem.y << ")" << std::endl; }
         }
         return false;
     }
@@ -367,7 +368,7 @@ bool ElementsOnMap::moveElement(const std::string& instanceName, float deltaX, f
               << " (delta: " << deltaX << ", " << deltaY << ")" << std::endl;
     return true;
     
-    std::cerr << "Element index out of range for relative movement: " << instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Element index out of range for relative movement: " << instanceName << std::endl; }
     return false;
 }
 
@@ -379,7 +380,7 @@ bool ElementsOnMap::getElementPosition(const std::string& instanceName, float& x
         });
         
     if (it == elements.end()) {
-        std::cerr << "Element not found for position query: " << instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Element not found for position query: " << instanceName << std::endl; }
         return false;
     }
     
@@ -397,7 +398,7 @@ bool ElementsOnMap::changeElementScale(const std::string& instanceName, float ne
         });
         
     if (it == elements.end()) {
-        std::cerr << "Element not found for scaling: " << instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Element not found for scaling: " << instanceName << std::endl; }
         return false;
     }
     
@@ -474,12 +475,12 @@ bool ElementsOnMap::changeElementRotation(const std::string& instanceName, float
         });
         
     if (it == elements.end()) {
-        std::cerr << "Element not found for rotation: " << instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Element not found for rotation: " << instanceName << std::endl; }
         return false;
     }
     
     it->rotation = newRotation;
-    std::cout << "Changed element rotation: " << instanceName << " to " << newRotation << " degrees" << std::endl;
+if (DEBUG_LOGS) { std::cout << "Changed element rotation: " << instanceName << " to " << newRotation << " degrees" << std::endl; }
     return true;
 }
 
@@ -491,17 +492,17 @@ bool ElementsOnMap::changeElementSpriteFrame(const std::string& instanceName, in
         });
         
     if (it == elements.end()) {
-        std::cerr << "Element not found for changing sprite frame: " << instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Element not found for changing sprite frame: " << instanceName << std::endl; }
         return false;
     }
     
     // Ensure frame is within valid range
     if (it->numFramesInPhase > 0) {
         it->spriteSheetFrame = newFrame % it->numFramesInPhase;
-        std::cout << "Changed element sprite frame: " << instanceName << " to " << it->spriteSheetFrame << std::endl;
+if (DEBUG_LOGS) { std::cout << "Changed element sprite frame: " << instanceName << " to " << it->spriteSheetFrame << std::endl; }
         return true;
     } else {
-        std::cerr << "Element doesn't support sprite frames: " << instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Element doesn't support sprite frames: " << instanceName << std::endl; }
         return false;
     }
 }
@@ -514,7 +515,7 @@ bool ElementsOnMap::changeElementSpritePhase(const std::string& instanceName, in
         });
         
     if (it == elements.end()) {
-        std::cerr << "Element not found for changing sprite phase: " << instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Element not found for changing sprite phase: " << instanceName << std::endl; }
         return false;
     }
     
@@ -531,7 +532,7 @@ bool ElementsOnMap::changeElementSpritePhase(const std::string& instanceName, in
                 // Check if phase is valid
                 if (newPhase >= 0 && newPhase < numPhases) {
                     it->spriteSheetPhase = newPhase;
-                    std::cout << "Changed element sprite phase: " << instanceName << " to " << newPhase << std::endl;
+if (DEBUG_LOGS) { std::cout << "Changed element sprite phase: " << instanceName << " to " << newPhase << std::endl; }
                     return true;
                 } else {
                     std::cerr << "Invalid sprite phase " << newPhase << " for element: " << instanceName 
@@ -539,13 +540,13 @@ bool ElementsOnMap::changeElementSpritePhase(const std::string& instanceName, in
                     return false;
                 }
             } else {
-                std::cerr << "Element doesn't support sprite phases: " << instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Element doesn't support sprite phases: " << instanceName << std::endl; }
                 return false;
             }
         }
     }
     
-    std::cerr << "Couldn't find texture info for element: " << instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Couldn't find texture info for element: " << instanceName << std::endl; }
     return false;
 }
 
@@ -557,7 +558,7 @@ bool ElementsOnMap::changeElementAnimationStatus(const std::string& instanceName
         });
         
     if (it == elements.end()) {
-        std::cerr << "Element not found for changing animation status: " << instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Element not found for changing animation status: " << instanceName << std::endl; }
         return false;
     }
     
@@ -575,16 +576,16 @@ bool ElementsOnMap::changeElementAnimationSpeed(const std::string& instanceName,
         });
         
     if (it == elements.end()) {
-        std::cerr << "Element not found for changing animation speed: " << instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Element not found for changing animation speed: " << instanceName << std::endl; }
         return false;
     }
     
     if (newSpeed >= 0.0f) {
         it->animationSpeed = newSpeed;
-        std::cout << "Changed element animation speed: " << instanceName << " to " << newSpeed << " FPS" << std::endl;
+if (DEBUG_LOGS) { std::cout << "Changed element animation speed: " << instanceName << " to " << newSpeed << " FPS" << std::endl; }
         return true;
     } else {
-        std::cerr << "Invalid animation speed (must be non-negative): " << newSpeed << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Invalid animation speed (must be non-negative): " << newSpeed << std::endl; }
         return false;
     }
 }
@@ -626,7 +627,7 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
         // Get the texture ID
         auto it = textureIDs.find(element.textureName);
         if (it == textureIDs.end()) {
-            std::cerr << "Texture not found for element: " << element.instanceName << std::endl;
+if (DEBUG_LOGS) { std::cerr << "Texture not found for element: " << element.instanceName << std::endl; }
             continue;
         }
         
@@ -870,9 +871,9 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
 }
 
 void ElementsOnMap::listElements() const {
-    std::cout << "=== Current Elements (" << elements.size() << " total) ===" << std::endl;
-    std::cout << "Index  | Name              | Type      | Position (X,Y)" << std::endl;
-    std::cout << "-------+-------------------+-----------+------------------" << std::endl;
+if (DEBUG_LOGS) { std::cout << "=== Current Elements (" << elements.size() << " total) ===" << std::endl; }
+if (DEBUG_LOGS) { std::cout << "Index  | Name              | Type      | Position (X,Y)" << std::endl; }
+if (DEBUG_LOGS) { std::cout << "-------+-------------------+-----------+------------------" << std::endl; }
     
     for (size_t i = 0; i < elements.size(); ++i) {
         const auto& element = elements[i];
@@ -898,14 +899,14 @@ void ElementsOnMap::listElements() const {
                typeName.c_str(),               element.x, 
                element.y);
     }
-    std::cout << "===================================" << std::endl;
+if (DEBUG_LOGS) { std::cout << "===================================" << std::endl; }
 }
 
 void ElementsOnMap::printElementPositions() const {
     // Print a header for position information
-    std::cout << "\n===== Element Positions (" << elements.size() << " elements) =====" << std::endl;
-    std::cout << "Name                | Type       | Position (X,Y)  | Scale | Rotation | Anchor" << std::endl;
-    std::cout << "-------------------+------------+----------------+-------+----------+--------------" << std::endl;
+if (DEBUG_LOGS) { std::cout << "\n===== Element Positions (" << elements.size() << " elements) =====" << std::endl; }
+if (DEBUG_LOGS) { std::cout << "Name                | Type       | Position (X,Y)  | Scale | Rotation | Anchor" << std::endl; }
+if (DEBUG_LOGS) { std::cout << "-------------------+------------+----------------+-------+----------+--------------" << std::endl; }
     
     for (const auto& element : elements) {
         // Convert enum to string for display
@@ -968,9 +969,9 @@ void ElementsOnMap::printElementPositions() const {
             element.anchorOffsetX != 0.0f || element.anchorOffsetY != 0.0f) {
             
             if (!hasOffsets) {
-                std::cout << "\n--- Elements with Offsets ---" << std::endl;
-                std::cout << "Name                | Scale Offsets (X,Y) | Anchor Offsets (X,Y)" << std::endl;
-                std::cout << "-------------------+-------------------+---------------------" << std::endl;
+if (DEBUG_LOGS) { std::cout << "\n--- Elements with Offsets ---" << std::endl; }
+if (DEBUG_LOGS) { std::cout << "Name                | Scale Offsets (X,Y) | Anchor Offsets (X,Y)" << std::endl; }
+if (DEBUG_LOGS) { std::cout << "-------------------+-------------------+---------------------" << std::endl; }
                 hasOffsets = true;
             }
             
@@ -980,7 +981,7 @@ void ElementsOnMap::printElementPositions() const {
                    element.anchorOffsetX, element.anchorOffsetY);
         }
     }
-      std::cout << "==========================================================" << std::endl;
+if (DEBUG_LOGS) { std::cout << "==========================================================" << std::endl; }
 }
 
 // Implementation of removeElement method to remove an element by its instance name

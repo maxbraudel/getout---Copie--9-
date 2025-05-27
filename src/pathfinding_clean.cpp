@@ -27,40 +27,6 @@ PathfindingStats g_pathfindingStats;
 PreCalculatedCollisionShapes g_collisionCache;
 AsyncPathfinder g_asyncPathfinder;
 
-// Generate a unique key for entity collision shapes based on their properties
-std::string generateEntityKey(const EntityConfiguration& config) {
-    // Create a simple hash-like key based on collision shape
-    std::string key = "entity_";
-    if (!config.collisionShapePoints.empty()) {
-        // Use first and last points as a simple identifier
-        auto first = config.collisionShapePoints.front();
-        auto last = config.collisionShapePoints.back();
-        key += std::to_string(static_cast<int>(first.first * 100)) + "_" +
-               std::to_string(static_cast<int>(first.second * 100)) + "_" +
-               std::to_string(static_cast<int>(last.first * 100)) + "_" +
-               std::to_string(static_cast<int>(last.second * 100)) + "_" +
-               std::to_string(config.collisionShapePoints.size());
-    }
-    return key;
-}
-
-// Initialize pathfinding cache for optimal performance
-void initializePathfindingCache() {
-    if (DEBUG_LOGS) {
-        std::cout << "Initializing pathfinding collision cache..." << std::endl;
-    }
-    
-    // Clear existing cache
-    g_collisionCache.clear();
-    
-    // Pre-calculate for common entity shapes
-    // This would be called with actual entity configurations from your game
-    
-    if (DEBUG_LOGS) {
-        std::cout << "Pathfinding cache initialized" << std::endl;
-    }
-}
-
 // Custom comparison for priority queue
 struct CompareNodes {
     bool operator()(const Node* a, const Node* b) const {
@@ -127,10 +93,8 @@ void PreCalculatedCollisionShapes::preCalculateEntityShape(const std::string& en
         std::cout << "Pre-calculating collision shapes for entity: " << entityId << std::endl;
     }
     
-    std::string entityKey = generateEntityKey(config);
-    
     // Store original shape
-    entityShapes[entityKey] = config.collisionShapePoints;
+    entityShapes[entityId] = config.collisionShapePoints;
     
     // Pre-calculate expanded shapes for both elements and blocks
     EntityConfiguration expandedForElements = config;
@@ -139,17 +103,16 @@ void PreCalculatedCollisionShapes::preCalculateEntityShape(const std::string& en
     if (MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS > 0.0f) {
         expandedForElements.collisionShapePoints = expandCollisionShape(
             config.collisionShapePoints, MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS);
-        expandedEntityConfigs[entityKey + "_elements"] = expandedForElements;
+        expandedEntityConfigs[entityId + "_elements"] = expandedForElements;
     }
     
     if (MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS > 0.0f) {
         expandedForBlocks.collisionShapePoints = expandCollisionShape(
             config.collisionShapePoints, MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS);
-        expandedEntityConfigs[entityKey + "_blocks"] = expandedForBlocks;
+        expandedEntityConfigs[entityId + "_blocks"] = expandedForBlocks;
     }
     
     if (DEBUG_LOGS) {
-        std::cout << "  Cached shapes for key: " << entityKey << std::endl;
         std::cout << "  Original shape points: " << config.collisionShapePoints.size() << std::endl;
         if (MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS > 0.0f) {
             std::cout << "  Expanded for elements: " << expandedForElements.collisionShapePoints.size() << " points" << std::endl;
@@ -174,34 +137,6 @@ void PreCalculatedCollisionShapes::clear() {
     if (DEBUG_LOGS) {
         std::cout << "Cleared all pre-calculated collision shapes" << std::endl;
     }
-}
-
-// Check if entity has pre-calculated collision shapes
-bool PreCalculatedCollisionShapes::hasEntityShape(const EntityConfiguration& config) const {
-    std::string entityKey = generateEntityKey(config);
-    return expandedEntityConfigs.find(entityKey + "_elements") != expandedEntityConfigs.end() ||
-           expandedEntityConfigs.find(entityKey + "_blocks") != expandedEntityConfigs.end();
-}
-
-// Get pre-calculated collision shapes for entity (returns elements and blocks expanded shapes)
-std::pair<std::vector<std::pair<float, float>>, std::vector<std::pair<float, float>>> 
-PreCalculatedCollisionShapes::getEntityShapes(const EntityConfiguration& config) const {
-    std::string entityKey = generateEntityKey(config);
-    
-    std::vector<std::pair<float, float>> elementsShape = config.collisionShapePoints;
-    std::vector<std::pair<float, float>> blocksShape = config.collisionShapePoints;
-    
-    auto elementsIt = expandedEntityConfigs.find(entityKey + "_elements");
-    if (elementsIt != expandedEntityConfigs.end()) {
-        elementsShape = elementsIt->second.collisionShapePoints;
-    }
-    
-    auto blocksIt = expandedEntityConfigs.find(entityKey + "_blocks");
-    if (blocksIt != expandedEntityConfigs.end()) {
-        blocksShape = blocksIt->second.collisionShapePoints;
-    }
-    
-    return std::make_pair(elementsShape, blocksShape);
 }
 
 // Check if a position is valid (within bounds and not colliding) - using entity collision shape
@@ -459,16 +394,6 @@ std::vector<std::pair<float, float>> findPathOptimized(
     const Map& gameMap,
     float stepSize) {
     
-    // Performance monitoring - start timer
-    auto pathfindingStart = std::chrono::high_resolution_clock::now();
-    
-    // Reset performance counters
-    g_pathfindingStats.nodesExplored = 0;
-    g_pathfindingStats.collisionChecks = 0;
-    
-    // Increment total pathfinding calls
-    g_pathfindingStats.totalPathfindingCalls++;
-    
     // Check if we have pre-calculated collision shapes for optimization
     bool useOptimized = g_collisionCache.hasEntityShape(entityConfig);
     EntityConfiguration expandedConfigElements = entityConfig;
@@ -481,21 +406,6 @@ std::vector<std::pair<float, float>> findPathOptimized(
         
         if (DEBUG_LOGS) {
             std::cout << "Pathfinding: Using pre-calculated collision shapes for optimization" << std::endl;
-        }
-    } else {
-        // Calculate shapes once during this pathfinding call
-        if (MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS > 0.0f) {
-            expandedConfigElements.collisionShapePoints = expandCollisionShape(
-                entityConfig.collisionShapePoints, MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS);
-        }
-        
-        if (MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS > 0.0f) {
-            expandedConfigBlocks.collisionShapePoints = expandCollisionShape(
-                entityConfig.collisionShapePoints, MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS);
-        }
-        
-        if (DEBUG_LOGS) {
-            std::cout << "Pathfinding: Calculated collision shapes on-the-fly" << std::endl;
         }
     }
     
@@ -684,23 +594,10 @@ std::vector<std::pair<float, float>> findPathOptimized(
                     }
                 }
             }
-              // Ensure path has at least one point if start and goal are the same
+            
+            // Ensure path has at least one point if start and goal are the same
             if (path.empty() && std::abs(startX - goalX) < 0.001f && std::abs(startY - goalY) < 0.001f) {
                 path.push_back({startX, startY});
-            }
-            
-            // Performance monitoring - end timer and update stats
-            auto pathfindingEnd = std::chrono::high_resolution_clock::now();
-            auto pathfindingDuration = std::chrono::duration_cast<std::chrono::milliseconds>(pathfindingEnd - pathfindingStart);
-            g_pathfindingStats.totalComputationTimeMs.store(
-                g_pathfindingStats.totalComputationTimeMs.load() + static_cast<double>(pathfindingDuration.count())
-            );
-            g_pathfindingStats.nodesExplored = iterations;
-            
-            if (DEBUG_LOGS) {
-                std::cout << "Pathfinding completed in " << pathfindingDuration.count() << "ms, "
-                          << "explored " << iterations << " nodes, "
-                          << "performed " << g_pathfindingStats.collisionChecks << " collision checks" << std::endl;
             }
             
             return path;
@@ -746,24 +643,16 @@ std::vector<std::pair<float, float>> findPathOptimized(
             }
         }
     }
-      // Clean up if no path found
+    
+    // Clean up if no path found
     for (auto& pair_node : allNodes) { 
         delete pair_node.second; 
     }
     allNodes.clear();
     
-    // Performance monitoring - end timer for failed pathfinding
-    auto pathfindingEnd = std::chrono::high_resolution_clock::now();
-    auto pathfindingDuration = std::chrono::duration_cast<std::chrono::milliseconds>(pathfindingEnd - pathfindingStart);
-    g_pathfindingStats.totalComputationTimeMs.store(
-        g_pathfindingStats.totalComputationTimeMs.load() + static_cast<double>(pathfindingDuration.count())
-    );
-    g_pathfindingStats.nodesExplored = iterations;
-    
     if (DEBUG_LOGS) {
         std::cerr << "Pathfinding: No path found from (" << startX << ", " << startY 
-                  << ") to (" << goalX << ", " << goalY << ") after " << pathfindingDuration.count() 
-                  << "ms, explored " << iterations << " nodes" << std::endl;
+                  << ") to (" << goalX << ", " << goalY << ")" << std::endl;
     }
     
     return {};
@@ -776,16 +665,8 @@ std::vector<std::pair<float, float>> findPath(
     const Map& gameMap,
     const EntityConfiguration& entityConfig
 ) {
-    // Use larger step size for much better performance (4x fewer nodes to explore)
-    const float stepSize = 1.0f; // Increased from 0.5f to 1.0f
-    
-    // Auto-caching: Pre-calculate collision shapes for this entity if not cached
-    if (!g_collisionCache.hasEntityShape(entityConfig)) {
-        if (DEBUG_LOGS) {
-            std::cout << "Auto-caching collision shapes for entity during pathfinding..." << std::endl;
-        }
-        g_collisionCache.preCalculateEntityShape("runtime_entity", entityConfig);
-    }
+    // Define step size for pathfinding resolution (smaller = more precise but slower)
+    const float stepSize = 0.5f;
     
     // Delegate to the optimized version
     return findPathOptimized(startX, startY, goalX, goalY, entityConfig, gameMap, stepSize);
@@ -830,7 +711,7 @@ bool AsyncPathfinder::isPathfindingComplete() {
     if (future_.valid() && future_.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
         // Pathfinding is complete, get the result
         try {
-            result_.reset(new AsyncPathfindingResult(future_.get()));
+            result_ = std::make_unique<AsyncPathfindingResult>(future_.get());
             isRunning_ = false;
             return true;
         } catch (const std::exception& e) {
@@ -903,10 +784,9 @@ AsyncPathfindingResult AsyncPathfinder::findPathAsync(const PathfindingRequest& 
         // Update performance stats
         auto endTime = std::chrono::high_resolution_clock::now();
         result.computationTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
-          g_pathfindingStats.totalPathfindingCalls++;
-        g_pathfindingStats.totalComputationTimeMs.store(
-            g_pathfindingStats.totalComputationTimeMs.load() + static_cast<double>(result.computationTimeMs)
-        );
+        
+        g_pathfindingStats.totalPathfindingCalls++;
+        g_pathfindingStats.totalComputationTimeMs += result.computationTimeMs;
         
         if (DEBUG_LOGS) {
             std::cout << "AsyncPathfinder: Completed pathfinding in " << result.computationTimeMs 
