@@ -13,6 +13,8 @@
 #include "collision.h" // Added include for collision detection
 #include "debug.h" // Added include for debugging features
 #include "entities.h" // Added include for entity management
+#include "inputs.h" // Added include for input handling
+#include "threading.h" // Added include for threading system
 #include <ctime> // For time(0) to seed random number generator
 #include <cmath> // For sqrt function
 #include <algorithm> // For std::min and std::max
@@ -79,277 +81,18 @@ void onWindowResize(GLFWwindow* window, int width, int height) {
     g_startY = -1.0f;    g_endY = 1.0f;
 }
 
-// Keyboard callback function
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    // Update key state arrays
-    if (action == GLFW_PRESS) {
-        keyPressedStates[key] = true;
-        
-        // Handle immediate keyboard actions
-        if (key == GLFW_KEY_ESCAPE) {
-            glfwSetWindowShouldClose(window, GLFW_TRUE); // Exit on ESC press
-        } 
-        // Reset player position
-        else if (key == GLFW_KEY_R) {
-            teleportPlayer(10.0f, 10.0f);
-            std::cout << "Player position reset to (10, 10)" << std::endl;
-        }
-        // Test collision handling by attempting to put player in water
-        else if (key == GLFW_KEY_F) {
-            // Find a water tile in the grid
-            bool waterFound = false;
-            for (int x = 0; x < GRID_SIZE && !waterFound; x++) {
-                for (int y = 0; y < GRID_SIZE && !waterFound; y++) {
-                    TextureName blockType = gameMap.getBlockNameByCoordinates(x, y);
-                    if (isBlockNonTraversable(blockType)) {
-                        // Found a non-traversable block (water), try to teleport player near it
-                        std::cout << "Testing collision recovery - attempting to teleport player to water at ("
-                                 << x << ", " << y << ")" << std::endl;
-                        teleportPlayer(x + 0.5f, y + 0.5f); // Center of the block
-                        waterFound = true;
-                    }
-                }
-            }
-            if (!waterFound) {
-                std::cout << "No non-traversable blocks found to test collision recovery" << std::endl;
-            }
-        }
-        // Test entity collision handling by attempting to put an entity in water
-        else if (key == GLFW_KEY_E) {
-            // Find a water tile in the grid
-            bool waterFound = false;
-            for (int x = 0; x < GRID_SIZE && !waterFound; x++) {
-                for (int y = 0; y < GRID_SIZE && !waterFound; y++) {
-                    TextureName blockType = gameMap.getBlockNameByCoordinates(x, y);
-                    if (isBlockNonTraversable(blockType)) {
-                        // Found a non-traversable block (water), try to teleport entity near it
-                        std::cout << "Testing entity collision recovery - attempting to teleport antagonist to water at ("
-                                << x << ", " << y << ")" << std::endl;
-                        entitiesManager.teleportEntity("antagonist1", x + 0.5f, y + 0.5f); // Center of the block
-                        waterFound = true;
-                    }
-                }
-            }
-            if (!waterFound) {
-                std::cout << "No non-traversable blocks found to test entity collision recovery" << std::endl;
-            }
-        }
-        // Toggle player animation
-        else if (key == GLFW_KEY_T) {
-            static bool isAnimating = true;
-            isAnimating = !isAnimating;
-            elementsManager.changeElementAnimationStatus("player1", isAnimating);
-            std::cout << "Player animation " << (isAnimating ? "enabled" : "disabled") << std::endl;
-        }// Toggle player debug info
-        else if (key == GLFW_KEY_F3) {
-            togglePlayerDebugMode();
-        }
-        // Test pathfinding by making entities move around obstacles
-        else if (key == GLFW_KEY_P) {
-            // Get player position as reference point
-            float playerX, playerY;
-            if (getPlayerPosition(playerX, playerY)) {
-                // Find a water area and make the entity path around it
-                bool pathCreated = false;
-                
-                for (int x = 0; x < GRID_SIZE && !pathCreated; x++) {
-                    for (int y = 0; y < GRID_SIZE && !pathCreated; y++) {
-                        TextureName blockType = gameMap.getBlockNameByCoordinates(x, y);
-                        if (isBlockNonTraversable(blockType)) {
-                            // Found a non-traversable block (water)
-                            // Create a position on the opposite side of the water from the player
-                            float diffX = playerX - x;
-                            float diffY = playerY - y;
-                            float distance = std::sqrt(diffX * diffX + diffY * diffY);
-                            
-                            if (distance < 10.0f) { // Only if water is somewhat close to player
-                                // Calculate a target position on the other side of the water
-                                float targetX = x - diffX * 2.0f;
-                                float targetY = y - diffY * 2.0f;
-                                
-                                // Make sure target is within grid bounds
-                                targetX = std::max(0.0f, std::min(static_cast<float>(GRID_SIZE - 1), targetX));
-                                targetY = std::max(0.0f, std::min(static_cast<float>(GRID_SIZE - 1), targetY));
-                                
-                                // Make the entity walk to the target using pathfinding
-                                std::cout << "Testing pathfinding - entity will navigate around water at ("
-                                        << x << ", " << y << ") to reach (" << targetX << ", " << targetY << ")" << std::endl;
-                                entitiesManager.walkEntityWithPathfinding("antagonist1", targetX, targetY);
-                                pathCreated = true;
-                            }
-                        }
-                    }
-                }
-                
-                if (!pathCreated) {
-                    // If no suitable water was found, just make the entity move to player's position
-                    std::cout << "No suitable obstacles found. Making entity follow the player instead." << std::endl;
-                    entitiesManager.walkEntityWithPathfinding("antagonist1", playerX, playerY);
-                }
-            }
-        }
-        // List all elements when F4 is pressed
-        else if (key == GLFW_KEY_F4) {
-            std::cout << "\n--- Current Elements List ---" << std::endl;
-            elementsManager.listElements();
-        }        // Print detailed element positions when F6 is pressed
-        else if (key == GLFW_KEY_F6) {
-            elementsManager.printElementPositions();
-        }
-        // Toggle sand as non-traversable
-        else if (key == GLFW_KEY_B) {
-            static bool sandIsBlocked = false;
-            sandIsBlocked = !sandIsBlocked;
-            
-            if (sandIsBlocked) {
-                addNonTraversableBlock(TextureName::SAND);
-                std::cout << "SAND blocks are now non-traversable" << std::endl;
-            } else {
-                removeNonTraversableBlock(TextureName::SAND);
-                std::cout << "SAND blocks are now traversable" << std::endl;
-            }
-            
-            // Print the updated list
-            printNonTraversableBlocks();
-        }
-        // Print all non-traversable blocks
-        else if (key == GLFW_KEY_N) {
-            printNonTraversableBlocks();
-        }
-        // Toggle DEBUG_MAP mode with M key
-        else if (key == GLFW_KEY_V) {
-            DEBUG_MAP = !DEBUG_MAP;
-            std::cout << "\nDEBUG MAP mode " << (DEBUG_MAP ? "enabled" : "disabled") << std::endl;
-            
-            // Regenerate the map with the new setting
-            std::cout << "Regenerating terrain with DEBUG_MAP=" << (DEBUG_MAP ? "true" : "false") << "..." << std::endl;
-            std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.65f);
-            gameMap.placeBlocks(generatedMap);
-            
-            // Regenerate terrain elements
-            elementsManager.removeAllElementsByCategory("decoration");
-            placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);
-            
-            std::cout << "Map regeneration complete." << std::endl;
-        }
-        // Show collision information
-        else if (key == GLFW_KEY_F7) {
-            // Display all collidable elements
-            std::vector<std::string> collidables = getCollidableElementNames();
-            std::cout << "\n--- Collidable Elements (" << collidables.size() << " total) ---" << std::endl;
-            for (const auto& name : collidables) {
-                float x, y;
-                elementsManager.getElementPosition(name, x, y);
-                std::cout << name << " at position (" << x << ", " << y << ")" << std::endl;
-            }
-        }
-        // Toggle path debugging with F8
-        else if (key == GLFW_KEY_F8) {
-            DEBUG_SHOW_PATHS = !DEBUG_SHOW_PATHS;
-            std::cout << "Entity path debugging " << (DEBUG_SHOW_PATHS ? "enabled" : "disabled") << std::endl;
-        }
-        else if (key == GLFW_KEY_F7) { // This is a duplicate F7 handler, ensure it's reconciled or removed if not needed
-            // Get all tree names
-            std::vector<std::string> trees = getCollidableElementNames();
-            std::cout << "\n--- Tree Collision System ---" << std::endl;
-            std::cout << "Total trees for collision detection: " << trees.size() << std::endl;
-            // Display player position and check nearby trees
-            float playerX, playerY;
-            if (getPlayerPosition(playerX, playerY)) {
-                std::cout << "Player position: (" << playerX << ", " << playerY << ")" << std::endl;
-                // Check if player is near any trees
-                for (const auto& treeName : trees) {
-                    float treeX, treeY;
-                    if (elementsManager.getElementPosition(treeName, treeX, treeY)) {
-                        float dx = playerX - treeX;
-                        float dy = playerY - treeY;
-                        float distance = std::sqrt(dx*dx + dy*dy);
-                        if (distance < 2.0f) {
-                            std::cout << "Tree " << treeName << " at (" << treeX << ", " << treeY 
-                                      << ") - distance: " << distance << std::endl;
-                        }
-                    }
-                }
-            }
-        }
-    } else if (action == GLFW_RELEASE) {
-        keyPressedStates[key] = false;
-    }
-}
-
-// Mouse button callback function
-void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-        // Get cursor position
-        double mouseX, mouseY;
-        glfwGetCursorPos(window, &mouseX, &mouseY);
-          // COORDINATE SYSTEM: The game now uses a coordinate system where (0,0) is at bottom-left
-        // and Y increases upward, matching mathematical conventions.
-        
-        // Convert to normalized screen coordinates (-1 to 1)
-        double normalizedX = (2.0 * mouseX / windowWidth) - 1.0;
-        double normalizedY = (2.0 * mouseY / windowHeight) - 1.0; // Y increases upward
-        
-        // Compute grid coordinates based on current grid rendering parameters
-        // Check if the click is inside the grid area
-        if (normalizedX >= g_startX && normalizedX <= g_endX && 
-            normalizedY >= g_startY && normalizedY <= g_endY) {
-                  // Map normalized coordinates to grid coordinates
-            float gridX = (normalizedX - g_startX) / (g_endX - g_startX) * GRID_SIZE;
-            float gridY = (normalizedY - g_startY) / (g_endY - g_startY) * GRID_SIZE;
-            
-            // Convert to integer grid coordinates
-            int gridXInt = static_cast<int>(gridX);
-              // Calculate grid Y coordinate
-            // Our grid now has (0,0) at bottom-left, same as OpenGL
-            // Normalized y = -1.0 should map to grid y = 0, and normalized y = 1.0 should map to grid y = GRID_SIZE-1
-            int gridYInt = static_cast<int>(gridY);
-              // Reduced debug output - only show the essential information
-            // std::cout << "Debug: Mouse at normalized (" << normalizedX << ", " << normalizedY << ")" << std::endl;
-            // std::cout << "Debug: Grid area from (" << g_startX << "," << g_startY << ") to (" 
-            //           << g_endX << "," << g_endY << ")" << std::endl;            // Calculate world position for reference (but don't print)
-            float worldX = gridXInt + 0.5f;  // Center of the block
-            float worldY = gridYInt + 0.5f;  // Center of the block
-            
-            // Get block name at these coordinates
-            TextureName blockName = gameMap.getBlockNameByCoordinates(gridXInt, gridYInt);
-            
-            // Convert enum to string for better output
-            std::string blockNameStr = "UNKNOWN";
-            switch (blockName) {
-                case TextureName::GRASS_0: blockNameStr = "GRASS_0"; break;
-                case TextureName::GRASS_1: blockNameStr = "GRASS_1"; break;
-                case TextureName::GRASS_2: blockNameStr = "GRASS_2"; break;
-                case TextureName::GRASS_3: blockNameStr = "GRASS_3"; break;
-                case TextureName::GRASS_4: blockNameStr = "GRASS_4"; break;
-                case TextureName::GRASS_5: blockNameStr = "GRASS_5"; break;
-                case TextureName::SAND: blockNameStr = "SAND"; break;
-                case TextureName::WATER_0: blockNameStr = "WATER_0"; break;
-                case TextureName::WATER_1: blockNameStr = "WATER_1"; break;
-                case TextureName::WATER_2: blockNameStr = "WATER_2"; break;
-                case TextureName::WATER_3: blockNameStr = "WATER_3"; break;
-                case TextureName::WATER_4: blockNameStr = "WATER_4"; break;
-                default: blockNameStr = "UNKNOWN"; break;
-            }
-            
-            // Output the block information
-            std::cout << "Clicked on grid cell: (" << gridXInt << ", " << gridYInt << ")" << std::endl;
-            std::cout << "Block type: " << blockNameStr << " (enum value: " << static_cast<int>(blockName) << ")" << std::endl;
-        }
-    }
-}
-
 int main() {
     // Seed the random number generator ONCE at the start of the program
     // You can change time(0) to a specific unsigned int for a fixed, repeatable map.
     unsigned int terrainSeed = static_cast<unsigned int>(time(0));
     // unsigned int terrainSeed = 12345; // Example of a fixed seed
-    srand(terrainSeed);
-
-    // Initialize the library
+    srand(terrainSeed);    // Initialize the library
     if (!glfwInit()) {
         return -1;
-    }    /* Callback to a function if an error is rised by GLFW */
+    }
+    
+    // Initialize input system
+    initializeInputs();/* Callback to a function if an error is rised by GLFW */
 	glfwSetErrorCallback(onError);
     
     // Create a windowed mode window and its OpenGL context
@@ -499,7 +242,10 @@ int main() {
 
      entitiesManager.initializeEntityConfigurations();
 
-      entitiesManager.placeEntityByType("antagonist1", "antagonist", 5.0f, 30.0f);;
+    entitiesManager.placeEntityByType("antagonist1", "antagonist", 5.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist2", "antagonist", 6.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist3", "antagonist", 7.0f, 30.0f);
+
 
     entitiesManager.placeEntityByType("player1", "player", 5.0f, 45.0f);;
 
@@ -510,141 +256,57 @@ int main() {
     // entitiesManager.moveEntity("antagonist1",10.0f, 48.0f); // Move the antagonist entity to a new position
 
 
-
 	// Only show elements count rather than full list for cleaner output
 	std::cout << "Game ready with " << elementsManager.getElementsCount() << " elements placed" << std::endl;
-		// Skip block test output for cleaner console
-	          	// Display brief coordinate system information
+	
+	// Display brief coordinate system information
 	std::cout << "\nGame uses a coordinate system with (0,0) at bottom-left, Y increasing upward" << std::endl;
 	
-    double lastAntagonistMoveTime = 0.0;
-    const double antagonistMoveInterval = 5.0; // seconds
+    // Initialize threading system
+    if (!initializeThreading(&gameMap, &elementsManager, &entitiesManager, &gameCamera)) {
+        std::cerr << "Failed to initialize threading system!" << std::endl;
+        glfwTerminate();
+        return -1;
+    }
+    
+    // Start game threads
+    startGameThreads();
+    
+    std::cout << "Threading system started - entering render loop" << std::endl;
 
-	/* Loop until the user closes the window */
-	while (!glfwWindowShouldClose(window))
+	/* Main render loop - runs until user closes the window */
+	while (!glfwWindowShouldClose(window) && g_threadManager->isRunning())
 	{
 		/* Get time (in second) at loop beginning */
 		double startTime = glfwGetTime();
 		
-		// Get time for animations
-        double currentTime = glfwGetTime();
-        static double lastFrameTime = currentTime; // Renamed to avoid conflict with other lastTime variables
-        double deltaTime = currentTime - lastFrameTime;
-        lastFrameTime = currentTime;
-
-        // Periodically move antagonist1
-        if (currentTime - lastAntagonistMoveTime >= antagonistMoveInterval) {
-            std::cout << "Attempting to move antagonist1 to (10.0f, 48.0f) at time: " << currentTime << std::endl;
-            entitiesManager.moveEntity("antagonist1", 10.0f, 46.0f);
-            lastAntagonistMoveTime = currentTime;
-        }
-
-				// Process keyboard input for player movement
-		float playerMoveX = 0.0f;
-		float playerMoveY = 0.0f;        
+        // Get current game state from thread manager
+        auto gameState = g_threadManager->getGameState();
         
-        // Update entities (handle movement and animations)
-        entitiesManager.update(deltaTime);
-      		// First check if the player exists before processing movements
-		float playerX, playerY;
-		bool playerExists = elementsManager.getElementPosition("player1", playerX, playerY);
-				if (!playerExists) {
-			std::cerr << "WARNING: Player doesn't exist in movement processing! Listing elements:" << std::endl;
-			elementsManager.listElements();
-			std::cerr << "Creating new player since the original one is missing..." << std::endl;
-			// createPlayer(10.0f, 10.0f);
-			playerExists = true;
-		}
-		// COLLISION RESOLUTION MECHANISMS REMOVED
-		// Players and entities will no longer be automatically moved to "safe positions"
-		// Apply speed based on whether shift is held
-		float currentSpeed = 0.0f;
-		
-		// Use player entity configuration for speeds
-		const EntityConfiguration* playerConfig = entitiesManager.getConfiguration("player");
-		if (playerConfig) {
-			// Use speeds from player entity configuration
-			if (keyPressedStates[GLFW_KEY_LEFT_SHIFT] || keyPressedStates[GLFW_KEY_RIGHT_SHIFT]) {
-				currentSpeed = playerConfig->sprintWalkingSpeed; // Use sprint speed from entity config
-			} else {
-				currentSpeed = playerConfig->normalWalkingSpeed; // Use normal speed from entity config
-			}
-		} else {
-			// No fallback to constants - log error instead
-			std::cerr << "ERROR: Player configuration not found! Movement will be disabled." << std::endl;
-		}
-		
-		// Check arrow keys for player movement
-		if (keyPressedStates[GLFW_KEY_UP] || keyPressedStates[GLFW_KEY_W]) {
-			playerMoveY += currentSpeed * (float)deltaTime;
-		}
-		if (keyPressedStates[GLFW_KEY_DOWN] || keyPressedStates[GLFW_KEY_S]) {
-			playerMoveY -= currentSpeed * (float)deltaTime;
-		}
-		if (keyPressedStates[GLFW_KEY_LEFT] || keyPressedStates[GLFW_KEY_A]) {
-			playerMoveX -= currentSpeed * (float)deltaTime;
-		}
-		if (keyPressedStates[GLFW_KEY_RIGHT] || keyPressedStates[GLFW_KEY_D]) {
-			playerMoveX += currentSpeed * (float)deltaTime;
-		}
-		
-		// Normalize diagonal movement to prevent faster diagonal speed
-		if (playerMoveX != 0.0f && playerMoveY != 0.0f) {
-			// Scale by 1/sqrt(2) to maintain consistent speed in all directions
-			float normalizeFactor = 0.7071f; // 1/sqrt(2)
-			playerMoveX *= normalizeFactor;
-			playerMoveY *= normalizeFactor;
-		}
-		
-		// Track if player is moving
-		static bool wasMoving = false;
-		bool isMoving = (playerMoveX != 0.0f || playerMoveY != 0.0f);
-				// Move the player if any movement key is pressed
-		if (isMoving) {
-			// If player just started moving, print debug message
-			if (!wasMoving) {
-				std::cout << "Player started moving" << std::endl;
-			}
-			movePlayer(playerMoveX, playerMoveY);
-		}// If player just stopped moving, disable animation and set to standing frame
-		else if (wasMoving) {
-			std::cout << "Player stopped moving - disabling animation" << std::endl;
-			elementsManager.changeElementAnimationStatus("player1", false);
-			elementsManager.changeElementSpriteFrame("player1", 0); // Set to standing frame
-		}
-				// Update movement state
-		wasMoving = isMoving;
-          /* Render here */
+        // Process input and send to thread manager
+        float playerMoveX = 0.0f;
+        float playerMoveY = 0.0f;
+        processPlayerMovement(gameState.deltaTime, playerMoveX, playerMoveY);
+        
+        // Prepare input arrays for thread manager
+        bool debugKeys[10] = {false};
+        bool cameraControls[5] = {false};
+        
+        // Set input state in thread manager
+        g_threadManager->setInputState(playerMoveX, playerMoveY, debugKeys, cameraControls);
+
+        /* Render here */
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
 		glClear(GL_COLOR_BUFFER_BIT);
         
-        // Get the player position for camera centering
-        // Reusing playerX and playerY variables that were declared earlier
-        getPlayerPosition(playerX, playerY);
-        
-        // Update camera position based on player position and window dimensions
-        gameCamera.updateCameraPosition(playerX, playerY, windowWidth, windowHeight);
-        
-        // Log camera dimensions when F1 is pressed (for debugging)
-        static bool lastF1KeyState = false;
-        if (keyPressedStates[GLFW_KEY_F1] && !lastF1KeyState) {
-            float cameraWidth = gameCamera.getWidth();
-            float cameraHeight = gameCamera.getHeight();
-            float windowAspectRatio = (float)windowWidth / (float)windowHeight;
-            
-            std::cout << "Window size: " << windowWidth << "x" << windowHeight 
-                      << ", Aspect ratio: " << windowAspectRatio 
-                      << ", Camera size: " << cameraWidth << "x" << cameraHeight 
-                      << " grid units" << std::endl;
-        }
-        lastF1KeyState = keyPressedStates[GLFW_KEY_F1];        // Grid positions for rendering - these will be used to map from world to screen
+        // Grid positions for rendering - these will be used to map from world to screen
         // We still use the aspect ratio correction from g_startX etc.
         float startX = g_startX;
         float endX = g_endX;
         float startY = g_startY;
         float endY = g_endY;
         
-        // Get camera boundaries
+        // Get camera boundaries (camera position is updated by game thread)
         float cameraLeft = gameCamera.getLeft();
         float cameraRight = gameCamera.getRight();
         float cameraBottom = gameCamera.getBottom();
@@ -653,7 +315,8 @@ int main() {
         // Calculate the width and height of the view in world coordinates
         float viewWidth = gameCamera.getWidth();
         float viewHeight = gameCamera.getHeight();
-          // Calculate the map grid boundaries in window coordinates for the scissor test
+          
+        // Calculate the map grid boundaries in window coordinates for the scissor test
         // Convert from normalized device coordinates (-1 to 1) to window coordinates (0 to windowWidth/Height)
         // First, determine what portion of screen space is occupied by the grid
         float gridScreenWidth = endX - startX;   // Width in NDC space
@@ -665,7 +328,8 @@ int main() {
         int scissorY = (int)((startY + 1.0f) * 0.5f * windowHeight);
         int scissorWidth = (int)(gridScreenWidth * 0.5f * windowWidth);
         int scissorHeight = (int)(gridScreenHeight * 0.5f * windowHeight);
-          // Make sure scissor dimensions are positive (required by OpenGL)
+          
+        // Make sure scissor dimensions are positive (required by OpenGL)
         scissorWidth = scissorWidth > 0 ? scissorWidth : 0;
         scissorHeight = scissorHeight > 0 ? scissorHeight : 0;
         
@@ -674,7 +338,8 @@ int main() {
             glEnable(GL_SCISSOR_TEST);
             glScissor(scissorX, scissorY, scissorWidth, scissorHeight);
         }
-          // Draw grid
+          
+        // Draw grid
         if (showGridLines) {
             myEngine.setFlatColor(1.0f, 1.0f, 1.0f); // White color for grid lines
             
@@ -690,7 +355,8 @@ int main() {
                 glVertex2f(screenX, startY);
                 glVertex2f(screenX, endY);
             }
-                    // Draw horizontal lines for the visible camera region
+                    
+            // Draw horizontal lines for the visible camera region
             for (int i = (int)cameraBottom; i <= (int)cameraTop + 1; i++) {
                 // Convert from world coordinates to screen coordinates
                 float worldRatio = (float)(i - cameraBottom) / (cameraTop - cameraBottom);
@@ -700,14 +366,19 @@ int main() {
             }
             glEnd();        
         }
-				// Draw the blocks (textured squares) on the grid
+		
+		// Draw the blocks (textured squares) on the grid
 		// Now we pass the camera boundaries to drawBlocks instead of the GRID_SIZE
-		gameMap.drawBlocks(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, deltaTime);
+		gameMap.drawBlocks(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, gameState.deltaTime);
 		
 		// Reset to default state before drawing elements
 		glMatrixMode(GL_MODELVIEW);
-		glLoadIdentity();		// Draw elements on top of the map tiles (freely placed decorations)
-		elementsManager.drawElements(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, deltaTime);        // Draw entity debug paths if enabled
+		glLoadIdentity();
+		
+		// Draw elements on top of the map tiles (freely placed decorations)
+		elementsManager.drawElements(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, gameState.deltaTime);
+		
+        // Draw entity debug paths if enabled
         if (DEBUG_SHOW_PATHS) {
             entitiesManager.drawDebugPaths(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop);
         }
@@ -715,70 +386,16 @@ int main() {
         // Draw entity collision radii if collision visualization is enabled
         entitiesManager.drawDebugCollisionRadii(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop);
 
-          // Disable scissor test when rendering is complete
+        // Disable scissor test when rendering is complete
         if (hideOutsideGrid) {
             glDisable(GL_SCISSOR_TEST);
         }
         
-		// Check escape key to close the window
+        // Check escape key to close the window
         if (keyPressedStates[GLFW_KEY_ESCAPE]) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
+            g_threadManager->setRunning(false);
         }
-        
-        // Toggle grid lines with G key
-        static bool gKeyPressed = false;
-        if (keyPressedStates[GLFW_KEY_G] && !gKeyPressed) {
-            showGridLines = !showGridLines;
-            gKeyPressed = true;
-        } else if (!keyPressedStates[GLFW_KEY_G]) {
-            gKeyPressed = false;
-        }
-        
-        // Handle special key presses (one-time actions on key press)
-        static bool lastFrameDebugKeyState = false;
-        if (keyPressedStates[GLFW_KEY_F3] && !lastFrameDebugKeyState) {
-            // Toggle debug mode (not currently implemented)
-            // Add debug functionality here if needed
-        }
-        lastFrameDebugKeyState = keyPressedStates[GLFW_KEY_F3];
-      // Toggle grid lines with F2
-        static bool lastFrameGridKeyState = false;
-        if (keyPressedStates[GLFW_KEY_F2] && !lastFrameGridKeyState) {
-            showGridLines = !showGridLines;        std::cout << "Grid lines " << (showGridLines ? "enabled" : "disabled") << std::endl;
-        }
-        lastFrameGridKeyState = keyPressedStates[GLFW_KEY_F2];
-        
-        // Handle debug key functionalities (F5 for anchor points, F7 for collision boxes)
-        handleDebugKeys(elementsManager, keyPressedStates);
-        
-        // Print elements list when F4 is pressed
-        static bool lastFrameDebugElementsState = false;
-        if (keyPressedStates[GLFW_KEY_F4] && !lastFrameDebugElementsState) {
-            std::cout << "\n--- Current Elements List ---" << std::endl;
-            elementsManager.listElements();
-        }
-        lastFrameDebugElementsState = keyPressedStates[GLFW_KEY_F4];
-          // Toggle hide pixels outside map grid with F6
-        static bool lastFrameHideOutsideGridState = false;
-        if (keyPressedStates[GLFW_KEY_F6] && !lastFrameHideOutsideGridState) {
-            hideOutsideGrid = !hideOutsideGrid;
-            std::cout << "Hiding pixels outside map grid: " << (hideOutsideGrid ? "enabled" : "disabled") << std::endl;
-        }
-        lastFrameHideOutsideGridState = keyPressedStates[GLFW_KEY_F6];        // Adjust camera region with P and M keys
-        static bool lastPKeyState = false;
-        static bool lastMKeyState = false;
-        
-        // P key - zoom in (decrease camera region)
-        if (keyPressedStates[GLFW_KEY_P] && !lastPKeyState) {
-            gameCamera.decreaseCameraRegion(1.0f);
-        }
-        lastPKeyState = keyPressedStates[GLFW_KEY_P];
-        
-        // M key - zoom out (increase camera region)
-        if (keyPressedStates[GLFW_KEY_M] && !lastMKeyState) {
-            gameCamera.increaseCameraRegion(1.0f);
-        }
-        lastMKeyState = keyPressedStates[GLFW_KEY_M];
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
@@ -786,16 +403,26 @@ int main() {
 		/* Poll for and process events */
 		glfwPollEvents();
 
-		/* Elapsed time computation from loop begining */
+		/* Elapsed time computation from loop beginning */
 		double elapsedTime = glfwGetTime() - startTime;
-		/* If to few time is spend vs our wanted FPS, we wait */
+		/* If too little time is spent vs our wanted FPS, we wait */
 		while(elapsedTime < FRAMERATE_IN_SECONDS)
 		{
-			glfwWaitEventsTimeout(FRAMERATE_IN_SECONDS-elapsedTime);
+			glfwWaitEventsTimeout(FRAMERATE_IN_SECONDS - elapsedTime);
 			elapsedTime = glfwGetTime() - startTime;
 		}
 	}
 
+    // Stop game threads
+    std::cout << "Stopping threads..." << std::endl;
+    stopGameThreads();
+    
+    // Cleanup threading system
+    cleanupThreading();
+
+    // Cleanup input system
+    cleanupInputs();
+    
     glfwTerminate();
     return 0;
 }

@@ -353,35 +353,6 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
     return true;
 }
 
-bool EntitiesManager::moveEntity(const std::string& instanceName, float x, float y) {
-    // Get the entity
-    Entity* entity = getEntity(instanceName);
-    if (!entity) {
-        std::cerr << "Entity not found: " << instanceName << std::endl;
-        return false;
-    }
-    
-    // Get the configuration
-    const EntityConfiguration* config = getConfiguration(entity->typeName);
-    if (!config) {
-        std::cerr << "Entity configuration not found: " << entity->typeName << std::endl;
-        return false;
-    }
-    
-    // Get the element name
-    std::string elementName = getElementName(instanceName);
-    
-    // Get current position
-    float currentX, currentY;
-    if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
-        std::cerr << "Error getting position for entity: " << instanceName << std::endl;
-        return false;
-    }
-    
-    // Use walkEntityWithPathfinding instead of walkEntityToCoordinates for intelligent movement
-    return walkEntityWithPathfinding(instanceName, x, y, entity->walkType);
-}
-
 bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName, float x, float y, WalkType walkType) {
     // Get the entity
     Entity* entity = getEntity(instanceName);
