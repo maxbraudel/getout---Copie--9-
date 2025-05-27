@@ -18,9 +18,11 @@ struct CompareNodes {
     }
 };
 
-// Calculate heuristic (Manhattan distance)
-float calculateHeuristic(int x1, int y1, int x2, int y2) {
-    return std::abs(x1 - x2) + std::abs(y1 - y2);
+// Calculate heuristic (Euclidean distance for smooth paths)
+float calculateHeuristic(float x1, float y1, float x2, float y2) {
+    float dx = x1 - x2;
+    float dy = y1 - y2;
+    return std::sqrt(dx * dx + dy * dy);
 }
 
 // Check if a position is valid (within bounds and not colliding) - using entity collision shape
@@ -48,32 +50,27 @@ bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, 
     return true;
 }
 
-// The integer version of position validation using entity configuration
-bool isPositionValid(int x, int y, const EntityConfiguration& entityConfig, const Map& gameMap) {
-    return isPositionValid(static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f, 
-                          entityConfig, gameMap);
-}
-
 // Get neighboring positions using entity collision shape detection
-std::vector<std::pair<int, int>> getNeighbors(int x, int y, const EntityConfiguration& entityConfig, const Map& gameMap) {
-    std::vector<std::pair<int, int>> neighbors;
+// Only allows movement in 8 cardinal and diagonal directions
+std::vector<std::pair<float, float>> getNeighbors(float x, float y, float stepSize, const EntityConfiguration& entityConfig, const Map& gameMap) {
+    std::vector<std::pair<float, float>> neighbors;
     
-    // Define possible movement directions (8 directions)
-    const std::pair<int, int> directions[] = {
-        {0, 1},   // North
-        {1, 0},   // East
-        {0, -1},  // South
-        {-1, 0},  // West
-        {1, 1},   // Northeast
-        {1, -1},  // Southeast
-        {-1, -1}, // Southwest
-        {-1, 1}   // Northwest
+    // Define possible movement directions (8 directions only - cardinal and diagonal)
+    const std::pair<float, float> directions[] = {
+        {0.0f, stepSize},         // North (vertical)
+        {stepSize, 0.0f},         // East (horizontal)
+        {0.0f, -stepSize},        // South (vertical)
+        {-stepSize, 0.0f},        // West (horizontal)
+        {stepSize, stepSize},     // Northeast (45° diagonal)
+        {stepSize, -stepSize},    // Southeast (45° diagonal)
+        {-stepSize, -stepSize},   // Southwest (45° diagonal)
+        {-stepSize, stepSize}     // Northwest (45° diagonal)
     };
 
-    // Add all possible neighbors
+    // Add all valid neighbors in the 8 allowed directions
     for (const auto& dir : directions) {
-        int newX = x + dir.first;
-        int newY = y + dir.second;
+        float newX = x + dir.first;
+        float newY = y + dir.second;
         if (isPositionValid(newX, newY, entityConfig, gameMap)) {
             neighbors.push_back({newX, newY});
         }
@@ -82,17 +79,44 @@ std::vector<std::pair<int, int>> getNeighbors(int x, int y, const EntityConfigur
 }
 
 
-// Simplify path using "string pulling" method, ensuring segments are valid - simplified for element collision only
+// Check if a segment follows geometric constraints (horizontal, vertical, or diagonal)
+static bool isGeometricSegment(float x1, float y1, float x2, float y2) {
+    float dx = x2 - x1;
+    float dy = y2 - y1;
+    
+    // Allow some tolerance for floating-point precision
+    const float tolerance = 0.001f;
+    
+    // Check if it's horizontal (dy ≈ 0)
+    if (std::abs(dy) < tolerance) {
+        return true;
+    }
+    
+    // Check if it's vertical (dx ≈ 0)
+    if (std::abs(dx) < tolerance) {
+        return true;
+    }
+    
+    // Check if it's diagonal (|dx| ≈ |dy|)
+    if (std::abs(std::abs(dx) - std::abs(dy)) < tolerance) {
+        return true;
+    }
+    
+    return false;
+}
+
+// Simplify path using "string pulling" method with geometric constraints
 static void simplifyPath(std::vector<std::pair<float, float>>& path,
                          const EntityConfiguration& entityConfig,
                          const Map& gameMap) {
     if (path.size() <= 2) {
-        // For paths of 0, 1, or 2 points, no simplification is typically needed.
-        // However, if it's 2 points, ensure the direct segment is valid.
+        // For paths of 0, 1, or 2 points, no simplification is needed.
+        // However, if it's 2 points, ensure the direct segment is valid and geometric.
         if (path.size() == 2) {
             if (!isSegmentValid(path[0].first, path[0].second, path[1].first, path[1].second,
-                                entityConfig, gameMap)) {
-                // If the direct segment between the two points is invalid,
+                                entityConfig, gameMap) ||
+                !isGeometricSegment(path[0].first, path[0].second, path[1].first, path[1].second)) {
+                // If the direct segment between the two points is invalid or non-geometric,
                 // this indicates a potential issue upstream
             }
         }
@@ -103,30 +127,22 @@ static void simplifyPath(std::vector<std::pair<float, float>>& path,
     simplifiedPath.push_back(path[0]); // Always include the starting point
 
     int currentAnchorIndexInOriginalPath = 0;
-    const float epsilon = 0.001f; // For floating point comparisons
 
     while (static_cast<size_t>(currentAnchorIndexInOriginalPath) < path.size() - 1) {
         int furthestReachableIndexInOriginalPath = currentAnchorIndexInOriginalPath + 1;
+        
+        // Try to reach as far as possible from the current anchor with geometric constraints
         for (size_t i = currentAnchorIndexInOriginalPath + 2; i < path.size(); ++i) {
-            float dx = path[i].first - path[currentAnchorIndexInOriginalPath].first;
-            float dy = path[i].second - path[currentAnchorIndexInOriginalPath].second;
-
-            bool isHorizontal = std::abs(dy) < epsilon && std::abs(dx) > epsilon;
-            bool isVertical = std::abs(dx) < epsilon && std::abs(dy) > epsilon;
-            // Check for non-zero dx/dy for diagonal to ensure it's a line, not a point.
-            bool isDiagonal = std::abs(std::abs(dx) - std::abs(dy)) < epsilon && std::abs(dx) > epsilon;
-              if (isHorizontal || isVertical || isDiagonal) {
-                if (isSegmentValid(path[currentAnchorIndexInOriginalPath].first, path[currentAnchorIndexInOriginalPath].second,
-                                   path[i].first, path[i].second,
-                                   entityConfig, gameMap)) {
-                    furthestReachableIndexInOriginalPath = i;
-                } else {
-                    // Segment is of allowed type but collides
-                    break; 
-                }
+            // Test if we can go directly from anchor to this point with geometric and collision constraints
+            if (isSegmentValid(path[currentAnchorIndexInOriginalPath].first, path[currentAnchorIndexInOriginalPath].second,
+                               path[i].first, path[i].second,
+                               entityConfig, gameMap) &&
+                isGeometricSegment(path[currentAnchorIndexInOriginalPath].first, path[currentAnchorIndexInOriginalPath].second,
+                                   path[i].first, path[i].second)) {
+                furthestReachableIndexInOriginalPath = i;
             } else {
-                // Segment is not Horizontal, Vertical, or perfect Diagonal
-                break;
+                // Can't reach this point directly with constraints, stop here
+                break; 
             }
         }
         
@@ -139,8 +155,7 @@ static void simplifyPath(std::vector<std::pair<float, float>>& path,
         } else {
             break; 
         }
-        currentAnchorIndexInOriginalPath = furthestReachableIndexInOriginalPath;
-    }
+        currentAnchorIndexInOriginalPath = furthestReachableIndexInOriginalPath;    }
     path = simplifiedPath;
 }
 
@@ -162,35 +177,36 @@ bool isSegmentValid(float x1, float y1, float x2, float y2, const EntityConfigur
     return true; // All points along the segment are valid
 }
 
-// Find path using A* algorithm - simplified for element collision only
+// Find path using A* algorithm with true floating-point coordinates
 std::vector<std::pair<float, float>> findPath(
     float startX, float startY,
     float goalX, float goalY,
     const Map& gameMap,
     const EntityConfiguration& entityConfig
 ) {
-    // Store original intended goal for messages, and derive initial cell indices
+    // Store original intended goal for messages
     float originalGoalX = goalX;
     float originalGoalY = goalY;
-    int initialStartNodeX = static_cast<int>(startX);
-    int initialStartNodeY = static_cast<int>(startY);
-    int initialGoalNodeX = static_cast<int>(goalX);
-    int initialGoalNodeY = static_cast<int>(goalY);    // Check and adjust start position
+    
+    // Define step size for pathfinding resolution (smaller = more precise but slower)
+    const float stepSize = 0.5f;
+    
+    // Check and adjust start position if needed
     if (!isPositionValid(startX, startY, entityConfig, gameMap)) {
         std::cout << "Pathfinding: Start position (" << startX << ", " << startY << ") is invalid. Searching for a nearby valid start..." << std::endl;
         bool foundValidStart = false;
-        for (int r = 0; r <= 3; ++r) { // Search radius: 0 (original cell), then 1, 2, 3
-            for (int dx_offset = -r; dx_offset <= r; ++dx_offset) {
-                for (int dy_offset = -r; dy_offset <= r; ++dy_offset) {
-                    if (r > 0 && (std::abs(dx_offset) < r && std::abs(dy_offset) < r)) {
-                        continue; // For r > 0, only check the perimeter of the current search square
+        for (float r = 0.0f; r <= 3.0f; r += stepSize) {
+            for (float dx = -r; dx <= r; dx += stepSize) {
+                for (float dy = -r; dy <= r; dy += stepSize) {
+                    if (r > 0.0f && (std::abs(dx) < r && std::abs(dy) < r)) {
+                        continue; // For r > 0, only check the perimeter
                     }
-                    float testX = static_cast<float>(initialStartNodeX + dx_offset) + 0.5f;
-                    float testY = static_cast<float>(initialStartNodeY + dy_offset) + 0.5f;
+                    float testX = startX + dx;
+                    float testY = startY + dy;
                     if (isPositionValid(testX, testY, entityConfig, gameMap)) {
-                        startX = testX; // Update startX to the valid cell center
-                        startY = testY; // Update startY to the valid cell center
-                        std::cout << "Pathfinding: Adjusted start to valid cell center (" << startX << ", " << startY << ")" << std::endl;
+                        startX = testX;
+                        startY = testY;
+                        std::cout << "Pathfinding: Adjusted start to valid position (" << startX << ", " << startY << ")" << std::endl;
                         foundValidStart = true;
                         goto end_start_search;
                     }
@@ -199,25 +215,27 @@ std::vector<std::pair<float, float>> findPath(
         }
         end_start_search:;
         if (!foundValidStart) {
-            std::cerr << "Pathfinding Error: Could not find a valid start position near original (" << initialStartNodeX << ".5, " << initialStartNodeY << ".5)." << std::endl;
+            std::cerr << "Pathfinding Error: Could not find a valid start position near original (" << originalGoalX << ", " << originalGoalY << ")." << std::endl;
             return {};
         }
-    }    // Check and adjust goal position
+    }
+    
+    // Check and adjust goal position if needed
     if (!isPositionValid(goalX, goalY, entityConfig, gameMap)) {
         std::cout << "Pathfinding: Goal position (" << originalGoalX << ", " << originalGoalY << ") is invalid. Searching for a nearby valid goal..." << std::endl;
         bool foundValidGoal = false;
-        for (int r = 0; r <= 3; ++r) { // Search radius
-            for (int dx_offset = -r; dx_offset <= r; ++dx_offset) {
-                for (int dy_offset = -r; dy_offset <= r; ++dy_offset) {
-                     if (r > 0 && (std::abs(dx_offset) < r && std::abs(dy_offset) < r)) {
-                        continue; 
+        for (float r = 0.0f; r <= 3.0f; r += stepSize) {
+            for (float dx = -r; dx <= r; dx += stepSize) {
+                for (float dy = -r; dy <= r; dy += stepSize) {
+                    if (r > 0.0f && (std::abs(dx) < r && std::abs(dy) < r)) {
+                        continue;
                     }
-                    float testX = static_cast<float>(initialGoalNodeX + dx_offset) + 0.5f;
-                    float testY = static_cast<float>(initialGoalNodeY + dy_offset) + 0.5f;
+                    float testX = goalX + dx;
+                    float testY = goalY + dy;
                     if (isPositionValid(testX, testY, entityConfig, gameMap)) {
-                        goalX = testX; // Update goalX to the valid cell center
-                        goalY = testY; // Update goalY to the valid cell center
-                        std::cout << "Pathfinding: Adjusted goal to valid cell center (" << goalX << ", " << goalY << ")" << std::endl;
+                        goalX = testX;
+                        goalY = testY;
+                        std::cout << "Pathfinding: Adjusted goal to valid position (" << goalX << ", " << goalY << ")" << std::endl;
                         foundValidGoal = true;
                         goto end_goal_search;
                     }
@@ -231,31 +249,24 @@ std::vector<std::pair<float, float>> findPath(
         }
     }
 
-    // Now, derive the A* start/goal nodes from the (potentially adjusted) startX/Y and goalX/Y
-    int startNodeX = static_cast<int>(startX);
-    int startNodeY = static_cast<int>(startY);
-    int goalNodeX = static_cast<int>(goalX);
-    int goalNodeY = static_cast<int>(goalY);
-
-    // If, after adjustment, start and goal are effectively the same, return a direct path
+    // If start and goal are effectively the same, return a direct path
     if (std::abs(startX - goalX) < 0.001f && std::abs(startY - goalY) < 0.001f) {
         return {{startX, startY}};
-    }
-    
+    }    
     std::priority_queue<Node*, std::vector<Node*>, CompareNodes> openSet;
-    std::unordered_map<std::pair<int, int>, Node*, PairHash> allNodes; 
+    std::unordered_map<std::pair<float, float>, Node*, PairHash> allNodes; 
 
-    Node* startNode = new Node(startNodeX, startNodeY);
+    Node* startNode = new Node(startX, startY);
     startNode->gCost = 0;
-    startNode->hCost = calculateHeuristic(startNodeX, startNodeY, goalNodeX, goalNodeY);
+    startNode->hCost = calculateHeuristic(startX, startY, goalX, goalY);
     startNode->fCost = startNode->gCost + startNode->hCost;
     openSet.push(startNode);
-    allNodes[{startNodeX, startNodeY}] = startNode;
+    allNodes[{startX, startY}] = startNode;
 
-    std::unordered_set<std::pair<int, int>, PairHash> closedSet;
+    std::unordered_set<std::pair<float, float>, PairHash> closedSet;
     std::vector<std::pair<float, float>> path;
     int iterations = 0;
-    const int maxIterations = GRID_SIZE * GRID_SIZE * 4; // Increased max iterations slightly
+    const int maxIterations = static_cast<int>((GRID_SIZE * GRID_SIZE) / (stepSize * stepSize)) * 4; // Scale based on step size
 
     while (!openSet.empty()) {
         iterations++;
@@ -275,10 +286,11 @@ std::vector<std::pair<float, float>> findPath(
         Node* currentNode = openSet.top();
         openSet.pop();
 
-        if (currentNode->x == goalNodeX && currentNode->y == goalNodeY) {
+        // Check if we've reached the goal (within a small tolerance for floating-point comparison)
+        if (std::abs(currentNode->x - goalX) < stepSize * 0.5f && std::abs(currentNode->y - goalY) < stepSize * 0.5f) {
             Node* temp = currentNode;
             while (temp != nullptr) {
-                path.push_back({static_cast<float>(temp->x) + 0.5f, static_cast<float>(temp->y) + 0.5f});
+                path.push_back({temp->x, temp->y});
                 temp = temp->parent;
             }
             std::reverse(path.begin(), path.end());
@@ -290,13 +302,14 @@ std::vector<std::pair<float, float>> findPath(
                  if (std::abs(startX - goalX) < 0.001f && std::abs(startY - goalY) < 0.001f) path.push_back({startX, startY});
                  else { path.push_back({startX, startY}); path.push_back({goalX, goalY}); } 
             } else {
-                // Path has at least one point (a cell center)
-                // Snap endpoints to the (guaranteed valid or adjusted) startX/Y and goalX/Y BEFORE simplification
+                // Ensure exact start and goal positions
                 path[0] = {startX, startY};
-                path.back() = {goalX, goalY};                // Simplify the path using the new robust method (element collision only)
+                path.back() = {goalX, goalY};
+                
+                // Simplify the path using the new robust method
                 simplifyPath(path, entityConfig, gameMap);
 
-                // Ensure simplification didn't break start/end points, or if path became very short
+                // Ensure simplification didn't break start/end points
                 if (!path.empty()) {
                     path[0] = {startX, startY}; // Re-snap start
                     if (path.size() > 1) {
@@ -325,12 +338,15 @@ std::vector<std::pair<float, float>> findPath(
 
         closedSet.insert({currentNode->x, currentNode->y});
 
-        for (const auto& neighborPos : getNeighbors(currentNode->x, currentNode->y, entityConfig, gameMap)) {
+        for (const auto& neighborPos : getNeighbors(currentNode->x, currentNode->y, stepSize, entityConfig, gameMap)) {
             if (closedSet.count(neighborPos)) {
                 continue;
             }
 
-            float tentativeGCost = currentNode->gCost + 1.0f; 
+            // Calculate actual distance to neighbor (Euclidean distance for floating-point)
+            float dx = neighborPos.first - currentNode->x;
+            float dy = neighborPos.second - currentNode->y;
+            float tentativeGCost = currentNode->gCost + std::sqrt(dx * dx + dy * dy);
 
             Node* neighborNode = nullptr;
             auto it = allNodes.find(neighborPos);
@@ -345,23 +361,22 @@ std::vector<std::pair<float, float>> findPath(
             if (tentativeGCost < neighborNode->gCost) {
                 neighborNode->parent = currentNode;
                 neighborNode->gCost = tentativeGCost;
-                neighborNode->hCost = calculateHeuristic(neighborNode->x, neighborNode->y, goalNodeX, goalNodeY);
+                neighborNode->hCost = calculateHeuristic(neighborNode->x, neighborNode->y, goalX, goalY);
                 neighborNode->fCost = neighborNode->gCost + neighborNode->hCost;
                 openSet.push(neighborNode);
             }
         }
-    }
-
-    // Clean up allocated nodes if no path found
+    }    // Clean up allocated nodes if no path found
     for (auto& pair_node : allNodes) { delete pair_node.second; }
     allNodes.clear();
     
     // Enhanced Debugging Output (if no path found)
     std::cerr << "-------------------------------------------------\\" << std::endl;
     std::cerr << "Pathfinding: No path found! Details:" << std::endl;
-    std::cerr << "  Start (final used): (" << startX << ", " << startY << "), Node: (" << startNodeX << ", " << startNodeY << ")" << std::endl;
-    std::cerr << "  Goal (final used):  (" << goalX << ", " << goalY << "), Node: (" << goalNodeX << ", " << goalNodeY << ")" << std::endl;
+    std::cerr << "  Start (final used): (" << startX << ", " << startY << ")" << std::endl;
+    std::cerr << "  Goal (final used):  (" << goalX << ", " << goalY << ")" << std::endl;
     std::cerr << "  Original Goal:      (" << originalGoalX << ", " << originalGoalY << ")" << std::endl;
+    std::cerr << "  Step Size:          " << stepSize << std::endl;
     std::cerr << "  Open Set Status:    " << (openSet.empty() ? "Empty" : "Not Empty (Error in logic?)") << std::endl;
     std::cerr << "  Nodes Explored (Closed Set Size): " << closedSet.size() << std::endl;
     std::cerr << "  Number of Iterations: " << iterations << std::endl;
@@ -377,7 +392,7 @@ std::vector<std::pair<float, float>> findPath(
         std::cerr << "  Closed set is large, not printing samples here." << std::endl;
     }
     
-    std::cerr << "  Non-Traversable Blocks for this entity: (None - entities only check element collisions)" << std::endl;
+    std::cerr << "  Using floating-point pathfinding with step size: " << stepSize << std::endl;
     std::cerr << "-------------------------------------------------\\" << std::endl;
 
     return {}; // No path found
