@@ -16,6 +16,12 @@ struct EntityConfiguration;
 // Minimum allowed distance between waypoints to reduce path zigzagging
 const float MINIMUM_DISTANCE_BETWEEN_WAYPOINTS = 3.0f;
 
+// Minimum distance buffer from avoidance blocks (0 = no buffer, >0 = safety margin)
+extern float MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS;
+
+// Minimum distance buffer from avoidance elements (0 = no buffer, >0 = safety margin)
+extern float MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS;
+
 // A structure to represent a node in the pathfinding system
 struct Node {
     float x;

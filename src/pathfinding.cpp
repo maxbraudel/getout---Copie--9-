@@ -11,6 +11,10 @@
 #include <iostream>
 #include <limits> // Added to resolve std::numeric_limits errors
 
+// Global variables for minimum distance from avoidance objects
+float MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS = 0.4f;  // Default: no buffer
+float MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS = 0.4f; // Default: no buffer
+
 // Custom comparison for priority queue
 struct CompareNodes {
     bool operator()(const Node* a, const Node* b) const {
@@ -25,6 +29,50 @@ float calculateHeuristic(float x1, float y1, float x2, float y2) {
     return std::sqrt(dx * dx + dy * dy);
 }
 
+// Helper function to expand collision shape points by a given distance for safety buffer
+std::vector<std::pair<float, float>> expandCollisionShape(const std::vector<std::pair<float, float>>& originalShape, float expandDistance) {
+    if (expandDistance <= 0.0f || originalShape.empty()) {
+        return originalShape; // No expansion needed
+    }
+    
+    std::vector<std::pair<float, float>> expandedShape;
+    
+    // For each point, move it outward from the center of the shape
+    // First, find the center point of the shape
+    float centerX = 0.0f, centerY = 0.0f;
+    for (const auto& point : originalShape) {
+        centerX += point.first;
+        centerY += point.second;
+    }
+    centerX /= static_cast<float>(originalShape.size());
+    centerY /= static_cast<float>(originalShape.size());
+    
+    // Expand each point outward from the center
+    for (const auto& point : originalShape) {
+        float dx = point.first - centerX;
+        float dy = point.second - centerY;
+        
+        // Calculate the distance from center to this point
+        float distance = std::sqrt(dx * dx + dy * dy);
+        
+        if (distance > 0.0f) {
+            // Normalize the direction vector and expand by the desired distance
+            float normalizedDx = dx / distance;
+            float normalizedDy = dy / distance;
+            
+            expandedShape.push_back({
+                point.first + normalizedDx * expandDistance,
+                point.second + normalizedDy * expandDistance
+            });
+        } else {
+            // If point is at center, just add the original point
+            expandedShape.push_back(point);
+        }
+    }
+    
+    return expandedShape;
+}
+
 // Check if a position is valid (within bounds and not colliding) - using entity collision shape
 bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, const Map& gameMap) {
     // 1. Check map boundaries if offMapAvoidance is enabled
@@ -33,18 +81,39 @@ bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, 
             return false; // Entity collision shape would extend outside map boundaries
         }
     }
-      // 2. Check for collision with elements using granular collision control
+    
+    // 2. Check for collision with elements using granular collision control with safety buffer
     // For pathfinding, we only check avoidance elements as obstacles to route around
     // Collision elements only prevent direct physical overlap during movement, not pathfinding
-    if (wouldEntityCollideWithElementsGranular(entityConfig, x, y, true)) {
-        return false; // Avoidance element detected - pathfinding should find alternate route
+    if (MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS > 0.0f) {
+        // Create a temporary entity config with expanded collision shape for elements
+        EntityConfiguration expandedConfig = entityConfig;
+        expandedConfig.collisionShapePoints = expandCollisionShape(entityConfig.collisionShapePoints, MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS);
+        
+        if (wouldEntityCollideWithElementsGranular(expandedConfig, x, y, true)) {
+            return false; // Avoidance element detected within safety buffer - pathfinding should find alternate route
+        }
+    } else {
+        if (wouldEntityCollideWithElementsGranular(entityConfig, x, y, true)) {
+            return false; // Avoidance element detected - pathfinding should find alternate route
+        }
     }
     
-    // 3. Check for collision with blocks using granular block collision control
+    // 3. Check for collision with blocks using granular block collision control with safety buffer
     // For pathfinding, we only check avoidance blocks as obstacles to route around
     // Collision blocks only prevent direct physical overlap during movement, not pathfinding
-    if (wouldEntityCollideWithBlocksGranular(entityConfig, x, y, true)) {
-        return false; // Avoidance block detected - pathfinding should find alternate route
+    if (MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS > 0.0f) {
+        // Create a temporary entity config with expanded collision shape for blocks
+        EntityConfiguration expandedConfig = entityConfig;
+        expandedConfig.collisionShapePoints = expandCollisionShape(entityConfig.collisionShapePoints, MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS);
+        
+        if (wouldEntityCollideWithBlocksGranular(expandedConfig, x, y, true)) {
+            return false; // Avoidance block detected within safety buffer - pathfinding should find alternate route
+        }
+    } else {
+        if (wouldEntityCollideWithBlocksGranular(entityConfig, x, y, true)) {
+            return false; // Avoidance block detected - pathfinding should find alternate route
+        }
     }
 
     return true;
