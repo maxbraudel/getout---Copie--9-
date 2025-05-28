@@ -29,11 +29,7 @@ static std::vector<ElementInfo> createElementTexturesToLoad() {
     coconutTree1Texture.anchorOffsetX = -0.3f; // X offset
     coconutTree1Texture.anchorOffsetY = 0.2f; // No Y offset
     coconutTree1Texture.hasCollision = true;  // Enable collision for this tree
-    // Define a rectangular collision shape. Points are relative to the anchor point.
-    // Anchor is BOTTOM_CENTER, with offsets. The shape should be centered around this effective anchor.
-    // For BOTTOM_CENTER, y=0 is the bottom.
-    // Example: A 0.8 wide, 0.8 tall box centered at the anchor.
-    // The points are (local_x, local_y)
+
     coconutTree1Texture.collisionShapePoints = {
         {-0.07f, 0.0f}, {-0.07f, 0.1}, {0.07f, 0.1f}, {0.07f, 0.0f}
     };
@@ -43,7 +39,7 @@ static std::vector<ElementInfo> createElementTexturesToLoad() {
     coconutTree2Texture.type = ElementTextureType::STATIC;
     coconutTree2Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree2Texture.anchorOffsetX = 0.0f; // No offset
-    coconutTree2Texture.anchorOffsetY = 0.4f; // No offset
+    coconutTree2Texture.anchorOffsetY = 0.8f; // No offset
     coconutTree2Texture.hasCollision = true;  // Enable collision for this tree
     coconutTree2Texture.collisionShapePoints = {
         {-0.07f, 0.0f}, {-0.07f, 0.1}, {0.07f, 0.1f}, {0.07f, 0.0f}

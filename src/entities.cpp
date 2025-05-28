@@ -49,7 +49,7 @@ static void initializeEntityTypes() {
         antagonist.sprintWalkingAnimationSpeed = 12.0f;    // Collision settings
         antagonist.canCollide = true;
         antagonist.collisionShapePoints = {
-            {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}
+            {-0.2f, -0.1f}, {0.2f, -0.1f}, {0.2f, 0.1f}, {-0.2f, 0.1f}
         };    // Granular collision control - antagonist avoids trees but can move through player
         // For testing: Leave lists empty to allow movement through all elements
         antagonist.avoidanceElements = {
@@ -83,14 +83,7 @@ static void initializeEntityTypes() {
         // Map boundary control settings
         antagonist.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
         antagonist.offMapCollision = true; // Antagonist collides with map borders
-          
-        // CRASH FIX: Validate collision shape points before storing
-        if (antagonist.collisionShapePoints.empty()) {
-            std::cerr << "WARNING: Antagonist collision shape is empty, using default" << std::endl;
-            antagonist.collisionShapePoints = {
-                {-1.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 1.0f}, {-1.0f, 1.0f}
-            };
-        }
+        
         
         // Add to the list
         entityTypes.push_back(antagonist);
@@ -113,13 +106,13 @@ static void initializeEntityTypes() {
         player.spritePhaseWalkRight = 1;
         
         // Movement speeds
-        player.normalWalkingSpeed = 4.0f;
+        player.normalWalkingSpeed = 3.0f;
         player.normalWalkingAnimationSpeed = 11.0f;
-        player.sprintWalkingSpeed = 6.0f;
+        player.sprintWalkingSpeed = 5.0f;
         player.sprintWalkingAnimationSpeed = 20.0f;    // Collision settings
         player.canCollide = true;
         player.collisionShapePoints = {
-            {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}
+            {-0.2f, -0.1f}, {0.2f, -0.1f}, {0.2f, 0.1f}, {-0.2f, 0.1f}
         };    // Granular collision control - player avoids trees and other characters
         // For testing: Leave lists empty to allow movement through all elements
         player.avoidanceElements = {
@@ -420,11 +413,19 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
         std::cerr << "Error getting position for entity: " << instanceName << std::endl;
         return false;
     }
-    
-    // Check if destination would cause entity collision shape to overlap with map boundaries
+      // Check if destination would cause entity collision shape to overlap with map boundaries
     if (config->offMapCollision && wouldEntityCollideWithMapBounds(*config, x, y)) {
         std::cout << "Cannot move entity " << instanceName << " to (" << x << ", " << y 
                   << ") - destination would cause collision with map boundaries" << std::endl;
+        return false;
+    }
+    
+    // Check if destination would cause entity collision shape to overlap with collision/avoidance blocks or elements
+    if (config->canCollide && 
+        (wouldEntityCollideWithElementsGranular(*config, x, y, true) || 
+         wouldEntityCollideWithBlocksGranular(*config, x, y, true))) {
+        std::cout << "Cannot move entity " << instanceName << " to (" << x << ", " << y 
+                  << ") - inaccessible destination (would cause collision with blocks/elements)" << std::endl;
         return false;
     }
     
@@ -749,8 +750,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         dy = targetY - currentActualY;
         distance = std::sqrt(dx * dx + dy * dy);
     }
-    
-    // Stop if we\'re close enough to the target
+      // Stop if we\'re close enough to the target
     float stopThreshold = 0.1f; // Stop when within 0.1 distance units
     if (distance <= stopThreshold && 
         ((!entity.usePathfinding) || 
@@ -758,8 +758,33 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         // We've reached the final target
         entity.isWalking = false;
         
-        // Snap to exact target position
-        elementsManager.changeElementCoordinates(elementName, entity.targetX, entity.targetY);
+        // Instead of snapping directly to target, find a safe final position
+        float finalX = entity.targetX;
+        float finalY = entity.targetY;
+        
+        // Check if the target position would cause collisions
+        if (config.canCollide && 
+            (wouldEntityCollideWithElementsGranular(config, finalX, finalY, false) || 
+             wouldEntityCollideWithBlocksGranular(config, finalX, finalY, false))) {
+            
+            std::cout << "Entity " << entity.instanceName << " target (" << finalX << ", " << finalY 
+                      << ") would cause collision - finding safe final position..." << std::endl;
+              // Try to find a safe position near the target using the collision resolution system
+            if (findSafePositionForEntity(finalX, finalY, config, gameMap)) {
+                std::cout << "Found safe final position for " << entity.instanceName 
+                          << " at (" << finalX << ", " << finalY << ") instead of (" 
+                          << entity.targetX << ", " << entity.targetY << ")" << std::endl;
+            } else {
+                // If we can't find a safe position, use current position (don't teleport)
+                finalX = currentActualX;
+                finalY = currentActualY;
+                std::cout << "Could not find safe final position for " << entity.instanceName 
+                          << " - staying at current position (" << finalX << ", " << finalY << ")" << std::endl;
+            }
+        }
+        
+        // Move to the safe final position
+        elementsManager.changeElementCoordinates(elementName, finalX, finalY);
         
         // Disable animation
         elementsManager.changeElementAnimationStatus(elementName, false);

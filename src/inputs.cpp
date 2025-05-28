@@ -335,13 +335,13 @@ void processCameraControls() {
     
     // P key - zoom in (decrease camera region smoothly)
     if (keyPressedStates[GLFW_KEY_P] && !lastPKeyState) {
-        gameCamera.decreaseCameraRegionSmoothly(1.0f, 0.5f); // 1.0 units over 0.5 seconds
+        gameCamera.decreaseCameraRegionSmoothly(10.0f, 0.5f); // 1.0 units over 0.5 seconds
     }
     lastPKeyState = keyPressedStates[GLFW_KEY_P];
     
     // M key - zoom out (increase camera region smoothly)
     if (keyPressedStates[GLFW_KEY_M] && !lastMKeyState) {
-        gameCamera.increaseCameraRegionSmoothly(1.0f, 0.5f); // 1.0 units over 0.5 seconds
+        gameCamera.increaseCameraRegionSmoothly(10.0f, 0.5f); // 1.0 units over 0.5 seconds
     }
     lastMKeyState = keyPressedStates[GLFW_KEY_M];
 }

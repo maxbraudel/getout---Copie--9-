@@ -60,23 +60,6 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     if (GetCurrentDir(cwd, sizeof(cwd)) != NULL) {
         std::cout << "Current working directory: " << cwd << std::endl;
     }
-    
-    // Define texture configurations
-    // std::map<TextureName, BlockInfo> textureConfigs = { // C++11 might struggle with this direct initialization
-    //     {TextureName::SAND, {
-    //         "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\sand.png", 
-    //         TextureAnimationType::STATIC
-    //     }},
-    //     {TextureName::WATER, {
-    //         "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water.png", 
-    //         TextureAnimationType::STATIC
-    //     }},
-    //     {TextureName::WATER_0, {
-    //         "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\waterAnimated.png", 
-    //         TextureAnimationType::ANIMATED, 
-    //         10.0f // animationSpeed FPS
-    //     }}
-    // };
 
     // C++11 compatible way to initialize the map
     std::map<TextureName, BlockInfo> textureConfigs;
