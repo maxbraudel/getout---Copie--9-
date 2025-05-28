@@ -1169,8 +1169,12 @@ bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& e
 void EntitiesManager::initializeAsyncPathfinding() {
     if (!g_entityAsyncPathfinder) {
         g_entityAsyncPathfinder = new AsyncEntityPathfinder();
+        
+        // CRITICAL FIX: Initialize with game map reference before starting
+        g_entityAsyncPathfinder->initialize(&gameMap);
         g_entityAsyncPathfinder->start();
-        std::cout << "Async pathfinding system initialized" << std::endl;
+        
+        std::cout << "Async pathfinding system initialized with game map reference" << std::endl;
     }
 }
 
@@ -1188,16 +1192,24 @@ void EntitiesManager::processAsyncPathfindingResults() {
         return;
     }
     
-    // Process all completed pathfinding requests
-    std::vector<AsyncPathfindingResult> results = g_entityAsyncPathfinder->getCompletedResults();
-    
-    for (const auto& result : results) {
-        // Find the entity that requested this pathfinding
-        Entity* entity = getEntity(result.instanceName);
-        if (!entity) {
-            std::cerr << "Warning: Received pathfinding result for unknown entity: " << result.instanceName << std::endl;
-            continue;
-        }
+    // CRASH FIX: Add try-catch around async result processing
+    try {
+        // Process all completed pathfinding requests
+        std::vector<AsyncPathfindingResult> results = g_entityAsyncPathfinder->getCompletedResults();
+        
+        for (const auto& result : results) {
+            // CRASH FIX: Validate result data before processing
+            if (result.instanceName.empty()) {
+                std::cerr << "Warning: Received pathfinding result with empty instance name" << std::endl;
+                continue;
+            }
+            
+            // Find the entity that requested this pathfinding
+            Entity* entity = getEntity(result.instanceName);
+            if (!entity) {
+                std::cerr << "Warning: Received pathfinding result for unknown entity: " << result.instanceName << std::endl;
+                continue;
+            }
         
         // Get the configuration
         const EntityConfiguration* config = getConfiguration(entity->typeName);
@@ -1293,12 +1305,18 @@ void EntitiesManager::processAsyncPathfindingResults() {
             
             entity->pathfindingRequestId = 0; // Clear the request ID
             entity->isWaitingForPath = false; // No longer waiting
-            
-            if (!result.success) {
+              if (!result.success) {
                 std::cout << "Entity " << result.instanceName << " pathfinding failed: " << result.errorMessage << std::endl;
             } else {
                 std::cout << "Entity " << result.instanceName << " pathfinding completed - already at destination" << std::endl;
             }
         }
+    }
+    } catch (const std::exception& e) {
+        std::cerr << "CRITICAL: Exception in processAsyncPathfindingResults: " << e.what() << std::endl;
+        // Continue execution to prevent complete crash
+    } catch (...) {
+        std::cerr << "CRITICAL: Unknown exception in processAsyncPathfindingResults!" << std::endl;
+        // Continue execution to prevent complete crash
     }
 }

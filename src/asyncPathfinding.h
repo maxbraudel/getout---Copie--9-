@@ -52,6 +52,9 @@ public:
     AsyncEntityPathfinder(size_t numThreads = 4);
     ~AsyncEntityPathfinder();
     
+    // Initialize with game map reference (MUST be called before start)
+    void initialize(const Map* gameMap);
+    
     // Start the async pathfinding system
     void start();
     
@@ -96,9 +99,12 @@ private:
     
     // Request ID management
     std::atomic<uint32_t> nextRequestId;
-    
-    // System state
+      // System state
     std::atomic<bool> isRunning;
+    
+    // Game map reference (thread-safe read-only access)
+    const Map* gameMapPtr;
+    mutable std::mutex gameMapMutex;
       // Background processing
     void startBackgroundProcessing();
     void processPathfindingRequests();

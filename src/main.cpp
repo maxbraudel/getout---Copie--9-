@@ -15,6 +15,7 @@
 #include "entities.h" // Added include for entity management
 #include "inputs.h" // Added include for input handling
 #include "threading.h" // Added include for threading system
+#include "crashDebug.h" // Added include for crash debugging
 #include <ctime> // For time(0) to seed random number generator
 #include <cmath> // For sqrt function
 #include <algorithm> // For std::min and std::max
@@ -39,6 +40,21 @@ void updateCameraToPlayerPosition();
 /* Forward declarations for functions in debug.cpp */
 bool isPlayerDebugModeActive();
 void printPlayerDebugInfo(float playerX, float playerY, int mapWidth, int mapHeight);
+
+/* Window close callback function */
+void onWindowClose(GLFWwindow* window) {
+    std::cout << "Window close callback triggered - starting cleanup..." << std::endl;
+    
+    // Signal thread manager to stop
+    if (g_threadManager) {
+        g_threadManager->setRunning(false);
+    }
+    
+    // Shutdown async pathfinding system
+    entitiesManager.shutdownAsyncPathfinding();
+    
+    std::cout << "Cleanup initiated from window close callback" << std::endl;
+}
 
 /* Error handling function */
 void onError(int error, const char* description) {
@@ -82,6 +98,13 @@ void onWindowResize(GLFWwindow* window, int width, int height) {
 }
 
 int main() {
+    // CRASH FIX: Initialize crash handler first for comprehensive crash debugging
+    installCrashHandler();
+    setCrashLogPath("game_crash_log.txt");
+    
+    std::cout << "=== GAME STARTUP ===" << std::endl;
+    DEBUG_LOG_MEMORY("main_start");
+    
     // CRASH FIX: Add global exception handler
     try {
         // Seed the random number generator ONCE at the start of the program
@@ -111,6 +134,9 @@ int main() {
     }    // Make the window's context current
     glfwMakeContextCurrent(window);    // Set the window resize callback
     glfwSetWindowSizeCallback(window, onWindowResize);
+    
+    // Set the window close callback
+    glfwSetWindowCloseCallback(window, onWindowClose);
     
     // Set the keyboard callback
     glfwSetKeyCallback(window, keyCallback);
@@ -242,21 +268,22 @@ int main() {
 
 
     gameMap.placeBlockArea(TextureName::WATER_3, 0, 33, 50, 33); // Place a water block at (0, 0)
-
-
     gameMap.placeBlockArea(TextureName::GRASS_2, 5, 33, 10, 33); // Place a water block at (0, 0)
     
+    DEBUG_LOG_MEMORY("map_initialization_complete");
+    
     // Place the antagonist entity at coordinates (10, 10)
-
-     entitiesManager.initializeEntityConfigurations();
+    std::cout << "Initializing entities..." << std::endl;
+    entitiesManager.initializeEntityConfigurations();
+    DEBUG_LOG_MEMORY("entity_configs_initialized");
 
     entitiesManager.placeEntityByType("antagonist1", "antagonist", 5.0f, 30.0f);
     entitiesManager.placeEntityByType("antagonist2", "antagonist", 6.0f, 30.0f);
     entitiesManager.placeEntityByType("antagonist3", "antagonist", 7.0f, 30.0f);
 
-
     entitiesManager.placeEntityByType("player1", "player", 5.0f, 45.0f);;
-
+    
+    DEBUG_LOG_MEMORY("entities_placed");
 
     // wait 2 seconds
     std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -268,28 +295,45 @@ int main() {
 	std::cout << "Game ready with " << elementsManager.getElementsCount() << " elements placed" << std::endl;
 	
 	// Display brief coordinate system information
-	std::cout << "\nGame uses a coordinate system with (0,0) at bottom-left, Y increasing upward" << std::endl;
-	
-    // Initialize threading system
+	std::cout << "\nGame uses a coordinate system with (0,0) at bottom-left, Y increasing upward" << std::endl;    // Initialize threading system
+    DEBUG_LOG_MEMORY("before_threading_init");
+    std::cout << "Initializing threading system..." << std::endl;
+    
     if (!initializeThreading(&gameMap, &elementsManager, &entitiesManager, &gameCamera)) {
-        std::cerr << "Failed to initialize threading system!" << std::endl;
+        std::cerr << "CRASH FIX: Failed to initialize threading system!" << std::endl;
+        DEBUG_LOG_MEMORY("threading_init_failed");
         glfwTerminate();
         return -1;
     }
     
+    DEBUG_LOG_MEMORY("after_threading_init");
+    
     // Start game threads
+    std::cout << "Starting game threads..." << std::endl;
     startGameThreads();
     
+    DEBUG_LOG_MEMORY("after_threads_started");
     std::cout << "Threading system started - entering render loop" << std::endl;
-
 	/* Main render loop - runs until user closes the window */
+	int frameCount = 0;
 	while (!glfwWindowShouldClose(window) && g_threadManager->isRunning())
 	{
-		/* Get time (in second) at loop beginning */
-		double startTime = glfwGetTime();
+		frameCount++;
 		
-        // Get current game state from thread manager
-        auto gameState = g_threadManager->getGameState();
+		// CRASH FIX: Add periodic memory monitoring
+		if (frameCount % 300 == 0) { // Every ~5 seconds at 60 FPS
+			DEBUG_LOG_MEMORY("game_loop_frame_" + std::to_string(frameCount));
+		}
+		
+		try {
+			/* Get time (in second) at loop beginning */
+			double startTime = glfwGetTime();
+			
+			// CRASH FIX: Validate thread manager before use
+			DEBUG_VALIDATE_PTR(g_threadManager);
+			
+			// Get current game state from thread manager
+			auto gameState = g_threadManager->getGameState();
         
         // Process input and send to thread manager
         float playerMoveX = 0.0f;
@@ -404,7 +448,6 @@ int main() {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
             g_threadManager->setRunning(false);
         }
-
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
 
@@ -419,45 +462,93 @@ int main() {
 			glfwWaitEventsTimeout(FRAMERATE_IN_SECONDS - elapsedTime);
 			elapsedTime = glfwGetTime() - startTime;
 		}
-	}    // Stop game threads
+		
+		} catch (const std::exception& e) {
+			std::cerr << "CRASH FIX: Exception in game loop frame " << frameCount << ": " << e.what() << std::endl;
+			DEBUG_LOG_MEMORY("game_loop_exception");
+			// Continue running unless it's a critical error
+		} catch (...) {
+			std::cerr << "CRASH FIX: Unknown exception in game loop frame " << frameCount << std::endl;
+			DEBUG_LOG_MEMORY("game_loop_unknown_exception");
+			// Continue running unless it's a critical error
+		}
+	}
+	
+	std::cout << "=== GAME SHUTDOWN INITIATED ===" << std::endl;
+	DEBUG_LOG_MEMORY("shutdown_start");
+		// Stop game threads
     std::cout << "Stopping threads..." << std::endl;
-    stopGameThreads();
+    try {
+        stopGameThreads();
+        DEBUG_LOG_MEMORY("threads_stopped");
+    } catch (const std::exception& e) {
+        std::cerr << "CRASH FIX: Exception stopping threads: " << e.what() << std::endl;
+    }
     
     // Cleanup threading system
-    cleanupThreading();
+    std::cout << "Cleaning up threading system..." << std::endl;
+    try {
+        cleanupThreading();
+        DEBUG_LOG_MEMORY("threading_cleaned");
+    } catch (const std::exception& e) {
+        std::cerr << "CRASH FIX: Exception cleaning up threading: " << e.what() << std::endl;
+    }
 
     // Cleanup input system
-    cleanupInputs();
-    
-    glfwTerminate();
-    return 0;
-    
+    std::cout << "Cleaning up input system..." << std::endl;
+    try {
+        cleanupInputs();
+        DEBUG_LOG_MEMORY("inputs_cleaned");
     } catch (const std::exception& e) {
+        std::cerr << "CRASH FIX: Exception cleaning up inputs: " << e.what() << std::endl;
+    }
+    
+    std::cout << "Terminating GLFW..." << std::endl;
+    glfwTerminate();
+    
+    DEBUG_LOG_MEMORY("shutdown_complete");
+    std::cout << "=== GAME SHUTDOWN COMPLETE ===" << std::endl;
+    return 0;
+      } catch (const std::exception& e) {
         std::cerr << "CRASH FIX: Unhandled exception in main: " << e.what() << std::endl;
+        DEBUG_LOG_MEMORY("main_exception");
         
         // Emergency cleanup
-        if (g_threadManager) {
-            g_threadManager->setRunning(false);
-            stopGameThreads();
-            cleanupThreading();
+        std::cout << "Performing emergency cleanup..." << std::endl;
+        try {
+            if (g_threadManager) {
+                g_threadManager->setRunning(false);
+                stopGameThreads();
+                cleanupThreading();
+            }
+            cleanupInputs();
+            glfwTerminate();
+        } catch (...) {
+            std::cerr << "Exception during emergency cleanup" << std::endl;
         }
         
-        cleanupInputs();
-        glfwTerminate();
+        std::cout << "Emergency cleanup completed" << std::endl;
         return -1;
         
     } catch (...) {
         std::cerr << "CRASH FIX: Unknown exception caught in main!" << std::endl;
+        DEBUG_LOG_MEMORY("main_unknown_exception");
         
         // Emergency cleanup
-        if (g_threadManager) {
-            g_threadManager->setRunning(false);
-            stopGameThreads();
-            cleanupThreading();
+        std::cout << "Performing emergency cleanup..." << std::endl;
+        try {
+            if (g_threadManager) {
+                g_threadManager->setRunning(false);
+                stopGameThreads();
+                cleanupThreading();
+            }
+            cleanupInputs();
+            glfwTerminate();
+        } catch (...) {
+            std::cerr << "Exception during emergency cleanup" << std::endl;
         }
         
-        cleanupInputs();
-        glfwTerminate();
+        std::cout << "Emergency cleanup completed" << std::endl;
         return -1;
     }
 }

@@ -6,6 +6,7 @@
 #include "player.h"
 #include "inputs.h"
 #include "debug.h"
+#include "crashDebug.h"
 #include <iostream>
 
 // Global thread manager instance
@@ -41,8 +42,14 @@ GameThreadManager::~GameThreadManager()
 
 bool GameThreadManager::initialize(Map* gameMap, ElementsOnMap* elementsManager, EntitiesManager* entitiesManager, Camera* camera)
 {
+    DEBUG_VALIDATE_PTR(gameMap);
+    DEBUG_VALIDATE_PTR(elementsManager);
+    DEBUG_VALIDATE_PTR(entitiesManager);
+    DEBUG_VALIDATE_PTR(camera);
+    
     if (!gameMap || !elementsManager || !entitiesManager || !camera) {
-        std::cerr << "GameThreadManager::initialize - Invalid parameters" << std::endl;
+        std::cerr << "CRASH FIX: GameThreadManager::initialize - Invalid parameters" << std::endl;
+        DEBUG_LOG_MEMORY("thread_manager_init_failed");
         return false;
     }
     
@@ -55,6 +62,7 @@ bool GameThreadManager::initialize(Map* gameMap, ElementsOnMap* elementsManager,
     m_lastGameUpdate = std::chrono::high_resolution_clock::now();
     m_lastRenderUpdate = m_lastGameUpdate;
     
+    DEBUG_LOG_MEMORY("thread_manager_initialized");
     std::cout << "GameThreadManager initialized successfully" << std::endl;
     return true;
 }
@@ -180,10 +188,24 @@ void GameThreadManager::renderThread()
 
 void GameThreadManager::updateGameLogic(double deltaTime)
 {
-    // CRASH FIX: Add null pointer validation
+    // CRASH FIX: Add null pointer validation and memory monitoring
+    DEBUG_VALIDATE_PTR(m_gameMap);
+    DEBUG_VALIDATE_PTR(m_elementsManager);
+    DEBUG_VALIDATE_PTR(m_entitiesManager);
+    DEBUG_VALIDATE_PTR(m_camera);
+    
     if (!m_gameMap || !m_elementsManager || !m_entitiesManager || !m_camera) {
         std::cerr << "CRITICAL: GameThreadManager has null pointers!" << std::endl;
+        DEBUG_LOG_MEMORY("game_logic_null_ptrs");
         return;
+    }
+    
+    // CRASH FIX: Static frame counter for periodic memory monitoring
+    static int logicFrameCount = 0;
+    logicFrameCount++;
+    
+    if (logicFrameCount % 1800 == 0) { // Every ~30 seconds at 60 FPS
+        DEBUG_LOG_MEMORY("game_logic_frame_" + std::to_string(logicFrameCount));
     }
     
     // Get current input state
@@ -233,9 +255,17 @@ void GameThreadManager::updateGameLogic(double deltaTime)
         // Process camera controls
         processCameraControls();
     }
-    
-    // Update entities (handle movement and animations)
-    m_entitiesManager->update(deltaTime);
+      // Update entities (handle movement and animations)
+    // CRASH FIX: Add try-catch around entities update to prevent crashes
+    try {
+        m_entitiesManager->update(deltaTime);
+    } catch (const std::exception& e) {
+        std::cerr << "CRITICAL: Exception in entities update: " << e.what() << std::endl;
+        // Continue execution to prevent complete crash
+    } catch (...) {
+        std::cerr << "CRITICAL: Unknown exception in entities update!" << std::endl;
+        // Continue execution to prevent complete crash
+    }
     
     // Periodically move antagonists
     if (gameTime - m_lastAntagonistMoveTime >= ANTAGONIST_MOVE_INTERVAL) {
