@@ -12,6 +12,7 @@ Camera gameCamera(GRID_SIZE); // Initialize with GRID_SIZE from globals.h
 
 Camera::Camera(int gridSize) 
     : m_cameraRegion(DEFAULT_CAMERA_REGION), // Use the defined constant
+      m_desiredCameraRegion(DEFAULT_CAMERA_REGION), // Initialize desired region to default
       m_left(0.0f),
       m_right(0.0f), 
       m_bottom(0.0f), 
@@ -22,27 +23,127 @@ Camera::Camera(int gridSize)
 }
 
 void Camera::increaseCameraRegion(float amount) {
-    setCameraRegion(m_cameraRegion + amount);
-    std::cout << "Zoomed out: Camera region set to: " << m_cameraRegion << std::endl;
+    float oldDesiredRegion = m_desiredCameraRegion;
+    
+    // Update the desired camera region (user's intention)
+    m_desiredCameraRegion = std::min(std::max(m_desiredCameraRegion + amount, MIN_CAMERA_REGION), MAX_CAMERA_REGION);
+    
+    // Apply window constraints to get the actual camera region
+    float maxAllowedRegion = getMaxUsableCameraRegion(windowWidth, windowHeight);
+    m_cameraRegion = std::min(m_desiredCameraRegion, maxAllowedRegion);
+    
+    if (m_desiredCameraRegion == oldDesiredRegion) {
+        std::cout << "Maximum zoom out reached (desired region: " << m_desiredCameraRegion 
+                  << ", max allowed: " << MAX_CAMERA_REGION << ")" << std::endl;
+    } else if (m_cameraRegion < m_desiredCameraRegion) {
+        std::cout << "Zoomed out: Desired region " << m_desiredCameraRegion 
+                  << " (limited to " << m_cameraRegion << " by window size)" << std::endl;
+    } else {
+        std::cout << "Zoomed out: Camera region set to: " << m_cameraRegion << std::endl;
+    }
 }
 
 void Camera::decreaseCameraRegion(float amount) {
-    setCameraRegion(m_cameraRegion - amount);
-    std::cout << "Zoomed in: Camera region set to: " << m_cameraRegion << std::endl;
+    float oldDesiredRegion = m_desiredCameraRegion;
+    
+    // Update the desired camera region (user's intention)
+    m_desiredCameraRegion = std::min(std::max(m_desiredCameraRegion - amount, MIN_CAMERA_REGION), MAX_CAMERA_REGION);
+    
+    // Apply window constraints to get the actual camera region
+    float maxAllowedRegion = getMaxUsableCameraRegion(windowWidth, windowHeight);
+    m_cameraRegion = std::min(m_desiredCameraRegion, maxAllowedRegion);
+    
+    if (m_desiredCameraRegion == oldDesiredRegion) {
+        std::cout << "Maximum zoom in reached (desired region: " << m_desiredCameraRegion 
+                  << ", min allowed: " << MIN_CAMERA_REGION << ")" << std::endl;
+    } else {
+        std::cout << "Zoomed in: Camera region set to: " << m_cameraRegion << std::endl;
+    }
 }
 
 void Camera::setCameraRegion(float value) {
-    // Clamp the value to the valid range
-    m_cameraRegion = std::min(std::max(value, MIN_CAMERA_REGION), MAX_CAMERA_REGION);
+    // Set both desired and actual camera region (used for internal adjustments)
+    m_desiredCameraRegion = std::min(std::max(value, MIN_CAMERA_REGION), MAX_CAMERA_REGION);
+    m_cameraRegion = m_desiredCameraRegion;
+}
+
+void Camera::setCameraRegionWithWindowClamp(float value) {
+    // Update the desired camera region (user's intention)
+    m_desiredCameraRegion = std::min(std::max(value, MIN_CAMERA_REGION), MAX_CAMERA_REGION);
+    
+    // Calculate maximum allowed camera region based on current window dimensions
+    float maxAllowedRegion = getMaxUsableCameraRegion(windowWidth, windowHeight);
+    
+    // Apply window constraints to get the actual camera region
+    m_cameraRegion = std::min(m_desiredCameraRegion, maxAllowedRegion);
 }
 
 float Camera::getCameraRegion() const {
     return m_cameraRegion;
 }
 
+float Camera::getMaxCameraRegion() const {
+    // Calculate maximum allowed camera region based on grid size
+    // Use a more conservative limit to ensure we never exceed boundaries
+    return std::min(static_cast<float>(m_gridSize) / 2.5f, MAX_CAMERA_REGION);
+}
+
+float Camera::getMaxUsableCameraRegion(int windowWidth, int windowHeight) const {
+    // Calculate the maximum camera region based on current window aspect ratio
+    float windowAspectRatio = static_cast<float>(windowWidth) / static_cast<float>(windowHeight);
+    
+    // Calculate what the maximum camera region should be to fit within the map
+    float maxRegionByWidth, maxRegionByHeight;
+    
+    if (windowAspectRatio >= 1.0f) {
+        // Window is wider than tall - width is expanded, height is the base
+        maxRegionByHeight = static_cast<float>(m_gridSize) / 2.0f;
+        maxRegionByWidth = maxRegionByHeight / windowAspectRatio;
+    } else {
+        // Window is taller than wide - height is expanded, width is the base  
+        maxRegionByWidth = static_cast<float>(m_gridSize) / 2.0f;
+        maxRegionByHeight = maxRegionByWidth * windowAspectRatio;
+    }
+    
+    // Use the more restrictive limit and ensure it's not smaller than minimum
+    float maxUsableRegion = std::min(maxRegionByWidth, maxRegionByHeight);
+    maxUsableRegion = std::max(maxUsableRegion, MIN_CAMERA_REGION);
+    
+    // Also respect the absolute maximum
+    return std::min(maxUsableRegion, MAX_CAMERA_REGION);
+}
+
 void Camera::updateCameraPosition(float playerX, float playerY, int windowWidth, int windowHeight) {
     // Calculate adaptive camera view that matches window aspect ratio
     float windowAspectRatio = static_cast<float>(windowWidth) / static_cast<float>(windowHeight);
+    
+    // Always try to use the user's desired camera region first
+    float targetCameraRegion = m_desiredCameraRegion;
+    
+    // Calculate maximum allowed camera region for current window
+    float maxAllowedRegion = getMaxUsableCameraRegion(windowWidth, windowHeight);
+    
+    // If the desired region fits within current window constraints, use it
+    // Otherwise, clamp it to the maximum allowed
+    bool wasAdjusted = false;
+    if (targetCameraRegion > maxAllowedRegion) {
+        targetCameraRegion = maxAllowedRegion;
+        wasAdjusted = true;
+        
+        // Only show message if this is a significant change (not just minor floating point differences)
+        if (std::abs(m_cameraRegion - targetCameraRegion) > 0.1f) {
+            std::cout << "Zoom temporarily limited to " << targetCameraRegion 
+                      << " due to window size (desired: " << m_desiredCameraRegion << ")" << std::endl;
+        }
+    } else if (m_cameraRegion < m_desiredCameraRegion && !wasAdjusted) {
+        // The desired region now fits - restore it
+        if (std::abs(m_cameraRegion - targetCameraRegion) > 0.1f) {
+            std::cout << "Zoom restored to desired level: " << targetCameraRegion << std::endl;
+        }
+    }
+    
+    // Update the actual camera region
+    m_cameraRegion = targetCameraRegion;
     
     // Calculate half-width and half-height of camera view based on aspect ratio
     float cameraHalfWidth, cameraHalfHeight;
@@ -57,17 +158,17 @@ void Camera::updateCameraPosition(float playerX, float playerY, int windowWidth,
         cameraHalfHeight = cameraHalfWidth / windowAspectRatio;
     }
     
+    // Calculate camera width and height
+    float cameraWidth = cameraHalfWidth * 2.0f;
+    float cameraHeight = cameraHalfHeight * 2.0f;
+    
     // Center camera on player
     m_left = playerX - cameraHalfWidth;
     m_right = playerX + cameraHalfWidth;
     m_bottom = playerY - cameraHalfHeight;
     m_top = playerY + cameraHalfHeight;
     
-    // Calculate camera width and height
-    float cameraWidth = cameraHalfWidth * 2.0f;
-    float cameraHeight = cameraHalfHeight * 2.0f;
-    
-    // Ensure the camera doesn't go out of bounds
+    // Ensure the camera doesn't go out of bounds by clamping to map boundaries
     if (m_left < 0) {
         m_left = 0;
         m_right = cameraWidth;
@@ -85,18 +186,6 @@ void Camera::updateCameraPosition(float playerX, float playerY, int windowWidth,
         m_top = m_gridSize;
         m_bottom = m_gridSize - cameraHeight;
         if (m_bottom < 0) m_bottom = 0; // Additional safety check
-    }
-    
-    // Further adjust if the grid is smaller than the camera view
-    if (m_gridSize < cameraWidth) {
-        // Grid is narrower than camera view - center horizontally
-        m_left = 0;
-        m_right = m_gridSize;
-    }
-    if (m_gridSize < cameraHeight) {
-        // Grid is shorter than camera view - center vertically
-        m_bottom = 0;
-        m_top = m_gridSize;
     }
 }
 
