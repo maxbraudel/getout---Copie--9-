@@ -28,12 +28,25 @@ Map::Map() : enginePtr(nullptr) {
 }
 
 Map::~Map() {
-    // Clean up all loaded textures
-    for (auto const& pair : textureDetails) { // Changed from structured binding
-        if (pair.second.textureID > 0) { // Access info via pair.second
-            glDeleteTextures(1, &pair.second.textureID);
+    // CRASH FIX: Add OpenGL context validation before cleanup
+    if (glfwGetCurrentContext() == nullptr) {
+        std::cerr << "WARNING: No OpenGL context available for texture cleanup" << std::endl;
+    } else {
+        // Clean up all loaded textures
+        for (auto const& pair : textureDetails) {
+            if (pair.second.textureID > 0) {
+                // CRASH FIX: Validate texture ID before deletion
+                GLboolean isTexture = glIsTexture(pair.second.textureID);
+                if (isTexture == GL_TRUE) {
+                    glDeleteTextures(1, &pair.second.textureID);
+                } else {
+                    std::cerr << "WARNING: Invalid texture ID " << pair.second.textureID << " detected during cleanup" << std::endl;
+                }
+            }
         }
     }
+    
+    // Clear containers
     textureDetails.clear();
     blocks.clear();
     blockPositionMap.clear();

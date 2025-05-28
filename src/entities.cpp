@@ -7,6 +7,7 @@
 #include "asyncPathfinding.h"
 #include <iostream>
 #include <cmath>
+#include <limits>
 
 // Global async pathfinder instance (separate from pathfinding.h's AsyncPathfinder)
 static AsyncEntityPathfinder* g_entityAsyncPathfinder = nullptr;
@@ -18,229 +19,247 @@ static std::vector<EntityInfo> entityTypes;
 static void initializeEntityTypes() {
     if (!entityTypes.empty()) {
         return; // Already initialized
-    }    // Antagonist entity configuration
-    EntityInfo antagonist;
-    antagonist.typeName = "antagonist";
-    antagonist.textureName = ElementTextureName::ANTAGONIST1;
-    antagonist.scale = 1.5f;
+    }
     
-    // Default sprite configuration
-    antagonist.defaultSpriteSheetPhase = 2;
-    antagonist.defaultSpriteSheetFrame = 0;
-    antagonist.defaultAnimationSpeed = 11.0f;
+    // CRASH FIX: Reserve memory to prevent reallocations during initialization
+    entityTypes.reserve(10); // Reasonable initial capacity
     
-    // Walking animation phases
-    antagonist.spritePhaseWalkUp = 0;
-    antagonist.spritePhaseWalkDown = 3;
-    antagonist.spritePhaseWalkLeft = 2;
-    antagonist.spritePhaseWalkRight = 1;
-    
-    // Movement speeds
-    antagonist.normalWalkingSpeed = 1.5f;
-    antagonist.normalWalkingAnimationSpeed = 4.0f;
-    antagonist.sprintWalkingSpeed = 10.0f;
-    antagonist.sprintWalkingAnimationSpeed = 12.0f;    // Collision settings
-    antagonist.canCollide = true;
-    antagonist.collisionShapePoints = {
-        {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}
-    };    // Granular collision control - antagonist avoids trees but can move through player
-    // For testing: Leave lists empty to allow movement through all elements
-    antagonist.avoidanceElements = {
-        // Empty - no elements to avoid for pathfinding
-        ElementTextureName::COCONUT_TREE_1,
-        ElementTextureName::COCONUT_TREE_2,
-        ElementTextureName::COCONUT_TREE_2,
-    };    antagonist.collisionElements = {
-        // Empty - no elements to collide with during movement
-        ElementTextureName::COCONUT_TREE_1,
-        ElementTextureName::COCONUT_TREE_2,
-        ElementTextureName::COCONUT_TREE_2,
-    };
-      // Block collision configuration - Antagonist avoids water during pathfinding and movement
-    antagonist.avoidanceBlocks = {
-        TextureName::WATER_0,
-        TextureName::WATER_1,
-        TextureName::WATER_2,
-        TextureName::WATER_3,
-        TextureName::WATER_4
-    };
-    
-    antagonist.collisionBlocks = {
-        TextureName::WATER_0,
-        TextureName::WATER_1,
-        TextureName::WATER_2,
-        TextureName::WATER_3,
-        TextureName::WATER_4
-    };
-    
-    // Map boundary control settings
-    antagonist.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
-    antagonist.offMapCollision = true; // Antagonist collides with map borders
-      
-    // Add to the list
-    entityTypes.push_back(antagonist);
-
-
-    EntityInfo player;
-    player.typeName = "player";
-    player.textureName = ElementTextureName::CHARACTER1;
-    player.scale = 1.5f;
-    
-    // Default sprite configuration
-    player.defaultSpriteSheetPhase = 2;
-    player.defaultSpriteSheetFrame = 0;
-    player.defaultAnimationSpeed = 11.0f;
-    
-    // Walking animation phases
-    player.spritePhaseWalkUp = 0;
-    player.spritePhaseWalkDown = 3;
-    player.spritePhaseWalkLeft = 2;
-    player.spritePhaseWalkRight = 1;
-    
-    // Movement speeds
-    player.normalWalkingSpeed = 1.5f;
-    player.normalWalkingAnimationSpeed = 4.0f;
-    player.sprintWalkingSpeed = 10.0f;
-    player.sprintWalkingAnimationSpeed = 12.0f;    // Collision settings
-    player.canCollide = true;
-    player.collisionShapePoints = {
-        {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}
-    };    // Granular collision control - player avoids trees and other characters
-    // For testing: Leave lists empty to allow movement through all elements
-    player.avoidanceElements = {
-        // Empty - no elements to avoid for pathfinding
-    };    player.collisionElements = {
-        // Empty - no elements to collide with during movement
-        // Empty - no elements to avoid for pathfinding
-        ElementTextureName::COCONUT_TREE_1,
-        ElementTextureName::COCONUT_TREE_2,
-        ElementTextureName::COCONUT_TREE_2,
+    try {
+        // Antagonist entity configuration
+        EntityInfo antagonist;
+        antagonist.typeName = "antagonist";
+        antagonist.textureName = ElementTextureName::ANTAGONIST1;
+        antagonist.scale = 1.5f;
         
-    };
-      // Block collision configuration - Player demonstrates different behavior than antagonist
-    // Player can walk through sand but avoids water for pathfinding
-    // This shows how entities can have different block interaction behaviors
-    player.avoidanceBlocks = {
-        TextureName::WATER_0,
-        TextureName::WATER_1,
-        TextureName::WATER_2,
-        TextureName::WATER_3,
-        TextureName::WATER_4
-    };
-    
-    // Player physically collides with deep water but can walk through shallow water
-    player.collisionBlocks = {
-        TextureName::WATER_0,
-        TextureName::WATER_1,
-        TextureName::WATER_2,
-        TextureName::WATER_3,
-        TextureName::WATER_4 // Only deep water blocks movement
-    };
-    
-    // Map boundary control settings
-    player.offMapAvoidance = true; // Player pathfinding avoids map borders
-    player.offMapCollision = true; // Player collides with map borders
+        // Default sprite configuration
+        antagonist.defaultSpriteSheetPhase = 2;
+        antagonist.defaultSpriteSheetFrame = 0;
+        antagonist.defaultAnimationSpeed = 11.0f;
+        
+        // Walking animation phases
+        antagonist.spritePhaseWalkUp = 0;
+        antagonist.spritePhaseWalkDown = 3;
+        antagonist.spritePhaseWalkLeft = 2;
+        antagonist.spritePhaseWalkRight = 1;
+        
+        // Movement speeds
+        antagonist.normalWalkingSpeed = 1.5f;
+        antagonist.normalWalkingAnimationSpeed = 4.0f;
+        antagonist.sprintWalkingSpeed = 10.0f;
+        antagonist.sprintWalkingAnimationSpeed = 12.0f;    // Collision settings
+        antagonist.canCollide = true;
+        antagonist.collisionShapePoints = {
+            {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}
+        };    // Granular collision control - antagonist avoids trees but can move through player
+        // For testing: Leave lists empty to allow movement through all elements
+        antagonist.avoidanceElements = {
+            // Empty - no elements to avoid for pathfinding
+            ElementTextureName::COCONUT_TREE_1,
+            ElementTextureName::COCONUT_TREE_2,
+            ElementTextureName::COCONUT_TREE_2,
+        };    antagonist.collisionElements = {
+            // Empty - no elements to collide with during movement
+            ElementTextureName::COCONUT_TREE_1,
+            ElementTextureName::COCONUT_TREE_2,
+            ElementTextureName::COCONUT_TREE_2,
+        };
+          // Block collision configuration - Antagonist avoids water during pathfinding and movement
+        antagonist.avoidanceBlocks = {
+            TextureName::WATER_0,
+            TextureName::WATER_1,
+            TextureName::WATER_2,
+            TextureName::WATER_3,
+            TextureName::WATER_4
+        };
+        
+        antagonist.collisionBlocks = {
+            TextureName::WATER_0,
+            TextureName::WATER_1,
+            TextureName::WATER_2,
+            TextureName::WATER_3,
+            TextureName::WATER_4
+        };
+        
+        // Map boundary control settings
+        antagonist.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
+        antagonist.offMapCollision = true; // Antagonist collides with map borders
+          
+        // CRASH FIX: Validate collision shape points before storing
+        if (antagonist.collisionShapePoints.empty()) {
+            std::cerr << "WARNING: Antagonist collision shape is empty, using default" << std::endl;
+            antagonist.collisionShapePoints = {
+                {-1.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 1.0f}, {-1.0f, 1.0f}
+            };
+        }
+        
         // Add to the list
-    entityTypes.push_back(player);
-
-    // Example: Amphibious entity that can traverse water but avoids sand
-    EntityInfo amphibious;
-    amphibious.typeName = "amphibious";
-    amphibious.textureName = ElementTextureName::CHARACTER1;
-    amphibious.scale = 1.0f;
-    
-    // Default sprite configuration (simplified for example)
-    amphibious.defaultSpriteSheetPhase = 2;
-    amphibious.defaultSpriteSheetFrame = 0;
-    amphibious.defaultAnimationSpeed = 11.0f;
-    
-    // Walking animation phases
-    amphibious.spritePhaseWalkUp = 0;
-    amphibious.spritePhaseWalkDown = 3;
-    amphibious.spritePhaseWalkLeft = 2;
-    amphibious.spritePhaseWalkRight = 1;
-    
-    // Movement speeds
-    amphibious.normalWalkingSpeed = 2.0f;
-    amphibious.normalWalkingAnimationSpeed = 5.0f;
-    amphibious.sprintWalkingSpeed = 8.0f;
-    amphibious.sprintWalkingAnimationSpeed = 10.0f;
-    
-    // Collision settings
-    amphibious.canCollide = true;
-    amphibious.collisionShapePoints = {
-        {-1.5f, -1.5f}, {1.5f, -1.5f}, {1.5f, 1.5f}, {-1.5f, 1.5f}
-    };
-    
-    // Element collision (empty lists for this example)
-    amphibious.avoidanceElements = {};
-    amphibious.collisionElements = {};
-    
-    // Block collision configuration - Amphibious entity prefers water, avoids sand
-    amphibious.avoidanceBlocks = {
-        TextureName::SAND  // Pathfinding avoids sand blocks
-    };
-    
-    amphibious.collisionBlocks = {
-        // Empty - can move through all blocks during movement
-    };
-    
-    // Map boundary control
-    amphibious.offMapAvoidance = true;
-    amphibious.offMapCollision = true;
-    
-    // Add to the list
-    entityTypes.push_back(amphibious);
-
-    // Example: Flying entity that ignores all block collision
-    EntityInfo flying;
-    flying.typeName = "flying";
-    flying.textureName = ElementTextureName::ANTAGONIST1;
-    flying.scale = 0.8f;
-    
-    // Default sprite configuration (simplified for example)
-    flying.defaultSpriteSheetPhase = 1;
-    flying.defaultSpriteSheetFrame = 0;
-    flying.defaultAnimationSpeed = 15.0f;
-    
-    // Walking animation phases
-    flying.spritePhaseWalkUp = 0;
-    flying.spritePhaseWalkDown = 3;
-    flying.spritePhaseWalkLeft = 2;
-    flying.spritePhaseWalkRight = 1;
-    
-    // Movement speeds
-    flying.normalWalkingSpeed = 3.0f;
-    flying.normalWalkingAnimationSpeed = 8.0f;
-    flying.sprintWalkingSpeed = 15.0f;
-    flying.sprintWalkingAnimationSpeed = 20.0f;
-    
-    // Collision settings
-    flying.canCollide = true;
-    flying.collisionShapePoints = {
-        {-1.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 1.0f}, {-1.0f, 1.0f}
-    };
-    
-    // Element collision (only avoids trees during pathfinding)
-    flying.avoidanceElements = {
-        ElementTextureName::COCONUT_TREE_1,
-        ElementTextureName::COCONUT_TREE_2,
-        ElementTextureName::COCONUT_TREE_3
-    };
-    flying.collisionElements = {};  // Can fly through elements during movement
-    
-    // Block collision configuration - Flying entity ignores all blocks
-    flying.avoidanceBlocks = {};    // No blocks avoided during pathfinding
-    flying.collisionBlocks = {};    // No block collision during movement
-    
-    // Map boundary control (still respects map boundaries)
-    flying.offMapAvoidance = true;
-    flying.offMapCollision = true;
-    
-    // Add to the list
-    entityTypes.push_back(flying);
+        entityTypes.push_back(antagonist);
 
 
+        EntityInfo player;
+        player.typeName = "player";
+        player.textureName = ElementTextureName::CHARACTER1;
+        player.scale = 1.5f;
+        
+        // Default sprite configuration
+        player.defaultSpriteSheetPhase = 2;
+        player.defaultSpriteSheetFrame = 0;
+        player.defaultAnimationSpeed = 11.0f;
+        
+        // Walking animation phases
+        player.spritePhaseWalkUp = 0;
+        player.spritePhaseWalkDown = 3;
+        player.spritePhaseWalkLeft = 2;
+        player.spritePhaseWalkRight = 1;
+        
+        // Movement speeds
+        player.normalWalkingSpeed = 1.5f;
+        player.normalWalkingAnimationSpeed = 4.0f;
+        player.sprintWalkingSpeed = 10.0f;
+        player.sprintWalkingAnimationSpeed = 12.0f;    // Collision settings
+        player.canCollide = true;
+        player.collisionShapePoints = {
+            {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}
+        };    // Granular collision control - player avoids trees and other characters
+        // For testing: Leave lists empty to allow movement through all elements
+        player.avoidanceElements = {
+            // Empty - no elements to avoid for pathfinding
+        };    player.collisionElements = {
+            // Empty - no elements to collide with during movement
+            // Empty - no elements to avoid for pathfinding
+            ElementTextureName::COCONUT_TREE_1,
+            ElementTextureName::COCONUT_TREE_2,
+            ElementTextureName::COCONUT_TREE_2,
+            
+        };
+          // Block collision configuration - Player demonstrates different behavior than antagonist
+        // Player can walk through sand but avoids water for pathfinding
+        // This shows how entities can have different block interaction behaviors
+        player.avoidanceBlocks = {
+            TextureName::WATER_0,
+            TextureName::WATER_1,
+            TextureName::WATER_2,
+            TextureName::WATER_3,
+            TextureName::WATER_4
+        };
+        
+        // Player physically collides with deep water but can walk through shallow water
+        player.collisionBlocks = {
+            TextureName::WATER_0,
+            TextureName::WATER_1,
+            TextureName::WATER_2,
+            TextureName::WATER_3,
+            TextureName::WATER_4 // Only deep water blocks movement
+        };
+        
+        // Map boundary control settings
+        player.offMapAvoidance = true; // Player pathfinding avoids map borders
+        player.offMapCollision = true; // Player collides with map borders
+            // Add to the list
+        entityTypes.push_back(player);
+
+        // Example: Amphibious entity that can traverse water but avoids sand
+        EntityInfo amphibious;
+        amphibious.typeName = "amphibious";
+        amphibious.textureName = ElementTextureName::CHARACTER1;
+        amphibious.scale = 1.0f;
+        
+        // Default sprite configuration (simplified for example)
+        amphibious.defaultSpriteSheetPhase = 2;
+        amphibious.defaultSpriteSheetFrame = 0;
+        amphibious.defaultAnimationSpeed = 11.0f;
+        
+        // Walking animation phases
+        amphibious.spritePhaseWalkUp = 0;
+        amphibious.spritePhaseWalkDown = 3;
+        amphibious.spritePhaseWalkLeft = 2;
+        amphibious.spritePhaseWalkRight = 1;
+        
+        // Movement speeds
+        amphibious.normalWalkingSpeed = 2.0f;
+        amphibious.normalWalkingAnimationSpeed = 5.0f;
+        amphibious.sprintWalkingSpeed = 8.0f;
+        amphibious.sprintWalkingAnimationSpeed = 10.0f;
+        
+        // Collision settings
+        amphibious.canCollide = true;
+        amphibious.collisionShapePoints = {
+            {-1.5f, -1.5f}, {1.5f, -1.5f}, {1.5f, 1.5f}, {-1.5f, 1.5f}
+        };
+        
+        // Element collision (empty lists for this example)
+        amphibious.avoidanceElements = {};
+        amphibious.collisionElements = {};
+        
+        // Block collision configuration - Amphibious entity prefers water, avoids sand
+        amphibious.avoidanceBlocks = {
+            TextureName::SAND  // Pathfinding avoids sand blocks
+        };
+        
+        amphibious.collisionBlocks = {
+            // Empty - can move through all blocks during movement
+        };
+        
+        // Map boundary control
+        amphibious.offMapAvoidance = true;
+        amphibious.offMapCollision = true;
+        
+        // Add to the list
+        entityTypes.push_back(amphibious);
+
+        // Example: Flying entity that ignores all block collision
+        EntityInfo flying;
+        flying.typeName = "flying";
+        flying.textureName = ElementTextureName::ANTAGONIST1;
+        flying.scale = 0.8f;
+        
+        // Default sprite configuration (simplified for example)
+        flying.defaultSpriteSheetPhase = 1;
+        flying.defaultSpriteSheetFrame = 0;
+        flying.defaultAnimationSpeed = 15.0f;
+        
+        // Walking animation phases
+        flying.spritePhaseWalkUp = 0;
+        flying.spritePhaseWalkDown = 3;
+        flying.spritePhaseWalkLeft = 2;
+        flying.spritePhaseWalkRight = 1;
+        
+        // Movement speeds
+        flying.normalWalkingSpeed = 3.0f;
+        flying.normalWalkingAnimationSpeed = 8.0f;
+        flying.sprintWalkingSpeed = 15.0f;
+        flying.sprintWalkingAnimationSpeed = 20.0f;
+        
+        // Collision settings
+        flying.canCollide = true;
+        flying.collisionShapePoints = {
+            {-1.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 1.0f}, {-1.0f, 1.0f}
+        };
+        
+        // Element collision (only avoids trees during pathfinding)
+        flying.avoidanceElements = {
+            ElementTextureName::COCONUT_TREE_1,
+            ElementTextureName::COCONUT_TREE_2,
+            ElementTextureName::COCONUT_TREE_3
+        };
+        flying.collisionElements = {};  // Can fly through elements during movement
+        
+        // Block collision configuration - Flying entity ignores all blocks
+        flying.avoidanceBlocks = {};    // No blocks avoided during pathfinding
+        flying.collisionBlocks = {};    // No block collision during movement
+        
+        // Map boundary control (still respects map boundaries)
+        flying.offMapAvoidance = true;
+        flying.offMapCollision = true;
+        
+        // Add to the list
+        entityTypes.push_back(flying);
+
+
+    } catch (const std::exception& e) {
+        std::cerr << "CRASH FIX: Exception during entity initialization: " << e.what() << std::endl;
+        entityTypes.clear(); // Clear on error to prevent corruption
+    }
 }
 
 // Global instance definition
@@ -404,17 +423,21 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
         std::cerr << "Async pathfinder not initialized" << std::endl;
         return false;
     }
-    
-    // Cancel any existing pathfinding request for this entity
+      // Cancel any existing pathfinding request for this entity
     if (entity->pathfindingRequestId > 0) {
         g_entityAsyncPathfinder->cancelPathfindingRequest(entity->instanceName);
         entity->pathfindingRequestId = 0;
     }
     
-    // Stop current movement
-    entity->isWalking = false;
-    entity->isWaitingForPath = false;
-    elementsManager.changeElementAnimationStatus(elementName, false);
+    // Keep current movement if entity is already walking, otherwise start waiting
+    // This prevents the entity from stopping while new path is being calculated
+    if (!entity->isWalking) {
+        entity->isWaitingForPath = true;
+        elementsManager.changeElementAnimationStatus(elementName, false);
+    } else {
+        // Entity keeps moving on current path while new path is calculated
+        entity->isWaitingForPath = true;
+    }
       // Submit async pathfinding request
     int requestId = g_entityAsyncPathfinder->requestPathfinding(instanceName, startPathX, startPathY, x, y, *config, walkType);
     
@@ -1184,40 +1207,92 @@ void EntitiesManager::processAsyncPathfindingResults() {
         }
         
         std::string elementName = getElementName(result.instanceName);
-        
-        if (result.success && result.path.size() >= 2) {
+          if (result.success && result.path.size() >= 2) {
             // Pathfinding succeeded, set up the entity for walking
-            entity->path = result.path;
-            entity->currentPathIndex = 1;
-            entity->isWalking = true;
+            
+            // If entity is already walking, find the best transition point to avoid stopping
+            if (entity->isWalking && entity->usePathfinding && !entity->path.empty()) {
+                // Get current position
+                float currentX, currentY;
+                if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
+                    // Find the closest point in the new path to the current position
+                    size_t bestTransitionIndex = 0;
+                    float minDistance = std::numeric_limits<float>::max();
+                    
+                    for (size_t i = 0; i < result.path.size(); ++i) {
+                        float dx = result.path[i].first - currentX;
+                        float dy = result.path[i].second - currentY;
+                        float distance = std::sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            bestTransitionIndex = i;
+                        }
+                    }
+                    
+                    // Smooth transition: start from the best transition point in the new path
+                    entity->path = result.path;
+                    entity->currentPathIndex = std::max(1u, static_cast<unsigned int>(bestTransitionIndex));
+                    
+                    // If we're starting from a point other than the beginning, ensure current position alignment
+                    if (bestTransitionIndex > 0 && minDistance > 0.5f) {
+                        // Insert current position as a waypoint to ensure smooth transition
+                        entity->path.insert(entity->path.begin() + bestTransitionIndex, {currentX, currentY});
+                        entity->currentPathIndex = bestTransitionIndex + 1;
+                    }
+                    
+                    if (DEBUG_LOGS) {
+                        std::cout << "Entity " << result.instanceName << " smoothly transitioned to new path at index " 
+                                  << entity->currentPathIndex << " (distance: " << minDistance << ")" << std::endl;
+                    }
+                } else {
+                    // Fallback: use the new path normally
+                    entity->path = result.path;
+                    entity->currentPathIndex = 1;
+                }
+            } else {
+                // Entity is not walking, start normally from the beginning
+                entity->path = result.path;
+                entity->currentPathIndex = 1;
+                entity->isWalking = true;
+                
+                // Enable animation for entities that weren't walking
+                elementsManager.changeElementAnimationStatus(elementName, true);
+                
+                // Set initial sprite for first path segment
+                handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
+            }
+            
+            // Update entity state
             entity->walkType = result.walkType;
             entity->usePathfinding = true;
             entity->lastSegmentDirection = {0.0f, 0.0f};
             entity->targetX = result.targetX;
             entity->targetY = result.targetY;
             entity->pathfindingRequestId = 0; // Clear the request ID
+            entity->isWaitingForPath = false; // No longer waiting
             
-            // Enable animation
+            // Ensure animation is enabled and set speed
             elementsManager.changeElementAnimationStatus(elementName, true);
-            
-            // Set animation speed based on walk type
             float animationSpeed = (result.walkType == WalkType::NORMAL) ?
                                   config->normalWalkingAnimationSpeed :
                                   config->sprintWalkingAnimationSpeed;
             elementsManager.changeElementAnimationSpeed(elementName, animationSpeed);
             
-            // Set initial sprite for first path segment
-            handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
-            
             std::cout << "Entity " << result.instanceName << " received async pathfinding result: success, path size: " 
-                      << result.path.size() << std::endl;
-        } else {
+                      << result.path.size() << std::endl;        } else {
             // Pathfinding failed or path too short
-            entity->isWalking = false;
+            // If entity was walking before, let it continue its current movement
+            // Otherwise, stop the entity
+            if (!entity->isWalking) {
+                entity->isWalking = false;
+                elementsManager.changeElementAnimationStatus(elementName, false);
+                elementsManager.changeElementSpriteFrame(elementName, config->defaultSpriteSheetFrame);
+                elementsManager.changeElementSpritePhase(elementName, config->defaultSpriteSheetPhase);
+            }
+            
             entity->pathfindingRequestId = 0; // Clear the request ID
-            elementsManager.changeElementAnimationStatus(elementName, false);
-            elementsManager.changeElementSpriteFrame(elementName, config->defaultSpriteSheetFrame);
-            elementsManager.changeElementSpritePhase(elementName, config->defaultSpriteSheetPhase);
+            entity->isWaitingForPath = false; // No longer waiting
             
             if (!result.success) {
                 std::cout << "Entity " << result.instanceName << " pathfinding failed: " << result.errorMessage << std::endl;

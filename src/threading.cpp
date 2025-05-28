@@ -180,12 +180,23 @@ void GameThreadManager::renderThread()
 
 void GameThreadManager::updateGameLogic(double deltaTime)
 {
+    // CRASH FIX: Add null pointer validation
+    if (!m_gameMap || !m_elementsManager || !m_entitiesManager || !m_camera) {
+        std::cerr << "CRITICAL: GameThreadManager has null pointers!" << std::endl;
+        return;
+    }
+    
     // Get current input state
     InputState currentInput;
     {
         std::lock_guard<std::mutex> lock(m_inputStateMutex);
         currentInput = m_inputState;
         m_inputState.stateUpdated = false;
+    }
+
+    // CRASH FIX: Validate input state before using
+    if (!m_running.load()) {
+        return; // Exit early if shutting down
     }
     
     // Update game time

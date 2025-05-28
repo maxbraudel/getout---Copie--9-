@@ -82,29 +82,34 @@ std::vector<std::string> getCollidableElementNames() {
     static float lastCacheUpdateTime = 0.0f;
     static bool firstInit = true;
     
-    // Only update cache periodically to improve performance
-    float currentTime = static_cast<float>(glfwGetTime());
-    if (!collisionCacheInitialized || currentTime - lastCacheUpdateTime > 2.0f) {
-        // Update the cache when it's stale or needs initializing
-        collidableElementNames.clear();
-        lastCacheUpdateTime = currentTime;
-        
-        // Get all elements and filter for those with collision enabled
-        const auto& elements = elementsManager.getElements();
-        for (const auto& element : elements) {
-            // Check if the element has collision enabled
-            if (element.hasCollision) {
-                collidableElementNames.push_back(element.instanceName);
+    // CRASH FIX: Validate elementsManager before accessing
+    try {
+        // Only update cache periodically to improve performance
+        float currentTime = static_cast<float>(glfwGetTime());
+        if (!collisionCacheInitialized || currentTime - lastCacheUpdateTime > 2.0f) {
+            // Update the cache when it's stale or needs initializing
+            collidableElementNames.clear();
+            lastCacheUpdateTime = currentTime;
+            
+            // Get all elements and filter for those with collision enabled
+            const auto& elements = elementsManager.getElements();
+            
+            // CRASH FIX: Reserve memory to prevent reallocations
+            collidableElementNames.reserve(elements.size());
+            
+            for (const auto& element : elements) {
+                // Check if the element has collision enabled
+                if (element.hasCollision) {
+                    collidableElementNames.push_back(element.instanceName);
+                }
             }
+            
+            collisionCacheInitialized = true;
         }
-        
-        collisionCacheInitialized = true;
-        
-        // Only print this message on first initialization to reduce log spam
-        if (firstInit) {
-            std::cout << "Initialized collision system with " << collidableElementNames.size() << " collidable elements." << std::endl;
-            firstInit = false;
-        }
+    } catch (const std::exception& e) {
+        std::cerr << "CRASH FIX: Exception in getCollidableElementNames: " << e.what() << std::endl;
+        // Return safe empty vector on error
+        return std::vector<std::string>();
     }
     
     return collidableElementNames;

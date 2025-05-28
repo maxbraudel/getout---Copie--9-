@@ -82,17 +82,25 @@ void onWindowResize(GLFWwindow* window, int width, int height) {
 }
 
 int main() {
-    // Seed the random number generator ONCE at the start of the program
-    // You can change time(0) to a specific unsigned int for a fixed, repeatable map.
-    unsigned int terrainSeed = static_cast<unsigned int>(time(0));
-    // unsigned int terrainSeed = 12345; // Example of a fixed seed
-    srand(terrainSeed);    // Initialize the library
-    if (!glfwInit()) {
-        return -1;
-    }
-    
-    // Initialize input system
-    initializeInputs();/* Callback to a function if an error is rised by GLFW */
+    // CRASH FIX: Add global exception handler
+    try {
+        // Seed the random number generator ONCE at the start of the program
+        // You can change time(0) to a specific unsigned int for a fixed, repeatable map.
+        unsigned int terrainSeed = static_cast<unsigned int>(time(0));
+        // unsigned int terrainSeed = 12345; // Example of a fixed seed
+        srand(terrainSeed);
+        
+        // Initialize the library
+        if (!glfwInit()) {
+            std::cerr << "CRASH FIX: Failed to initialize GLFW" << std::endl;
+            return -1;
+        }
+        
+        // CRASH FIX: Set up GLFW error callback before any other GLFW calls
+        glfwSetErrorCallback(onError);
+        
+        // Initialize input system
+        initializeInputs();/* Callback to a function if an error is rised by GLFW */
 	glfwSetErrorCallback(onError);
     
     // Create a windowed mode window and its OpenGL context
@@ -411,9 +419,7 @@ int main() {
 			glfwWaitEventsTimeout(FRAMERATE_IN_SECONDS - elapsedTime);
 			elapsedTime = glfwGetTime() - startTime;
 		}
-	}
-
-    // Stop game threads
+	}    // Stop game threads
     std::cout << "Stopping threads..." << std::endl;
     stopGameThreads();
     
@@ -425,4 +431,33 @@ int main() {
     
     glfwTerminate();
     return 0;
+    
+    } catch (const std::exception& e) {
+        std::cerr << "CRASH FIX: Unhandled exception in main: " << e.what() << std::endl;
+        
+        // Emergency cleanup
+        if (g_threadManager) {
+            g_threadManager->setRunning(false);
+            stopGameThreads();
+            cleanupThreading();
+        }
+        
+        cleanupInputs();
+        glfwTerminate();
+        return -1;
+        
+    } catch (...) {
+        std::cerr << "CRASH FIX: Unknown exception caught in main!" << std::endl;
+        
+        // Emergency cleanup
+        if (g_threadManager) {
+            g_threadManager->setRunning(false);
+            stopGameThreads();
+            cleanupThreading();
+        }
+        
+        cleanupInputs();
+        glfwTerminate();
+        return -1;
+    }
 }

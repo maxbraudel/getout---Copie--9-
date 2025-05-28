@@ -76,12 +76,26 @@ float calculateHeuristic(float x1, float y1, float x2, float y2) {
 }
 
 // Helper function to expand collision shape points by a given distance for safety buffer
+// CRASH FIX: Add bounds checking for collision shape expansion
 std::vector<std::pair<float, float>> expandCollisionShape(const std::vector<std::pair<float, float>>& originalShape, float expandDistance) {
-    if (expandDistance <= 0.0f || originalShape.empty()) {
+    // CRASH FIX: Validate input parameters
+    if (originalShape.empty()) {
+        std::cerr << "WARNING: Attempting to expand empty collision shape" << std::endl;
+        return originalShape;
+    }
+    
+    if (expandDistance <= 0.0f) {
         return originalShape; // No expansion needed
     }
     
+    // CRASH FIX: Limit maximum expansion to prevent extreme values
+    if (expandDistance > 100.0f) {
+        std::cerr << "WARNING: Collision expansion distance too large: " << expandDistance << ", clamping to 100.0f" << std::endl;
+        expandDistance = 100.0f;
+    }
+    
     std::vector<std::pair<float, float>> expandedShape;
+    expandedShape.reserve(originalShape.size()); // CRASH FIX: Pre-allocate memory
     
     // For each point, move it outward from the center of the shape
     // First, find the center point of the shape
