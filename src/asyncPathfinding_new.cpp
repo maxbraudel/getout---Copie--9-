@@ -59,43 +59,27 @@ void AsyncEntityPathfinder::stop() {
     std::lock_guard<std::mutex> lock(stateMutex);
     if (isRunning) {
         isRunning = false;
+        
         std::cout << "AsyncEntityPathfinder: Stopping Taskflow-based processing..." << std::endl;
         
-        // First, mark all active requests as cancelled to prevent new processing
-        {
-            std::lock_guard<std::mutex> activeLock(activeRequestsMutex);
-            for (const auto& pair : activeRequests) {
-                cancelledRequests.insert(pair.second);
-            }
-            activeRequests.clear();
-        }
-        
-        // Wait for all running tasks to complete with timeout
-        std::cout << "Waiting for all async pathfinding tasks to complete..." << std::endl;
-        
-        try {
-            // Use wait_for_all() which is the proper way to wait for async tasks
-            executor.wait_for_all();
-            std::cout << "All async pathfinding tasks completed" << std::endl;
-            
-        } catch (const std::exception& e) {
-            std::cerr << "Exception during task completion wait: " << e.what() << std::endl;
-        } catch (...) {
-            std::cerr << "Unknown exception during task completion wait!" << std::endl;
-        }
-        
-        // Clean up after all tasks are done
-        {
-            std::lock_guard<std::mutex> tasksLock(activeTasksMutex);
-            activeTasks.clear();
-        }
-        
+        // Clear all cancelled requests and active requests
         {
             std::lock_guard<std::mutex> activeLock(activeRequestsMutex);
             cancelledRequests.clear();
+            activeRequests.clear();
         }
         
-        std::cout << "AsyncEntityPathfinder stopped successfully" << std::endl;
+        // Wait for all running tasks to complete
+        std::cout << "Waiting for all async pathfinding tasks to complete..." << std::endl;
+        
+        try {
+            executor.wait_for_all();
+            std::cout << "AsyncEntityPathfinder stopped successfully" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Exception during AsyncEntityPathfinder shutdown: " << e.what() << std::endl;
+        } catch (...) {
+            std::cerr << "Unknown exception during AsyncEntityPathfinder shutdown!" << std::endl;
+        }
     }
 }
 
@@ -129,7 +113,8 @@ uint32_t AsyncEntityPathfinder::requestPathfinding(const std::string& entityId,
     request.startY = startY;
     request.endX = endX;
     request.endY = endY;
-    request.config = config;    request.walkType = walkType;
+    request.config = config;
+    request.walkType = walkType;
     request.timestamp = std::chrono::steady_clock::now();
     
     // Track active request for this entity (cancel previous if exists)
@@ -138,39 +123,21 @@ uint32_t AsyncEntityPathfinder::requestPathfinding(const std::string& entityId,
         auto it = activeRequests.find(entityId);
         if (it != activeRequests.end()) {
             // Cancel previous request for this entity
-            uint32_t oldRequestId = it->second;
-            cancelledRequests.insert(oldRequestId);
-            
-            // Clean up the old task future
-            {
-                std::lock_guard<std::mutex> tasksLock(activeTasksMutex);
-                activeTasks.erase(oldRequestId);
-            }
-            
-            std::cout << "Cancelling previous pathfinding request for entity " << entityId << std::endl;        }
+            cancelledRequests.insert(it->second);
+            std::cout << "Cancelling previous pathfinding request for entity " << entityId << std::endl;
+        }
         activeRequests[entityId] = requestId;
-    }    // Use the proper Taskflow async mechanism - much simpler and more stable
-    // This creates a fire-and-forget async task without complex taskflow management
-    try {
-        auto future = executor.async([this, request]() {
-            processPathfindingTask(request);
-        });
-        
-        // Store the future for tracking only - no complex lifecycle management needed
-        {
-            std::lock_guard<std::mutex> lock(activeTasksMutex);
-            activeTasks[requestId] = std::move(future);
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "Failed to submit pathfinding task: " << e.what() << std::endl;
-        
-        // Clean up active request if task submission failed
-        {
-            std::lock_guard<std::mutex> lock(activeRequestsMutex);
-            activeRequests.erase(entityId);
-        }
-        return 0;
     }
+    
+    // Create and submit individual Taskflow task - this is the key improvement!
+    // Each pathfinding request gets its own task instead of using a queue-based system
+    auto taskflow = std::make_shared<tf::Taskflow>();
+    taskflow->emplace([this, request]() {
+        processPathfindingTask(request);
+    });
+    
+    // Submit task to executor (non-blocking) - Taskflow handles the scheduling efficiently
+    executor.run(*taskflow);
     
     std::cout << "Pathfinding task " << requestId << " submitted for entity " << entityId 
               << " from (" << startX << ", " << startY << ") to (" << endX << ", " << endY << ")" << std::endl;
@@ -179,29 +146,15 @@ uint32_t AsyncEntityPathfinder::requestPathfinding(const std::string& entityId,
 }
 
 bool AsyncEntityPathfinder::cancelPathfindingRequest(const std::string& entityId) {
-    uint32_t requestId = 0;
-    
-    // Get the request ID and mark it for cancellation
-    {
-        std::lock_guard<std::mutex> lock(activeRequestsMutex);
-        auto it = activeRequests.find(entityId);
-        if (it != activeRequests.end()) {
-            requestId = it->second;
-            cancelledRequests.insert(requestId);
-            activeRequests.erase(it);
-        } else {
-            return false;
-        }
+    std::lock_guard<std::mutex> lock(activeRequestsMutex);
+    auto it = activeRequests.find(entityId);
+    if (it != activeRequests.end()) {
+        cancelledRequests.insert(it->second);
+        activeRequests.erase(it);
+        std::cout << "Cancelled pathfinding request for entity " << entityId << std::endl;
+        return true;
     }
-    
-    // Remove the active task future to allow proper cleanup
-    {
-        std::lock_guard<std::mutex> lock(activeTasksMutex);
-        activeTasks.erase(requestId);
-    }
-    
-    std::cout << "Cancelled pathfinding request for entity " << entityId << std::endl;
-    return true;
+    return false;
 }
 
 std::vector<AsyncPathfindingResult> AsyncEntityPathfinder::getCompletedResults() {
@@ -321,7 +274,8 @@ void AsyncEntityPathfinder::processPathfindingTask(AsyncPathfindingRequest reque
     // Add result to result queue
     {
         std::lock_guard<std::mutex> lock(resultQueueMutex);
-        resultQueue.push(std::move(result));    }
+        resultQueue.push(std::move(result));
+    }
     
     // Remove from active requests
     {
@@ -329,12 +283,7 @@ void AsyncEntityPathfinder::processPathfindingTask(AsyncPathfindingRequest reque
         auto it = activeRequests.find(request.entityId);
         if (it != activeRequests.end() && it->second == request.requestId) {
             activeRequests.erase(it);
-        }    }
-    
-    // Remove the completed task future to allow proper cleanup
-    {
-        std::lock_guard<std::mutex> lock(activeTasksMutex);
-        activeTasks.erase(request.requestId);
+        }
     }
     
     DEBUG_LOG_MEMORY("pathfinding_task_completed");

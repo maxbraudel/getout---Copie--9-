@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <chrono>
+#include <future>
 #include <taskflow.hpp>
 #include "entities.h"
 
@@ -46,7 +47,7 @@ struct AsyncPathfindingResult {
     AsyncPathfindingResult() = default;
 };
 
-// Async pathfinding manager using Taskflow
+// Async pathfinding manager using Taskflow efficiently
 class AsyncEntityPathfinder {
 public:
     AsyncEntityPathfinder(size_t numThreads = 4);
@@ -60,7 +61,8 @@ public:
     
     // Stop the async pathfinding system
     void stop();
-      // Request pathfinding (non-blocking)
+    
+    // Request pathfinding (non-blocking) - creates individual Taskflow task
     uint32_t requestPathfinding(const std::string& entityId, 
                                float startX, float startY, 
                                float endX, float endY,
@@ -69,44 +71,46 @@ public:
     
     // Cancel pathfinding request for a specific entity
     bool cancelPathfindingRequest(const std::string& entityId);
-      // Get completed pathfinding results (non-blocking)
+    
+    // Get completed pathfinding results (non-blocking)
     std::vector<AsyncPathfindingResult> getCompletedResults();
     
     // Check if entity has an active pathfinding request
     bool hasActiveRequest(const std::string& entityId) const;
     
     // Get queue statistics
-    size_t getPendingRequestsCount() const;
+    size_t getActiveRequestsCount() const;
     size_t getCompletedResultsCount() const;
 
 private:
-    // Taskflow executor and task management
+    // Taskflow executor for efficient task management
     tf::Executor executor;
-    std::vector<tf::Taskflow> taskflow;
     
     // Thread synchronization
-    mutable std::mutex requestQueueMutex;
     mutable std::mutex resultQueueMutex;
     mutable std::mutex activeRequestsMutex;
+    mutable std::mutex activeTasksMutex;  // New mutex for task lifetime management
     mutable std::mutex stateMutex;
-      // Request and result queues
-    std::queue<AsyncPathfindingRequest> requestQueue;
+    mutable std::mutex gameMapMutex;
+    
+    // Result queue - completed pathfinding results
     std::queue<AsyncPathfindingResult> resultQueue;
     
     // Active request tracking
     std::unordered_map<std::string, uint32_t> activeRequests; // entityId -> requestId
     std::unordered_set<uint32_t> cancelledRequests;
+      // Active tasks - keep futures alive for tracking async tasks
+    std::unordered_map<uint32_t, std::future<void>> activeTasks; // requestId -> future
     
     // Request ID management
     std::atomic<uint32_t> nextRequestId;
-      // System state
+    
+    // System state
     std::atomic<bool> isRunning;
     
     // Game map reference (thread-safe read-only access)
     const Map* gameMapPtr;
-    mutable std::mutex gameMapMutex;
-      // Background processing
-    void startBackgroundProcessing();
-    void processPathfindingRequests();
-    void processRequest(const AsyncPathfindingRequest& request);
+    
+    // Process individual pathfinding request as Taskflow task
+    void processPathfindingTask(AsyncPathfindingRequest request);
 };
