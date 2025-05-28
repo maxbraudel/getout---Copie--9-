@@ -8,6 +8,7 @@
 #include <set>
 #include <cmath> // For distance calculations
 #include <utility> // For std::pair
+#include <chrono> // For async pathfinding timing
 
 // Enum for entity types/names
 enum class EntityName {
@@ -151,12 +152,21 @@ struct Entity {
       // Direction tracking
     int lastDirection = 1; // 0 = Up, 1 = Down, 2 = Left, 3 = Right
     float directionChangeTime = 0.0f; // Time accumulator for direction change smoothing
-    
-    // Pathfinding data
+      // Pathfinding data
     bool usePathfinding = true; // Whether to use pathfinding for movement
     std::vector<std::pair<float, float>> path; // Current path from pathfinding
     size_t currentPathIndex = 0; // Current position in the path
     std::pair<float, float> lastSegmentDirection = {0.0f, 0.0f}; // Last major direction for path smoothing
+    
+    // Async pathfinding state
+    bool isPathfindingRequested = false;
+    bool hasValidPath = false;
+    int pathfindingRequestId = -1;
+    std::chrono::steady_clock::time_point lastPathRequest;
+    
+    // Path following state
+    float pathfindingCooldown = 0.5f; // Minimum time between requests
+    bool isWaitingForPath = false;
     
     // Movement tracking for stuck detection
     float lastPositionX = 0.0f;
@@ -199,9 +209,14 @@ public:
     // Teleport an entity to specific coordinates immediately (handles collisions)
     bool teleportEntity(const std::string& instanceName, float x, float y);
       // Walk an entity to specific coordinates
-    
-    // Walk an entity to specific coordinates using pathfinding
+      // Walk an entity to specific coordinates using pathfinding
     bool walkEntityWithPathfinding(const std::string& instanceName, float x, float y, WalkType walkType = WalkType::NORMAL);
+    
+    // Initialize async pathfinding system
+    void initializeAsyncPathfinding();
+    
+    // Shutdown async pathfinding system
+    void shutdownAsyncPathfinding();
             
     // Update all entities (called once per frame)
     void update(double deltaTime);
@@ -218,9 +233,11 @@ private:
     // Get the next waypoint from the entity's path
     bool getNextPathWaypoint(Entity& entity, float& nextX, float& nextY);
       // Update entity walking (internal method)
-    void updateEntityWalking(Entity& entity, const EntityConfiguration& config, double deltaTime);
-      // Handle waypoint arrival - added to improve movement precision
+    void updateEntityWalking(Entity& entity, const EntityConfiguration& config, double deltaTime);      // Handle waypoint arrival - added to improve movement precision
     bool handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY);
+    
+    // Process async pathfinding results
+    void processAsyncPathfindingResults();
     
     // COLLISION RESOLUTION FUNCTIONS (DISABLED)
     // These functions are disabled but declarations kept for compatibility

@@ -33,8 +33,11 @@ set(ALL_LIBRARIES ${ALL_LIBRARIES} glbasimac)
 include_directories(third_party/glbasimac/)
 set(CMAKE_COLOR_MAKEFILE ON)
 
+# ---Add Taskflow---
+include_directories(third_party/taskflow)
+
 # Main executable
-add_executable(${PROJECT_NAME} src/main.cpp src/map.cpp src/terrainGeneration.cpp src/elementsOnMap.cpp src/player.cpp src/camera.cpp src/globals.cpp src/collision.cpp src/debug.cpp src/entities.cpp src/pathfinding.cpp src/inputs.cpp src/threading.cpp)
+add_executable(${PROJECT_NAME} src/main.cpp src/map.cpp src/terrainGeneration.cpp src/elementsOnMap.cpp src/player.cpp src/camera.cpp src/globals.cpp src/collision.cpp src/debug.cpp src/entities.cpp src/pathfinding.cpp src/inputs.cpp src/threading.cpp src/asyncPathfinding.cpp)
 
 # Find threading library
 find_package(Threads REQUIRED)
@@ -42,12 +45,12 @@ set(ALL_LIBRARIES ${ALL_LIBRARIES} Threads::Threads)
 
 target_link_libraries(${PROJECT_NAME} ${ALL_LIBRARIES})
 set_target_properties(${PROJECT_NAME} PROPERTIES
-    CXX_STANDARD 11
+    CXX_STANDARD 17
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS NO
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set_target_properties(${PROJECT_NAME} PROPERTIES
-    CXX_STANDARD 11
+    CXX_STANDARD 17
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS NO
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin

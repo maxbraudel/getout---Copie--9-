@@ -1,0 +1,106 @@
+#pragma once
+
+#include <vector>
+#include <queue>
+#include <mutex>
+#include <memory>
+#include <string>
+#include <atomic>
+#include <unordered_map>
+#include <unordered_set>
+#include <chrono>
+#include <taskflow.hpp>
+#include "entities.h"
+
+// Forward declarations
+class Map;
+
+// Async pathfinding request structure (different from pathfinding.h)
+struct AsyncPathfindingRequest {
+    uint32_t requestId;
+    std::string entityId;
+    std::string instanceName;  // Instance name of the entity
+    float startX, startY;
+    float endX, endY;
+    EntityConfiguration config;
+    WalkType walkType = WalkType::NORMAL;
+    std::chrono::steady_clock::time_point timestamp;    
+    AsyncPathfindingRequest() = default;
+};
+
+// Async pathfinding result structure
+struct AsyncPathfindingResult {
+    uint32_t requestId;
+    std::string entityId;
+    std::string instanceName;  // Instance name of the entity
+    std::vector<std::pair<float, float>> path;
+    bool success;
+    bool completed = false;
+    bool failed = false;
+    std::string errorMessage;
+    WalkType walkType = WalkType::NORMAL;
+    float targetX;
+    float targetY;
+    float computationTimeMs;
+    
+    AsyncPathfindingResult() = default;
+};
+
+// Async pathfinding manager using Taskflow
+class AsyncEntityPathfinder {
+public:
+    AsyncEntityPathfinder(size_t numThreads = 4);
+    ~AsyncEntityPathfinder();
+    
+    // Start the async pathfinding system
+    void start();
+    
+    // Stop the async pathfinding system
+    void stop();
+      // Request pathfinding (non-blocking)
+    uint32_t requestPathfinding(const std::string& entityId, 
+                               float startX, float startY, 
+                               float endX, float endY,
+                               const EntityConfiguration& config,
+                               WalkType walkType = WalkType::NORMAL);
+    
+    // Cancel pathfinding request for a specific entity
+    bool cancelPathfindingRequest(const std::string& entityId);
+      // Get completed pathfinding results (non-blocking)
+    std::vector<AsyncPathfindingResult> getCompletedResults();
+    
+    // Check if entity has an active pathfinding request
+    bool hasActiveRequest(const std::string& entityId) const;
+    
+    // Get queue statistics
+    size_t getPendingRequestsCount() const;
+    size_t getCompletedResultsCount() const;
+
+private:
+    // Taskflow executor and task management
+    tf::Executor executor;
+    std::vector<tf::Taskflow> taskflow;
+    
+    // Thread synchronization
+    mutable std::mutex requestQueueMutex;
+    mutable std::mutex resultQueueMutex;
+    mutable std::mutex activeRequestsMutex;
+    mutable std::mutex stateMutex;
+      // Request and result queues
+    std::queue<AsyncPathfindingRequest> requestQueue;
+    std::queue<AsyncPathfindingResult> resultQueue;
+    
+    // Active request tracking
+    std::unordered_map<std::string, uint32_t> activeRequests; // entityId -> requestId
+    std::unordered_set<uint32_t> cancelledRequests;
+    
+    // Request ID management
+    std::atomic<uint32_t> nextRequestId;
+    
+    // System state
+    std::atomic<bool> isRunning;
+      // Background processing
+    void startBackgroundProcessing();
+    void processPathfindingRequests();
+    void processRequest(const AsyncPathfindingRequest& request);
+};

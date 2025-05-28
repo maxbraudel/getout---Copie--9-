@@ -1,11 +1,15 @@
 #include "entities.h"
 #include "collision.h"
 #include "map.h" // Adding for gameMap access
-#include "pathfinding.h"
+// #include "pathfinding.h" // Commented out to avoid conflicts with new async pathfinding system
 #include "globals.h" // For GRID_SIZE
 #include "debug.h" // For isShowingCollisionBoxes function
+#include "asyncPathfinding.h"
 #include <iostream>
 #include <cmath>
+
+// Global async pathfinder instance (separate from pathfinding.h's AsyncPathfinder)
+static AsyncEntityPathfinder* g_entityAsyncPathfinder = nullptr;
 
 // Static vector of predefined entity types
 static std::vector<EntityInfo> entityTypes;
@@ -254,10 +258,12 @@ std::string EntitiesManager::getElementName(const std::string& instanceName) {
 
 EntitiesManager::EntitiesManager() {
     // Constructor
+    initializeAsyncPathfinding();
 }
 
 EntitiesManager::~EntitiesManager() {
-    // Destructor - nothing special to clean up
+    // Destructor
+    shutdownAsyncPathfinding();
 }
 
 void EntitiesManager::initializeEntityConfigurations() {
@@ -366,7 +372,9 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
     if (!config) {
         std::cerr << "Entity configuration not found: " << entity->typeName << std::endl;
         return false;
-    }    // Get the element name
+    }
+
+    // Get the element name
     std::string elementName = getElementName(instanceName);
 
     // Get current position from entity if available, otherwise from element
@@ -383,71 +391,55 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
         return false;
     }
     
-    // Pathfinding logic
-    std::vector<std::pair<float, float>> path = findPath(
-        startPathX, startPathY,
-        x, y,
-        gameMap,
-        *config
-    );
-
-    entity->path = path; // Store the raw path first
-
-    if (entity->path.size() < 2) {
-        // Path is too short (0 or 1 point), no movement possible or already at destination.
-        // This can happen if start and goal are the same or no path found and findPath returns just start.
-        entity->isWalking = false;
-        elementsManager.changeElementAnimationStatus(elementName, false);
-        if (config) {
-            elementsManager.changeElementSpriteFrame(elementName, config->defaultSpriteSheetFrame);
-            elementsManager.changeElementSpritePhase(elementName, config->defaultSpriteSheetPhase);
-        }
-        // std::cout << "Entity " << instanceName << " path too short or invalid. Not walking. Path size: " << entity->path.size() << std::endl;
-        // If path has one point, and it's different from target, it's a failure. If same, it's success (already there).
-        // findPath should return empty on failure, or path with start/goal.
-        // If path has 1 point, it's the start point. If start != goal, then this is effectively a "no path found" scenario.
-        bool targetIsDifferentFromStart = (entity->path.empty() || (std::abs(entity->path[0].first - x) > 0.01f || std::abs(entity->path[0].second - y) > 0.01f));
-        if (entity->path.size() < 2 && targetIsDifferentFromStart) {
-             std::cout << "No valid path found for entity " << instanceName << " to reach ("
-                      << x << ", " << y << ") or path too short. Path size: " << entity->path.size() << std::endl;
-            return false; // Indicate failure to start walking
-        }
-        // If path has 1 point and it IS the target, then we are good.
-        return true; // Successfully "walked" (by not moving)
+    // Check if we're already close to the destination
+    float dx = x - startPathX;
+    float dy = y - startPathY;
+    float distance = std::sqrt(dx * dx + dy * dy);
+    if (distance < 0.1f) {
+        std::cout << "Entity " << instanceName << " is already at destination" << std::endl;
+        return true;
+    }
+      // Check async pathfinding availability
+    if (!g_entityAsyncPathfinder) {
+        std::cerr << "Async pathfinder not initialized" << std::endl;
+        return false;
     }
     
-    // Path is valid and has at least 2 points.
-    entity->currentPathIndex = 1; // currentPathIndex is the index of the NEXT waypoint to target. path[0] is start.
-    entity->isWalking = true;
-    entity->walkType = walkType;
-    entity->usePathfinding = true;
-    entity->lastSegmentDirection = {0.0f, 0.0f}; // Reset last segment direction
-
-    // Set the final destination
-    entity->targetX = x;
-    entity->targetY = y;
-
-    // Enable animation
-    elementsManager.changeElementAnimationStatus(elementName, true);
-
-    // Set the animation speed based on walk type
-    float animationSpeed = (walkType == WalkType::NORMAL) ?
-                          config->normalWalkingAnimationSpeed :
-                          config->sprintWalkingAnimationSpeed;
-    elementsManager.changeElementAnimationSpeed(elementName, animationSpeed);
-
-    // Immediately determine and set sprite for the first segment (path[0] to path[1])
-    // The 'currentX, currentY' passed to handleWaypointArrival are the coordinates of the segment's start.
-    handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
-
-    std::cout << "Entity " << instanceName << " starting pathfinding to (" << x << ", " << y << ") with "
-              << ((walkType == WalkType::NORMAL) ? "normal" : "sprint") << " speed, path size: " << entity->path.size() 
-              << ", initial target index: " << entity->currentPathIndex << std::endl;
-    return true;
+    // Cancel any existing pathfinding request for this entity
+    if (entity->pathfindingRequestId > 0) {
+        g_entityAsyncPathfinder->cancelPathfindingRequest(entity->instanceName);
+        entity->pathfindingRequestId = 0;
+    }
+    
+    // Stop current movement
+    entity->isWalking = false;
+    entity->isWaitingForPath = false;
+    elementsManager.changeElementAnimationStatus(elementName, false);
+      // Submit async pathfinding request
+    int requestId = g_entityAsyncPathfinder->requestPathfinding(instanceName, startPathX, startPathY, x, y, *config, walkType);
+    
+    if (requestId > 0) {
+        entity->pathfindingRequestId = requestId;
+        entity->isWaitingForPath = true;
+        entity->targetX = x;
+        entity->targetY = y;
+        entity->walkType = walkType;
+        entity->lastPathRequest = std::chrono::steady_clock::now();
+        
+        std::cout << "Entity " << instanceName << " submitted async pathfinding request (ID: " << requestId 
+                  << ") to (" << x << ", " << y << ") with "
+                  << ((walkType == WalkType::NORMAL) ? "normal" : "sprint") << " speed" << std::endl;
+        return true;
+    } else {
+        std::cerr << "Failed to submit pathfinding request for entity: " << instanceName << std::endl;
+        return false;
+    }
 }
 
 void EntitiesManager::update(double deltaTime) {
-
+    // Process async pathfinding results first
+    processAsyncPathfindingResults();
+    
     // Update all walking entities
     for (auto& pair : entities) {
         Entity& entity = pair.second;
@@ -1148,4 +1140,90 @@ bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& e
     elementsManager.changeElementSpritePhase(elementName, phase);
     
     return true;
+}
+
+// Async pathfinding management methods
+void EntitiesManager::initializeAsyncPathfinding() {
+    if (!g_entityAsyncPathfinder) {
+        g_entityAsyncPathfinder = new AsyncEntityPathfinder();
+        g_entityAsyncPathfinder->start();
+        std::cout << "Async pathfinding system initialized" << std::endl;
+    }
+}
+
+void EntitiesManager::shutdownAsyncPathfinding() {
+    if (g_entityAsyncPathfinder) {
+        g_entityAsyncPathfinder->stop();
+        delete g_entityAsyncPathfinder;
+        g_entityAsyncPathfinder = nullptr;
+        std::cout << "Async pathfinding system shutdown" << std::endl;
+    }
+}
+
+void EntitiesManager::processAsyncPathfindingResults() {
+    if (!g_entityAsyncPathfinder) {
+        return;
+    }
+    
+    // Process all completed pathfinding requests
+    std::vector<AsyncPathfindingResult> results = g_entityAsyncPathfinder->getCompletedResults();
+    
+    for (const auto& result : results) {
+        // Find the entity that requested this pathfinding
+        Entity* entity = getEntity(result.instanceName);
+        if (!entity) {
+            std::cerr << "Warning: Received pathfinding result for unknown entity: " << result.instanceName << std::endl;
+            continue;
+        }
+        
+        // Get the configuration
+        const EntityConfiguration* config = getConfiguration(entity->typeName);
+        if (!config) {
+            std::cerr << "Warning: Entity configuration not found for: " << entity->typeName << std::endl;
+            continue;
+        }
+        
+        std::string elementName = getElementName(result.instanceName);
+        
+        if (result.success && result.path.size() >= 2) {
+            // Pathfinding succeeded, set up the entity for walking
+            entity->path = result.path;
+            entity->currentPathIndex = 1;
+            entity->isWalking = true;
+            entity->walkType = result.walkType;
+            entity->usePathfinding = true;
+            entity->lastSegmentDirection = {0.0f, 0.0f};
+            entity->targetX = result.targetX;
+            entity->targetY = result.targetY;
+            entity->pathfindingRequestId = 0; // Clear the request ID
+            
+            // Enable animation
+            elementsManager.changeElementAnimationStatus(elementName, true);
+            
+            // Set animation speed based on walk type
+            float animationSpeed = (result.walkType == WalkType::NORMAL) ?
+                                  config->normalWalkingAnimationSpeed :
+                                  config->sprintWalkingAnimationSpeed;
+            elementsManager.changeElementAnimationSpeed(elementName, animationSpeed);
+            
+            // Set initial sprite for first path segment
+            handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
+            
+            std::cout << "Entity " << result.instanceName << " received async pathfinding result: success, path size: " 
+                      << result.path.size() << std::endl;
+        } else {
+            // Pathfinding failed or path too short
+            entity->isWalking = false;
+            entity->pathfindingRequestId = 0; // Clear the request ID
+            elementsManager.changeElementAnimationStatus(elementName, false);
+            elementsManager.changeElementSpriteFrame(elementName, config->defaultSpriteSheetFrame);
+            elementsManager.changeElementSpritePhase(elementName, config->defaultSpriteSheetPhase);
+            
+            if (!result.success) {
+                std::cout << "Entity " << result.instanceName << " pathfinding failed: " << result.errorMessage << std::endl;
+            } else {
+                std::cout << "Entity " << result.instanceName << " pathfinding completed - already at destination" << std::endl;
+            }
+        }
+    }
 }

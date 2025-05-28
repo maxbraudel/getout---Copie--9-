@@ -129,7 +129,7 @@ struct PreCalculatedCollisionShapes {
 extern PreCalculatedCollisionShapes g_collisionCache;
 
 // Async pathfinding result
-struct AsyncPathfindingResult {
+struct PathfindingResult {
     std::vector<std::pair<float, float>> path;
     bool completed = false;
     bool failed = false;
@@ -140,24 +140,23 @@ struct AsyncPathfindingResult {
     PathfindingStats stats;
     
     // Constructor
-    AsyncPathfindingResult() = default;
+    PathfindingResult() = default;
     
     // Copy constructor
-    AsyncPathfindingResult(const AsyncPathfindingResult& other) 
+    PathfindingResult(const PathfindingResult& other)
         : path(other.path), completed(other.completed), failed(other.failed), 
           success(other.success), errorMessage(other.errorMessage),
           requestId(other.requestId), computationTimeMs(other.computationTimeMs),
           stats() {} // Don't copy atomic stats
-    
-    // Move constructor
-    AsyncPathfindingResult(AsyncPathfindingResult&& other) noexcept
+      // Move constructor
+    PathfindingResult(PathfindingResult&& other) noexcept
         : path(std::move(other.path)), completed(other.completed), failed(other.failed),
           success(other.success), errorMessage(std::move(other.errorMessage)),
           requestId(other.requestId), computationTimeMs(other.computationTimeMs),
           stats() {} // Don't move atomic stats
     
     // Assignment operators
-    AsyncPathfindingResult& operator=(const AsyncPathfindingResult& other) {
+    PathfindingResult& operator=(const PathfindingResult& other) {
         if (this != &other) {
             path = other.path;
             completed = other.completed;
@@ -170,8 +169,7 @@ struct AsyncPathfindingResult {
         }
         return *this;
     }
-    
-    AsyncPathfindingResult& operator=(AsyncPathfindingResult&& other) noexcept {
+      PathfindingResult& operator=(PathfindingResult&& other) noexcept {
         if (this != &other) {
             path = std::move(other.path);
             completed = other.completed;
@@ -200,11 +198,11 @@ struct PathfindingRequest {
 
 class AsyncPathfinder {
 private:
-    std::future<AsyncPathfindingResult> future_;
+    std::future<PathfindingResult> future_;
     std::atomic<bool> isRunning_{false};
     std::atomic<bool> shouldCancel_{false};
     std::mutex mutex_;
-    std::unique_ptr<AsyncPathfindingResult> result_;
+    std::unique_ptr<PathfindingResult> result_;
     
 public:
     // Start async pathfinding
@@ -212,9 +210,8 @@ public:
     
     // Check if pathfinding is complete
     bool isPathfindingComplete();
-    
-    // Get the result (non-blocking, returns nullptr if not complete)
-    std::unique_ptr<AsyncPathfindingResult> getResult();
+      // Get the result (non-blocking, returns nullptr if not complete)
+    std::unique_ptr<PathfindingResult> getResult();
     
     // Cancel current pathfinding
     void cancelPathfinding();
@@ -223,7 +220,7 @@ public:
     bool isCurrentlyRunning() const { return isRunning_.load(); }
     
     // Internal async pathfinding method
-    AsyncPathfindingResult findPathAsync(const PathfindingRequest& request);
+    PathfindingResult findPathAsync(const PathfindingRequest& request);
     
     // Internal pathfinding with cancellation support
     std::vector<std::pair<float, float>> findPathWithCancellation(
@@ -245,6 +242,6 @@ bool isPositionValidOptimized(float x, float y, const EntityConfiguration& entit
                              const Map& gameMap);
 
 // Async pathfinding function
-std::future<AsyncPathfindingResult> findPathAsync(const PathfindingRequest& request);
+std::future<PathfindingResult> findPathAsync(const PathfindingRequest& request);
 
 #endif // PATHFINDING_H

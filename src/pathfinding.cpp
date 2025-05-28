@@ -830,7 +830,7 @@ bool AsyncPathfinder::isPathfindingComplete() {
     if (future_.valid() && future_.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
         // Pathfinding is complete, get the result
         try {
-            result_.reset(new AsyncPathfindingResult(future_.get()));
+            result_.reset(new PathfindingResult(future_.get()));
             isRunning_ = false;
             return true;
         } catch (const std::exception& e) {
@@ -845,7 +845,7 @@ bool AsyncPathfinder::isPathfindingComplete() {
     return false;
 }
 
-std::unique_ptr<AsyncPathfindingResult> AsyncPathfinder::getResult() {
+std::unique_ptr<PathfindingResult> AsyncPathfinder::getResult() {
     std::lock_guard<std::mutex> lock(mutex_);
     
     if (isRunning_) {
@@ -866,10 +866,10 @@ void AsyncPathfinder::cancelPathfinding() {
     }
 }
 
-AsyncPathfindingResult AsyncPathfinder::findPathAsync(const PathfindingRequest& request) {
+PathfindingResult AsyncPathfinder::findPathAsync(const PathfindingRequest& request) {
     auto startTime = std::chrono::high_resolution_clock::now();
     
-    AsyncPathfindingResult result;
+    PathfindingResult result;
     result.requestId = request.requestId;
     result.success = false;
     
@@ -1149,11 +1149,11 @@ std::vector<std::pair<float, float>> AsyncPathfinder::findPathWithCancellation(
 }
 
 // Standalone async pathfinding function
-std::future<AsyncPathfindingResult> findPathAsync(const PathfindingRequest& request) {
-    return std::async(std::launch::async, [request]() -> AsyncPathfindingResult {
+std::future<PathfindingResult> findPathAsync(const PathfindingRequest& request) {
+    return std::async(std::launch::async, [request]() -> PathfindingResult {
         auto startTime = std::chrono::high_resolution_clock::now();
         
-        AsyncPathfindingResult result;
+        PathfindingResult result;
         result.requestId = request.requestId;
         result.success = false;
         
