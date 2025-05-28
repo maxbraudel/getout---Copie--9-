@@ -4,6 +4,15 @@
 // Forward declaration for safety check
 class Map;
 
+// Player stuck detection state variables
+struct PlayerStuckState {
+    float lastPositionX = 0.0f;
+    float lastPositionY = 0.0f;
+    float stuckCheckTime = 0.0f;
+    float lastPositionChangeTime = 0.0f;
+    int stuckCount = 0;
+};
+
 // Simple function to create a player character at the specified position
 void createPlayer(float x, float y);
 
@@ -26,8 +35,10 @@ void setPlayerAnimationState(bool isAnimating);
 // Function to toggle player debug mode - shows grid position
 void togglePlayerDebugMode();
 
-// Function to ensure player is not stuck in any collision areas (DISABLED)
-// Collision resolution mechanisms removed - players will no longer be automatically moved
-// Returns false - no automatic position adjustment
+// Function to handle player stuck detection and resolution
+bool handlePlayerStuckDetection(float currentX, float currentY, double deltaTime, bool canMove);
+
+// Function to resolve player collision when stuck
+bool resolvePlayerCollisionStuck(float& x, float& y);
 
 #endif // PLAYER_H

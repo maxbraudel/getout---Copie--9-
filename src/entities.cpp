@@ -336,12 +336,32 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
     if (!config) {
         std::cerr << "Entity configuration not found: " << typeName << std::endl;
         return false;
-    }      // COLLISION RESOLUTION MECHANISMS DISABLED
-    // Entities will no longer be automatically moved to "safe positions" during placement
+    }    // COLLISION RESOLUTION INTEGRATION
+    // Check if entity spawns in a collision area and resolve it
     float safeX = x;
     float safeY = y;
     bool needsSafePosition = false;
-    // Safe position checking removed - entities will be placed at requested coordinates
+    
+    // Check if the entity would be stuck at the requested position
+    if (config->canCollide && 
+        (wouldEntityCollideWithElementsGranular(*config, x, y, false) || 
+         wouldEntityCollideWithBlocksGranular(*config, x, y, false))) {
+        
+        std::cout << "Entity " << instanceName << " would spawn inside collision area at (" 
+                  << x << ", " << y << ") - attempting collision resolution..." << std::endl;
+        
+        // Try to find a safe position nearby
+        if (resolveEntityCollisionStuck(instanceName, safeX, safeY, *config, gameMap)) {
+            needsSafePosition = true;
+            std::cout << "Found safe spawn position for " << instanceName 
+                      << " at (" << safeX << ", " << safeY << ")" << std::endl;
+        } else {
+            std::cout << "Warning: Could not find safe spawn position for " << instanceName 
+                      << " - placing at requested coordinates (" << x << ", " << y << ")" << std::endl;
+            safeX = x;
+            safeY = y;
+        }
+    }
     
     // Generate the element name
     std::string elementName = getElementName(instanceName);
@@ -366,11 +386,9 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
     );
     
     // Add the entity to our entities map
-    entities[instanceName] = entity;
-      if (needsSafePosition && safeX != x && safeY != y) {
-        // This block should never execute since safe position checking is disabled
-        std::cout << "Entity " << instanceName << " created at requested position (" << safeX << "," << safeY 
-                << ") - safe position adjustment disabled" << std::endl;
+    entities[instanceName] = entity;    if (needsSafePosition && (safeX != x || safeY != y)) {
+        std::cout << "Entity " << instanceName << " placed with collision resolution - moved from (" 
+                  << x << ", " << y << ") to (" << safeX << ", " << safeY << ")" << std::endl;
     } else {
         std::cout << "Placed entity: " << instanceName << " (type: " << typeName << ") at (" 
                 << safeX << ", " << safeY << ")" << std::endl;
@@ -846,10 +864,96 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         } else {
             // No movement requested, but still blocked (shouldn't happen normally)
             canMove = false;
-        }
-          // If still can't move after axis separation, try pathfinding recalculation
-        if (!canMove) {
-            // PATH FINDING RE-CALCULATION LOGIC
+        }        // If still can't move after axis separation, try stuck detection and collision resolution
+        if (!canMove) {            // STUCK DETECTION AND COLLISION RESOLUTION LOGIC
+            const float stuckThreshold = 1.0f; // Reduced time - check sooner if entity is stuck
+            const float positionChangeThreshold = 0.02f; // Smaller threshold for more sensitive detection
+            
+            // Check if entity position has changed significantly
+            float positionChangeDistance = std::sqrt(
+                (currentActualX - entity.lastPositionX) * (currentActualX - entity.lastPositionX) +
+                (currentActualY - entity.lastPositionY) * (currentActualY - entity.lastPositionY)
+            );
+            
+            // Update stuck detection timing
+            entity.stuckCheckTime += static_cast<float>(deltaTime);
+            
+            if (positionChangeDistance > positionChangeThreshold) {
+                // Entity has moved significantly, reset stuck detection
+                entity.lastPositionX = currentActualX;
+                entity.lastPositionY = currentActualY;
+                entity.lastPositionChangeTime = entity.stuckCheckTime;
+                entity.stuckCount = 0;
+            } else if (entity.stuckCheckTime - entity.lastPositionChangeTime >= stuckThreshold) {
+                // Entity has been stuck for too long, try collision resolution
+                entity.stuckCount++;
+                
+                std::cout << "Entity " << entity.instanceName << " is stuck (count: " << entity.stuckCount 
+                          << ") at (" << currentActualX << ", " << currentActualY 
+                          << ") - attempting collision resolution..." << std::endl;
+                
+                float safeX = currentActualX;
+                float safeY = currentActualY;
+                
+                if (resolveEntityCollisionStuck(entity.instanceName, safeX, safeY, config, gameMap)) {
+                    // Successfully found a safe position, teleport entity there
+                    elementsManager.changeElementCoordinates(elementName, safeX, safeY);
+                    
+                    // Reset stuck detection after successful resolution
+                    entity.lastPositionX = safeX;
+                    entity.lastPositionY = safeY;
+                    entity.lastPositionChangeTime = entity.stuckCheckTime;
+                    entity.stuckCount = 0;
+                    
+                    // If using pathfinding, recalculate path from new position
+                    if (entity.usePathfinding && entity.isWalking && 
+                        g_entityAsyncPathfinder && !entity.isWaitingForPath) {
+                        
+                        std::cout << "Recalculating pathfinding for unstuck entity " << entity.instanceName 
+                                  << " from new position (" << safeX << ", " << safeY << ")" << std::endl;
+                        
+                        // Cancel existing pathfinding request if any
+                        if (entity.pathfindingRequestId > 0) {
+                            g_entityAsyncPathfinder->cancelPathfindingRequest(entity.instanceName);
+                        }
+                        
+                        // Request new pathfinding from safe position to original target
+                        int newRequestId = g_entityAsyncPathfinder->requestPathfinding(
+                            entity.instanceName, safeX, safeY, 
+                            entity.targetX, entity.targetY, config, entity.walkType
+                        );
+                        
+                        if (newRequestId > 0) {
+                            entity.pathfindingRequestId = newRequestId;
+                            entity.isWaitingForPath = true;
+                            entity.lastPathRequest = std::chrono::steady_clock::now();
+                        }
+                    }
+                    
+                    std::cout << "Successfully resolved stuck condition for entity " << entity.instanceName 
+                              << " - moved to safe position (" << safeX << ", " << safeY << ")" << std::endl;
+                } else {
+                    std::cout << "Failed to resolve stuck condition for entity " << entity.instanceName 
+                              << " - no safe position found. Attempt count: " << entity.stuckCount << std::endl;
+                    
+                    // If we've tried many times and still can't resolve, stop the entity
+                    if (entity.stuckCount >= 5) {
+                        std::cout << "Entity " << entity.instanceName 
+                                  << " has been stuck too many times - stopping movement" << std::endl;
+                        entity.isWalking = false;
+                        entity.path.clear();
+                        entity.currentPathIndex = 0;
+                        
+                        // Disable animation and reset to standing state
+                        elementsManager.changeElementAnimationStatus(elementName, false);
+                        elementsManager.changeElementSpriteFrame(elementName, 0);
+                        elementsManager.changeElementSpritePhase(elementName, config.defaultSpriteSheetPhase);
+                    }
+                }
+                
+                // Reset stuck check time to avoid immediate re-triggering
+                entity.lastPositionChangeTime = entity.stuckCheckTime;
+            }
         }
     }
     
@@ -1097,13 +1201,32 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
     }
     
     // Get the element name
-    std::string elementName = getElementName(instanceName);
-      // COLLISION RESOLUTION MECHANISMS DISABLED  
-    // Entities will no longer be automatically moved to "safe positions" during teleportation
+    std::string elementName = getElementName(instanceName);    // COLLISION RESOLUTION INTEGRATION
+    // Check if entity would be teleported into a collision area and resolve it
     float safeX = x;
     float safeY = y;
     bool needsSafePosition = false;
-    // Safe position checking removed - entities will be teleported to requested coordinates
+    
+    // Check if the entity would be stuck at the teleport destination
+    if (config->canCollide && 
+        (wouldEntityCollideWithElementsGranular(*config, x, y, false) || 
+         wouldEntityCollideWithBlocksGranular(*config, x, y, false))) {
+        
+        std::cout << "Entity " << instanceName << " would be teleported into collision area at (" 
+                  << x << ", " << y << ") - attempting collision resolution..." << std::endl;
+        
+        // Try to find a safe position nearby
+        if (resolveEntityCollisionStuck(instanceName, safeX, safeY, *config, gameMap)) {
+            needsSafePosition = true;
+            std::cout << "Found safe teleport position for " << instanceName 
+                      << " at (" << safeX << ", " << safeY << ")" << std::endl;
+        } else {
+            std::cout << "Warning: Could not find safe teleport position for " << instanceName 
+                      << " - teleporting to requested coordinates (" << x << ", " << y << ")" << std::endl;
+            safeX = x;
+            safeY = y;
+        }
+    }
     
     // Stop any current walking
     entity->isWalking = false;
@@ -1124,7 +1247,11 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
         elementsManager.changeElementSpritePhase(elementName, config->defaultSpriteSheetPhase);
     }
     
-    std::cout << "Teleported entity " << instanceName << " to (" << safeX << ", " << safeY << ")" << std::endl;
+    std::cout << "Teleported entity " << instanceName << " to (" << safeX << ", " << safeY << ")";
+    if (needsSafePosition && (safeX != x || safeY != y)) {
+        std::cout << " (collision resolved from requested " << x << ", " << y << ")";
+    }
+    std::cout << std::endl;
     return true;
 }
 

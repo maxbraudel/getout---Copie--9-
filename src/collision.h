@@ -49,6 +49,11 @@ extern const float MAX_COLLISION_CHECK_RANGE;
 // Set of non-traversable block types (water, lava, etc.)
 extern std::set<TextureName> nonTraversableBlocks;
 
+// Collision resolution functions
+bool findSafePosition(float& x, float& y, float entityRadius, const Map& gameMap);
+bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& config, const Map& gameMap);
+bool resolveEntityCollisionStuck(const std::string& entityId, float& x, float& y, const EntityConfiguration& config, const Map& gameMap);
+
 // Functions to manage non-traversable blocks
 void addNonTraversableBlock(TextureName blockType);
 void removeNonTraversableBlock(TextureName blockType);

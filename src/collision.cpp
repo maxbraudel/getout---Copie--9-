@@ -387,9 +387,154 @@ bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap, const std::s
 
 // Function to find a safe position when a character is stuck inside a collision area
 bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap) {
-    // COLLISION RESOLUTION MECHANISMS DISABLED
-    // Entities will no longer be automatically moved to "safe positions"
-    return false; // Always return false - no automatic position adjustment
+    // First check if current position is already safe
+    if (!wouldCollideWithElement(x, y, playerRadius) && !wouldCollideWithMapBlock(x, y, gameMap)) {
+        return true; // Already in a safe position
+    }
+    
+    std::cout << "Entity stuck at (" << x << ", " << y << ") - finding safe position..." << std::endl;    // Search in expanding concentric circles for a safe position
+    const float searchStep = 0.2f; // Slightly larger step size for better performance
+    const float maxSearchRadius = 100.0f; // Much larger search radius for multi-layer scenarios
+    
+    std::cout << "Searching for safe position with radius up to " << maxSearchRadius << " units..." << std::endl;
+    
+    for (float radius = searchStep; radius <= maxSearchRadius; radius += searchStep) {
+        // Progress indicator for long searches
+        if (static_cast<int>(radius) % 5 == 0 && radius > 5.0f) {
+            std::cout << "Still searching... radius " << radius << "/" << maxSearchRadius << std::endl;
+        }
+        
+        // Try 24 directions around the current position (more directions for better coverage)
+        for (int i = 0; i < 24; i++) {
+            float angle = (i * 2.0f * M_PI) / 24.0f;
+            float testX = x + radius * cos(angle);
+            float testY = y + radius * sin(angle);
+              // Make sure we stay within map bounds
+            if (testX < 0 || testX >= GRID_SIZE || testY < 0 || testY >= GRID_SIZE) {
+                // Debug: Log boundary rejections for initial attempts
+                if (radius <= 2.0f) {
+                    std::cout << "Position (" << testX << ", " << testY << ") rejected - outside map bounds" << std::endl;
+                }
+                continue;
+            }
+              // Check if this position is safe from both elements and blocks
+            bool elementCollision = wouldCollideWithElement(testX, testY, playerRadius);
+            bool blockCollision = wouldCollideWithMapBlock(testX, testY, gameMap);
+            
+            if (!elementCollision && !blockCollision) {
+                // Found a safe position!
+                std::cout << "Found safe position at (" << testX << ", " << testY 
+                          << ") - distance: " << radius << std::endl;
+                x = testX;
+                y = testY;
+                return true;
+            }
+            
+            // Debug: Log why this position failed (but only for first few attempts to avoid spam)
+            if (radius <= 2.0f) {
+                if (elementCollision && blockCollision) {
+                    std::cout << "Position (" << testX << ", " << testY << ") blocked by both elements AND blocks" << std::endl;
+                } else if (elementCollision) {
+                    std::cout << "Position (" << testX << ", " << testY << ") blocked by elements" << std::endl;
+                } else if (blockCollision) {
+                    std::cout << "Position (" << testX << ", " << testY << ") blocked by blocks" << std::endl;
+                }
+            }
+        }
+    }
+    
+    std::cout << "Could not find safe position within search radius of " << maxSearchRadius << std::endl;
+    return false; // Could not find a safe position
+}
+
+// Enhanced function to find a safe position for entities using their collision shape
+bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& config, const Map& gameMap) {
+    // First check if current position is already safe
+    if (!wouldEntityCollideWithElementsGranular(config, x, y, false) && 
+        !wouldEntityCollideWithBlocksGranular(config, x, y, false)) {
+        return true; // Already in a safe position
+    }
+    
+    std::cout << "Entity with collision shape stuck at (" << x << ", " << y << ") - finding safe position..." << std::endl;
+    
+    // Calculate entity's approximate radius for search optimization
+    float entityRadius = 0.5f; // Default fallback
+    if (!config.collisionShapePoints.empty()) {
+        for (const auto& point : config.collisionShapePoints) {
+            float dist = std::sqrt(point.first * point.first + point.second * point.second);
+            entityRadius = std::max(entityRadius, dist);
+        }
+    }
+    // Search in expanding concentric circles for a safe position
+    const float searchStep = 0.2f; // Slightly larger step size for better performance
+    const float maxSearchRadius = 100.0f; // Much larger search radius to match player search radius
+      std::cout << "Searching for safe entity position with radius up to " << maxSearchRadius << " units..." << std::endl;
+    
+    for (float radius = searchStep; radius <= maxSearchRadius; radius += searchStep) {
+        // Progress indicator for long searches
+        if (static_cast<int>(radius) % 5 == 0 && radius > 5.0f) {
+            std::cout << "Still searching... radius " << radius << "/" << maxSearchRadius << std::endl;
+        }
+        
+        // Try 32 directions around the current position (more directions for better coverage)
+        for (int i = 0; i < 32; i++) {
+            float angle = (i * 2.0f * M_PI) / 32.0f;
+            float testX = x + radius * cos(angle);
+            float testY = y + radius * sin(angle);
+              // Make sure we stay within map bounds with some margin
+            float margin = entityRadius + 0.5f;
+            if (testX < margin || testX >= (GRID_SIZE - margin) || 
+                testY < margin || testY >= (GRID_SIZE - margin)) {
+                // Debug: Log boundary rejections for initial attempts
+                if (radius <= 2.0f) {
+                    std::cout << "Position (" << testX << ", " << testY << ") rejected - outside map bounds (margin: " << margin << ")" << std::endl;
+                }
+                continue;
+            }
+              // Check if this position is safe from both elements and blocks
+            bool elementCollision = wouldEntityCollideWithElementsGranular(config, testX, testY, false);
+            bool blockCollision = wouldEntityCollideWithBlocksGranular(config, testX, testY, false);
+            
+            if (!elementCollision && !blockCollision) {
+                // Found a safe position!
+                std::cout << "Found safe position at (" << testX << ", " << testY 
+                          << ") - distance: " << radius << std::endl;
+                x = testX;
+                y = testY;
+                return true;
+            }
+            
+            // Debug: Log why this position failed (but only for first few attempts to avoid spam)
+            if (radius <= 2.0f) {
+                if (elementCollision && blockCollision) {
+                    std::cout << "Position (" << testX << ", " << testY << ") blocked by both elements AND blocks" << std::endl;
+                } else if (elementCollision) {
+                    std::cout << "Position (" << testX << ", " << testY << ") blocked by elements" << std::endl;
+                } else if (blockCollision) {
+                    std::cout << "Position (" << testX << ", " << testY << ") blocked by blocks" << std::endl;
+                }
+            }
+        }
+    }
+    
+    std::cout << "Could not find safe position within search radius of " << maxSearchRadius << std::endl;
+    return false; // Could not find a safe position
+}
+
+// Function to resolve collision when an entity is stuck (to be called from entities system)
+bool resolveEntityCollisionStuck(const std::string& entityId, float& x, float& y, const EntityConfiguration& config, const Map& gameMap) {
+    std::cout << "Collision resolution requested for entity: " << entityId << " at position (" << x << ", " << y << ")" << std::endl;
+    
+    // Use the enhanced entity collision resolution function
+    bool success = findSafePositionForEntity(x, y, config, gameMap);
+    
+    if (success) {
+        std::cout << "Successfully resolved collision for entity " << entityId << " - moved to (" << x << ", " << y << ")" << std::endl;
+    } else {
+        std::cout << "Failed to resolve collision for entity " << entityId << " - no safe position found within search radius" << std::endl;
+    }
+    
+    return success;
 }
 
 

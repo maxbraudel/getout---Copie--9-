@@ -9,6 +9,9 @@
 // Global variables for player state - 'extern' in collision.h
 bool playerDebugMode = false;
 
+// Player stuck detection state
+static PlayerStuckState playerStuckState;
+
 // Define a getter for player configuration to ensure it's always up-to-date
 inline const EntityConfiguration* getPlayerConfig() {
     return entitiesManager.getConfiguration("player");
@@ -176,7 +179,16 @@ void movePlayer(float deltaX, float deltaY) {
         
         // Set to standing frame
         elementsManager.changeElementSpriteFrame("player1", 0);
-    }    // Change the player's facing direction based on attempted movement direction
+    }
+
+    // Handle player stuck detection and collision resolution
+    // Get current actual position after potential movement
+    float currentX, currentY;
+    if (getPlayerPosition(currentX, currentY)) {
+        handlePlayerStuckDetection(currentX, currentY, 0.016, !movedPartially);
+    }
+
+    // Change the player's facing direction based on attempted movement direction
     // Use actualDeltaX/Y if we're moving partially, otherwise use requested deltaX/Y for facing
     float directionDeltaX = movedPartially ? actualDeltaX : deltaX;
     float directionDeltaY = movedPartially ? actualDeltaY : deltaY;
@@ -238,6 +250,112 @@ void setPlayerAnimationState(bool isAnimating) {
 void togglePlayerDebugMode() {
     playerDebugMode = !playerDebugMode;
     std::cout << "Player debug mode " << (playerDebugMode ? "enabled" : "disabled") << std::endl;
+}
+
+// Function to handle player stuck detection and collision resolution
+bool handlePlayerStuckDetection(float currentX, float currentY, double deltaTime, bool canMove) {
+    const EntityConfiguration* config = getPlayerConfig();
+    if (!config) {
+        return false;
+    }
+
+    // STUCK DETECTION AND COLLISION RESOLUTION LOGIC (similar to entities)
+    const float stuckThreshold = 1.0f; // Check if player is stuck for 1 second
+    const float positionChangeThreshold = 0.02f; // Minimum movement to consider "not stuck"
+    
+    // Check if player position has changed significantly
+    float positionChangeDistance = std::sqrt(
+        (currentX - playerStuckState.lastPositionX) * (currentX - playerStuckState.lastPositionX) +
+        (currentY - playerStuckState.lastPositionY) * (currentY - playerStuckState.lastPositionY)
+    );
+    
+    // Update stuck detection timing
+    playerStuckState.stuckCheckTime += static_cast<float>(deltaTime);
+    
+    if (positionChangeDistance > positionChangeThreshold) {
+        // Player has moved significantly, reset stuck detection
+        playerStuckState.lastPositionX = currentX;
+        playerStuckState.lastPositionY = currentY;
+        playerStuckState.lastPositionChangeTime = playerStuckState.stuckCheckTime;
+        playerStuckState.stuckCount = 0;
+        return false; // Not stuck
+    } else if (playerStuckState.stuckCheckTime - playerStuckState.lastPositionChangeTime >= stuckThreshold) {
+        // Player has been stuck for too long, try collision resolution
+        playerStuckState.stuckCount++;
+        
+        if (playerDebugMode) {
+            std::cout << "Player is stuck (count: " << playerStuckState.stuckCount 
+                      << ") at (" << currentX << ", " << currentY 
+                      << ") - attempting collision resolution..." << std::endl;
+        }
+        
+        float safeX = currentX;
+        float safeY = currentY;
+        
+        if (resolvePlayerCollisionStuck(safeX, safeY)) {
+            // Successfully found a safe position, teleport player there
+            elementsManager.changeElementCoordinates("player1", safeX, safeY);
+            
+            // Reset stuck detection after successful resolution
+            playerStuckState.lastPositionX = safeX;
+            playerStuckState.lastPositionY = safeY;
+            playerStuckState.lastPositionChangeTime = playerStuckState.stuckCheckTime;
+            playerStuckState.stuckCount = 0;
+            
+            if (playerDebugMode) {
+                std::cout << "Successfully resolved stuck condition for player - moved to safe position (" 
+                          << safeX << ", " << safeY << ")" << std::endl;
+            }
+            return true; // Stuck condition resolved
+        } else {
+            if (playerDebugMode) {
+                std::cout << "Failed to resolve stuck condition for player - no safe position found. Attempt count: " 
+                          << playerStuckState.stuckCount << std::endl;
+            }
+            
+            // If we've tried many times and still can't resolve, give up for a while
+            if (playerStuckState.stuckCount >= 5) {
+                if (playerDebugMode) {
+                    std::cout << "Player has been stuck too many times - temporarily disabling stuck detection" << std::endl;
+                }
+                // Reset timing to avoid immediate re-triggering
+                playerStuckState.lastPositionChangeTime = playerStuckState.stuckCheckTime;
+                playerStuckState.stuckCount = 0;
+            }
+        }
+        
+        // Reset stuck check time to avoid immediate re-triggering
+        playerStuckState.lastPositionChangeTime = playerStuckState.stuckCheckTime;
+    }
+    
+    return false; // Not resolved or not stuck yet
+}
+
+// Function to resolve player collision when stuck
+bool resolvePlayerCollisionStuck(float& x, float& y) {
+    const EntityConfiguration* config = getPlayerConfig();
+    if (!config) {
+        return false;
+    }
+    
+    if (playerDebugMode) {
+        std::cout << "Collision resolution requested for player at position (" << x << ", " << y << ")" << std::endl;
+    }
+    
+    // Use the enhanced entity collision resolution function with player's entity configuration
+    bool success = findSafePositionForEntity(x, y, *config, gameMap);
+    
+    if (success) {
+        if (playerDebugMode) {
+            std::cout << "Successfully resolved collision for player - moved to (" << x << ", " << y << ")" << std::endl;
+        }
+    } else {
+        if (playerDebugMode) {
+            std::cout << "Failed to resolve collision for player - no safe position found within search radius" << std::endl;
+        }
+    }
+    
+    return success;
 }
 
 // Function to ensure player is not stuck using entity system (DISABLED)
