@@ -62,9 +62,8 @@ void GameLogic::update(double deltaTime) {
     
     // Periodically move antagonists
     updateAntagonists();
-    
-    // Update camera
-    updateCamera();
+      // Update camera
+    updateCamera(deltaTime);
     
     // Update game state
     updateGameState(deltaTime, m_wasPlayerMoving);
@@ -143,11 +142,14 @@ void GameLogic::updateAntagonists() {
     }
 }
 
-void GameLogic::updateCamera() {
+void GameLogic::updateCamera(double deltaTime) {
     if (!m_camera) return;
     
-    // Camera is updated in the render system with current player position
-    // This method could be used for any game logic-related camera updates
+    // Update smooth camera transitions
+    m_camera->updateSmoothTransitions(static_cast<float>(deltaTime));
+    
+    // Camera position is updated in the render system with current player position
+    // This method handles smooth camera region transitions
 }
 
 void GameLogic::updateGameState(double deltaTime, bool playerMoving) {

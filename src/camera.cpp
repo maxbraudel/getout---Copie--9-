@@ -1,6 +1,7 @@
 #include "camera.h"
 #include "globals.h"
 #include <iostream>
+#include <cmath> // For pow()
 
 // Define static constants
 const float Camera::MIN_CAMERA_REGION = 5.0f; // Minimum camera region size
@@ -17,7 +18,12 @@ Camera::Camera(int gridSize)
       m_right(0.0f), 
       m_bottom(0.0f), 
       m_top(0.0f),
-      m_gridSize(gridSize) 
+      m_gridSize(gridSize),
+      m_isTransitioning(false),
+      m_transitionStartRegion(0.0f),
+      m_transitionTargetRegion(0.0f),
+      m_transitionDuration(0.0f),
+      m_transitionElapsed(0.0f)
 {
     // Constructor body can be empty as we've initialized everything in the initializer list
 }
@@ -195,3 +201,94 @@ float Camera::getBottom() const { return m_bottom; }
 float Camera::getTop() const { return m_top; }
 float Camera::getWidth() const { return m_right - m_left; }
 float Camera::getHeight() const { return m_top - m_bottom; }
+
+void Camera::decreaseCameraRegionSmoothly(float amount, float timeSeconds) {
+    // If already transitioning, cancel current transition and use current region as start
+    float currentRegion = m_isTransitioning ? 
+        (m_transitionStartRegion + (m_transitionTargetRegion - m_transitionStartRegion) * (m_transitionElapsed / m_transitionDuration)) :
+        m_desiredCameraRegion;
+    
+    float targetRegion = std::min(std::max(currentRegion - amount, MIN_CAMERA_REGION), MAX_CAMERA_REGION);
+    
+    // Start smooth transition
+    m_isTransitioning = true;
+    m_transitionStartRegion = currentRegion;
+    m_transitionTargetRegion = targetRegion;
+    m_transitionDuration = timeSeconds;
+    m_transitionElapsed = 0.0f;
+    
+    std::cout << "Starting smooth zoom in: " << currentRegion << " -> " << targetRegion 
+              << " over " << timeSeconds << " seconds" << std::endl;
+}
+
+void Camera::increaseCameraRegionSmoothly(float amount, float timeSeconds) {
+    // If already transitioning, cancel current transition and use current region as start
+    float currentRegion = m_isTransitioning ? 
+        (m_transitionStartRegion + (m_transitionTargetRegion - m_transitionStartRegion) * (m_transitionElapsed / m_transitionDuration)) :
+        m_desiredCameraRegion;
+    
+    float targetRegion = std::min(std::max(currentRegion + amount, MIN_CAMERA_REGION), MAX_CAMERA_REGION);
+    
+    // Start smooth transition
+    m_isTransitioning = true;
+    m_transitionStartRegion = currentRegion;
+    m_transitionTargetRegion = targetRegion;
+    m_transitionDuration = timeSeconds;
+    m_transitionElapsed = 0.0f;
+    
+    std::cout << "Starting smooth zoom out: " << currentRegion << " -> " << targetRegion 
+              << " over " << timeSeconds << " seconds" << std::endl;
+}
+
+void Camera::setCameraRegionSmoothly(float targetRegion, float timeSeconds) {
+    // If already transitioning, cancel current transition and use current region as start
+    float currentRegion = m_isTransitioning ? 
+        (m_transitionStartRegion + (m_transitionTargetRegion - m_transitionStartRegion) * (m_transitionElapsed / m_transitionDuration)) :
+        m_desiredCameraRegion;
+    
+    targetRegion = std::min(std::max(targetRegion, MIN_CAMERA_REGION), MAX_CAMERA_REGION);
+    
+    // Start smooth transition
+    m_isTransitioning = true;
+    m_transitionStartRegion = currentRegion;
+    m_transitionTargetRegion = targetRegion;
+    m_transitionDuration = timeSeconds;
+    m_transitionElapsed = 0.0f;
+    
+    std::cout << "Starting smooth camera transition: " << currentRegion << " -> " << targetRegion 
+              << " over " << timeSeconds << " seconds" << std::endl;
+}
+
+void Camera::updateSmoothTransitions(float deltaTime) {
+    if (!m_isTransitioning) {
+        return;
+    }
+    
+    m_transitionElapsed += deltaTime;
+    
+    if (m_transitionElapsed >= m_transitionDuration) {
+        // Transition complete
+        m_desiredCameraRegion = m_transitionTargetRegion;
+        m_isTransitioning = false;
+        
+        // Apply window constraints to get the actual camera region
+        float maxAllowedRegion = getMaxUsableCameraRegion(windowWidth, windowHeight);
+        m_cameraRegion = std::min(m_desiredCameraRegion, maxAllowedRegion);
+        
+        std::cout << "Smooth camera transition completed. Final region: " << m_cameraRegion << std::endl;
+    } else {
+        // Interpolate between start and target using smooth easing
+        float t = m_transitionElapsed / m_transitionDuration;
+        
+        // Apply smooth easing (ease-in-out cubic)
+        t = t < 0.5f ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2;
+        
+        // Calculate current region
+        float currentRegion = m_transitionStartRegion + (m_transitionTargetRegion - m_transitionStartRegion) * t;
+        m_desiredCameraRegion = currentRegion;
+        
+        // Apply window constraints to get the actual camera region
+        float maxAllowedRegion = getMaxUsableCameraRegion(windowWidth, windowHeight);
+        m_cameraRegion = std::min(m_desiredCameraRegion, maxAllowedRegion);
+    }
+}

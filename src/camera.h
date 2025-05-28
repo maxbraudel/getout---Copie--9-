@@ -10,6 +10,15 @@ public:
     void decreaseCameraRegion(float amount);
     void setCameraRegion(float value);
     void setCameraRegionWithWindowClamp(float value); // New method for user input with window clamping
+    
+    // Smooth camera region transitions
+    void decreaseCameraRegionSmoothly(float amount, float timeSeconds);
+    void increaseCameraRegionSmoothly(float amount, float timeSeconds);
+    void setCameraRegionSmoothly(float targetRegion, float timeSeconds);
+    
+    // Update smooth transitions (call this each frame with deltaTime)
+    void updateSmoothTransitions(float deltaTime);
+    
     float getCameraRegion() const;
     float getMaxCameraRegion() const;
     float getMaxUsableCameraRegion(int windowWidth, int windowHeight) const;
@@ -40,6 +49,13 @@ private:    // Camera properties
     
     // Grid size
     int m_gridSize;
+    
+    // Smooth transition members
+    bool m_isTransitioning;
+    float m_transitionStartRegion;
+    float m_transitionTargetRegion;
+    float m_transitionDuration;
+    float m_transitionElapsed;
 };
 
 // Global camera instance

@@ -59,12 +59,11 @@ private:
     double m_gameTime;
     double m_lastAntagonistMoveTime;
     bool m_wasPlayerMoving;
-    
-    // Internal methods
+      // Internal methods
     void updatePlayer(const InputState& input);
     void updateEntities(double deltaTime);
     void updateAntagonists();
-    void updateCamera();
+    void updateCamera(double deltaTime);
     void updateGameState(double deltaTime, bool playerMoving);
     
     static constexpr double ANTAGONIST_MOVE_INTERVAL = 5.0;

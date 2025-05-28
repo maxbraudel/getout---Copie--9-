@@ -113,10 +113,10 @@ static void initializeEntityTypes() {
         player.spritePhaseWalkRight = 1;
         
         // Movement speeds
-        player.normalWalkingSpeed = 1.5f;
-        player.normalWalkingAnimationSpeed = 4.0f;
-        player.sprintWalkingSpeed = 10.0f;
-        player.sprintWalkingAnimationSpeed = 12.0f;    // Collision settings
+        player.normalWalkingSpeed = 4.0f;
+        player.normalWalkingAnimationSpeed = 11.0f;
+        player.sprintWalkingSpeed = 6.0f;
+        player.sprintWalkingAnimationSpeed = 20.0f;    // Collision settings
         player.canCollide = true;
         player.collisionShapePoints = {
             {-2.3f, -2.3f}, {2.3f, -2.3f}, {2.3f, 2.3f}, {-2.3f, 2.3f}

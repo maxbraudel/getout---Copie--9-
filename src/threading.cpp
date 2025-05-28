@@ -285,9 +285,13 @@ void GameThreadManager::updateGameLogic(double deltaTime)
         m_currentGameState.currentTime = gameTime;
         m_currentGameState.deltaTime = deltaTime;
         m_currentGameState.playerMoving = (currentInput.moveX != 0.0f || currentInput.moveY != 0.0f);
-        
-        // Update camera position based on player position
+          // Update camera position based on player position
         extern int windowWidth, windowHeight; // From globals.h
+        
+        // Update smooth camera transitions first
+        m_camera->updateSmoothTransitions(static_cast<float>(deltaTime));
+        
+        // Then update camera position
         m_camera->updateCameraPosition(m_currentGameState.playerX, m_currentGameState.playerY, windowWidth, windowHeight);
     }
     
