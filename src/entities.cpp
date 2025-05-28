@@ -620,24 +620,28 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         std::cerr << "Error getting position for entity: " << entity.instanceName << std::endl;
         entity.isWalking = false; // Stop walking due to error
         return;
-    }
-
-    auto updateDirectionAndSprite = [&](Entity& ent, const std::string& elName, const EntityConfiguration& cfg, float dirX, float dirY) {
+    }    auto updateDirectionAndSprite = [&](Entity& ent, const std::string& elName, const EntityConfiguration& cfg, float dirX, float dirY) {
         // Only process if there's actual movement
         if (dirX == 0 && dirY == 0) {
             return; // No movement, keep current direction
         }
         
+        // DEBUG: Log direction calculation for antagonist entities
+        if (ent.typeName == "antagonist") {
+            std::cout << "DEBUG: Non-pathfinding antagonist " << ent.instanceName 
+                      << " direction calc: dirX=" << dirX << ", dirY=" << dirY 
+                      << " (abs: " << std::abs(dirX) << ", " << std::abs(dirY) << ")" << std::endl;
+        }
+        
         // Use a smaller threshold to be more responsive to direction changes
         const float directionThreshold = 0.05f;
-        
-        // Determine the primary direction (up, down, left, right)
+          // Determine the primary direction (up, down, left, right)
         int newDirection;
-        if (std::abs(dirX) > std::abs(dirY)) {
-            // Horizontal movement dominates
+        if (std::abs(dirX) >= std::abs(dirY)) {
+            // Horizontal movement dominates or is equal (prefer horizontal for diagonal movement)
             newDirection = (dirX > 0) ? 3 : 2;  // 3 = right, 2 = left
         } else {
-            // Vertical movement dominates or is equal
+            // Vertical movement dominates
             newDirection = (dirY > 0) ? 0 : 1;  // 0 = up, 1 = down
         }
         
@@ -652,6 +656,13 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
             case 2: phase = config.spritePhaseWalkLeft; break;
             case 3: phase = config.spritePhaseWalkRight; break;
             default: phase = config.defaultSpriteSheetPhase; break;
+        }
+        
+        // DEBUG: Log sprite phase changes for antagonist entities
+        if (ent.typeName == "antagonist") {
+            std::cout << "DEBUG: Non-pathfinding antagonist " << ent.instanceName 
+                      << " direction=" << newDirection << " -> phase=" << phase 
+                      << " (right should be dir=3->phase=" << cfg.spritePhaseWalkRight << ")" << std::endl;
         }
         
         // Change the sprite phase
@@ -669,7 +680,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
             targetY = waypoint.second;
         } else {
             // Path ended (currentPathIndex == path.size()), entity should be stopping or at final target.
-            // Target the final destination stored in entity.targetX/Y
+            // Target the final destination stored in entity.targetX,Y
             targetX = entity.targetX;
             targetY = entity.targetY;
         }
@@ -1117,9 +1128,6 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
     return true;
 }
 
-
-
-
 // Handle waypoint arrival - added to improve movement precision
 bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY) {
     // Check if we're using pathfinding
@@ -1136,13 +1144,19 @@ bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& e
     float dx = targetX - currentX;
     float dy = targetY - currentY;
     
-    // Determine the primary direction for sprite updates
+    // DEBUG: Log direction calculation for antagonist entities
+    if (entity.typeName == "antagonist") {
+        std::cout << "DEBUG: Antagonist " << entity.instanceName 
+                  << " direction calc: dx=" << dx << ", dy=" << dy 
+                  << " (abs: " << std::abs(dx) << ", " << std::abs(dy) << ")" << std::endl;
+    }
+      // Determine the primary direction for sprite updates
     int direction;
-    if (std::abs(dx) > std::abs(dy)) {
-        // Horizontal movement dominates
+    if (std::abs(dx) >= std::abs(dy)) {
+        // Horizontal movement dominates or is equal (prefer horizontal for diagonal movement)
         direction = (dx > 0) ? 3 : 2;  // 3 = right, 2 = left
     } else {
-        // Vertical movement dominates or is equal
+        // Vertical movement dominates
         direction = (dy > 0) ? 0 : 1;  // 0 = up, 1 = down
     }
     
@@ -1157,6 +1171,13 @@ bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& e
         case 2: phase = config.spritePhaseWalkLeft; break;
         case 3: phase = config.spritePhaseWalkRight; break;
         default: phase = config.defaultSpriteSheetPhase; break;
+    }
+    
+    // DEBUG: Log sprite phase changes for antagonist entities
+    if (entity.typeName == "antagonist") {
+        std::cout << "DEBUG: Antagonist " << entity.instanceName 
+                  << " direction=" << direction << " -> phase=" << phase 
+                  << " (right should be dir=3->phase=" << config.spritePhaseWalkRight << ")" << std::endl;
     }
     
     // Change the sprite phase
