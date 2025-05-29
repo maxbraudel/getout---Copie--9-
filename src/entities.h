@@ -308,11 +308,14 @@ public:
     void shutdownAsyncPathfinding();
               // Update all entities (called once per frame)
     void update(double deltaTime);
-      // Collision resolution functions removed - entities will no longer be automatically moved
-
-    // Public access for entity iteration (for behavior manager)
+      // Collision resolution functions removed - entities will no longer be automatically moved    // Public access for entity iteration (for behavior manager)
     std::map<std::string, Entity>& getEntities() { return entities; }
     const std::map<std::string, Entity>& getEntities() const { return entities; }
+      // CRASH FIX: Check if entity exists safely
+    bool entityExists(const std::string& instanceName) const;
+
+    // Get entity by instance name (made public for EntityBehaviorManager access)
+    Entity* getEntity(const std::string& instanceName);
 
     // Draw debug paths for all entities
     void drawDebugPaths(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop);    // Draw debug collision radii for all entities
@@ -320,7 +323,6 @@ public:
     
 private:
     std::map<EntityName, EntityConfiguration> configurations;    std::map<std::string, Entity> entities;    // Helper methods
-    Entity* getEntity(const std::string& instanceName);
     
     // Get the next waypoint from the entity's path
     bool getNextPathWaypoint(Entity& entity, float& nextX, float& nextY);

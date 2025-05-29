@@ -112,9 +112,11 @@ public:
       
     // Move an element relative to its current position
     bool moveElement(const std::string& instanceName, float deltaX, float deltaY);
-    
-    // Get element position
+      // Get element position
     bool getElementPosition(const std::string& instanceName, float& x, float& y);
+    
+    // Check if an element exists by instance name
+    bool elementExists(const std::string& instanceName) const;
     
     // Change element scale
     bool changeElementScale(const std::string& instanceName, float newScale);

@@ -386,6 +386,16 @@ if (DEBUG_LOGS) { std::cerr << "Element not found for position query: " << insta
     return true;
 }
 
+bool ElementsOnMap::elementExists(const std::string& instanceName) const {
+    // Find the element by name directly
+    auto it = std::find_if(elements.begin(), elements.end(),
+        [&instanceName](const PlacedElement& element) {
+            return element.instanceName == instanceName;
+        });
+        
+    return it != elements.end();
+}
+
 bool ElementsOnMap::changeElementScale(const std::string& instanceName, float newScale) {
     // Find element by name directly
     auto it = std::find_if(elements.begin(), elements.end(),

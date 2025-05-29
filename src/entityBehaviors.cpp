@@ -18,10 +18,39 @@ EntityBehaviorManager::~EntityBehaviorManager() {
 }
 
 void EntityBehaviorManager::update(double deltaTime, EntitiesManager& entitiesManager) {
-    // Update all entity behaviors
-    for (auto& pair : entitiesManager.getEntities()) {
-        Entity& entity = pair.second;
-        updateEntityBehavior(entity, deltaTime, entitiesManager);
+    // CRASH FIX: Safe entity iteration with proper reference handling
+    try {
+        // Get reference to entities map and collect instance names first
+        const auto& entitiesMap = entitiesManager.getEntities();
+        std::vector<std::string> entityNames;
+        entityNames.reserve(entitiesMap.size());
+        
+        for (const auto& pair : entitiesMap) {
+            entityNames.push_back(pair.first);
+        }
+        
+        // Process each entity by name to avoid iterator invalidation
+        for (const std::string& instanceName : entityNames) {
+            // CRASH FIX: Verify entity still exists before processing
+            if (!entitiesManager.entityExists(instanceName)) {
+                std::cout << "WARNING: Entity " << instanceName << " no longer exists during behavior update" << std::endl;
+                continue;
+            }
+            
+            // Get fresh reference to the actual entity (not a copy)
+            Entity* entity = entitiesManager.getEntity(instanceName);
+            if (!entity) {
+                std::cout << "WARNING: Could not get entity reference for " << instanceName << std::endl;
+                continue;
+            }
+            
+            // Update behavior using reference to actual entity
+            updateEntityBehavior(*entity, deltaTime, entitiesManager);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "CRITICAL: Exception in entity behavior update: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "CRITICAL: Unknown exception in entity behavior update!" << std::endl;
     }
 }
 
@@ -340,24 +369,38 @@ void EntityBehaviorManager::lookAtTarget(Entity& entity, float targetX, float ta
 }
 
 void EntityBehaviorManager::updateFleeStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config) {
-    // Check if entity should enter flee state
-    if (!entity.isInFleeState) {
-        if (checkForFleeTriggers(entity, entitiesManager, config)) {
-            // Entity just entered flee state - stop current movement and start fleeing
-            if (entity.isWalking) {
-                entity.isWalking = false;
-                entity.path.clear();
-                entity.currentPathIndex = 0;
-                // Stop animation temporarily
-                std::string elementName = EntitiesManager::getElementName(entity.instanceName);
-                elementsManager.changeElementAnimationStatus(elementName, false);
-                elementsManager.changeElementSpriteFrame(elementName, 0);
+    // CRASH FIX: Validate entity state before processing
+    try {
+        // Validate entity instance name
+        if (entity.instanceName.empty()) {
+            std::cerr << "ERROR: Empty entity instance name in flee behavior" << std::endl;
+            return;
+        }
+        
+        // Check if entity still exists in elements manager
+        std::string elementName = EntitiesManager::getElementName(entity.instanceName);
+        if (!elementsManager.elementExists(elementName)) {
+            std::cerr << "ERROR: Entity " << entity.instanceName << " no longer exists during flee behavior" << std::endl;
+            return;
+        }
+        
+        // Check if entity should enter flee state
+        if (!entity.isInFleeState) {
+            if (checkForFleeTriggers(entity, entitiesManager, config)) {
+                // Entity just entered flee state - stop current movement and start fleeing
+                if (entity.isWalking) {
+                    entity.isWalking = false;
+                    entity.path.clear();
+                    entity.currentPathIndex = 0;
+                    // Stop animation temporarily
+                    elementsManager.changeElementAnimationStatus(elementName, false);
+                    elementsManager.changeElementSpriteFrame(elementName, 0);
+                    
+                    std::cout << "Entity " << entity.instanceName << " entered flee state - stopping current movement" << std::endl;
+                }
                 
-                std::cout << "Entity " << entity.instanceName << " entered flee state - stopping current movement" << std::endl;
-            }
-            
-            // Calculate flee destination and start moving
-            float fleeX, fleeY;
+                // Calculate flee destination and start moving
+                float fleeX, fleeY;
             if (calculateFleeDestination(entity, entity.fleeTargetX, entity.fleeTargetY, config, fleeX, fleeY)) {
                 // Start fleeing to calculated destination
                 WalkType walkType = config.fleeStateRunning ? WalkType::SPRINT : WalkType::NORMAL;
@@ -417,21 +460,35 @@ void EntityBehaviorManager::updateFleeStateBehavior(Entity& entity, double delta
             entity.fleeTargetY = 0.0f;
             entity.fleeStateStartTime = 0.0;
             entity.fleeTargetDistance = 0.0f;
-            
-            std::cout << "Entity " << entity.instanceName << " exited flee state - threat no longer present" << std::endl;
+              std::cout << "Entity " << entity.instanceName << " exited flee state - threat no longer present" << std::endl;
         }
+    }
+    
+    } catch (const std::exception& e) {
+        std::cerr << "CRITICAL: Exception in flee behavior for entity " << entity.instanceName 
+                  << ": " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "CRITICAL: Unknown exception in flee behavior for entity " << entity.instanceName << std::endl;
     }
 }
 
 bool EntityBehaviorManager::checkForFleeTriggers(Entity& entity, EntitiesManager& entitiesManager, const EntityConfiguration& config) {
-    // Get current entity position
-    std::string elementName = EntitiesManager::getElementName(entity.instanceName);
-    float entityX, entityY;
-    if (!elementsManager.getElementPosition(elementName, entityX, entityY)) {
-        return false; // Can't get position
-    }
-    
-    // Check all entities in the flee watch list
+    // CRASH FIX: Validate entity state before processing
+    try {
+        // Validate entity instance name
+        if (entity.instanceName.empty()) {
+            std::cerr << "ERROR: Empty entity instance name in flee trigger check" << std::endl;
+            return false;
+        }
+        
+        // Get current entity position
+        std::string elementName = EntitiesManager::getElementName(entity.instanceName);
+        float entityX, entityY;
+        if (!elementsManager.getElementPosition(elementName, entityX, entityY)) {
+            return false; // Can't get position
+        }
+        
+        // Check all entities in the flee watch list
     const auto& allEntities = entitiesManager.getEntities();
     
     for (const auto& pair : allEntities) {
@@ -472,8 +529,7 @@ bool EntityBehaviorManager::checkForFleeTriggers(Entity& entity, EntitiesManager
             entity.isInFleeState = true;
             entity.fleeTargetEntity = otherEntity.instanceName;
             entity.fleeTargetX = otherX;
-            entity.fleeTargetY = otherY;
-            entity.fleeStateStartTime = entity.behaviorTimer;
+            entity.fleeTargetY = otherY;            entity.fleeStateStartTime = entity.behaviorTimer;
             
             std::cout << "Entity " << entity.instanceName << " detected threat " << otherEntity.instanceName 
                       << " at distance " << distance << " - entering flee state" << std::endl;
@@ -483,19 +539,36 @@ bool EntityBehaviorManager::checkForFleeTriggers(Entity& entity, EntitiesManager
     }
     
     return false; // No threats found in flee range
+    
+    } catch (const std::exception& e) {
+        std::cerr << "CRITICAL: Exception in flee trigger check for entity " << entity.instanceName 
+                  << ": " << e.what() << std::endl;
+        return false;
+    } catch (...) {
+        std::cerr << "CRITICAL: Unknown exception in flee trigger check for entity " << entity.instanceName << std::endl;
+        return false;
+    }
 }
 
 bool EntityBehaviorManager::calculateFleeDestination(Entity& entity, float targetX, float targetY, const EntityConfiguration& config, float& fleeX, float& fleeY) {
-    // Get current entity position
-    std::string elementName = EntitiesManager::getElementName(entity.instanceName);
-    float entityX, entityY;
-    if (!elementsManager.getElementPosition(elementName, entityX, entityY)) {
-        return false; // Can't get position
-    }
-    
-    // Calculate direction away from target
-    float dx = entityX - targetX;  // Opposite direction from alert (away from target)
-    float dy = entityY - targetY;
+    // CRASH FIX: Validate entity state before processing
+    try {
+        // Validate entity instance name
+        if (entity.instanceName.empty()) {
+            std::cerr << "ERROR: Empty entity instance name in flee destination calculation" << std::endl;
+            return false;
+        }
+        
+        // Get current entity position
+        std::string elementName = EntitiesManager::getElementName(entity.instanceName);
+        float entityX, entityY;
+        if (!elementsManager.getElementPosition(elementName, entityX, entityY)) {
+            return false; // Can't get position
+        }
+        
+        // Calculate direction away from target
+        float dx = entityX - targetX;  // Opposite direction from alert (away from target)
+        float dy = entityY - targetY;
     
     // Normalize direction vector
     float length = std::sqrt(dx * dx + dy * dy);
@@ -535,7 +608,15 @@ bool EntityBehaviorManager::calculateFleeDestination(Entity& entity, float targe
         
         return true;
     }
-    
-    std::cout << "Warning: Could not find safe flee destination for entity " << entity.instanceName << std::endl;
+      std::cout << "Warning: Could not find safe flee destination for entity " << entity.instanceName << std::endl;
     return false;
+    
+    } catch (const std::exception& e) {
+        std::cerr << "CRITICAL: Exception in flee destination calculation for entity " << entity.instanceName 
+                  << ": " << e.what() << std::endl;
+        return false;
+    } catch (...) {
+        std::cerr << "CRITICAL: Unknown exception in flee destination calculation for entity " << entity.instanceName << std::endl;
+        return false;
+    }
 }

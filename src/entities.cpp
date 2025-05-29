@@ -613,27 +613,62 @@ bool EntitiesManager::walkEntityWithPathFindingToRandomRadiusTarget(const std::s
 }
 
 void EntitiesManager::update(double deltaTime) {
-    // Process async pathfinding results first
-    processAsyncPathfindingResults();
-    
-    // Update all walking entities
-    for (auto& pair : entities) {
-        Entity& entity = pair.second;
+    // CRASH FIX: Add comprehensive protection for entity updates
+    try {
+        // Process async pathfinding results first
+        processAsyncPathfindingResults();
         
-        // Skip entities that are not walking
-        if (!entity.isWalking) {
-            continue;
-        }
-          // Get the configuration for this entity
-        const EntityConfiguration* config = getConfiguration(entity.type);
-        if (!config) {
-            std::cerr << "Error: Cannot find configuration for entity: " << entity.instanceName << std::endl;
-            entity.isWalking = false; // Stop walking due to error
-            continue;
+        // CRASH FIX: Collect entity names first to avoid iterator invalidation
+        std::vector<std::string> walkingEntityNames;
+        walkingEntityNames.reserve(entities.size());
+        
+        for (const auto& pair : entities) {
+            if (pair.second.isWalking) {
+                walkingEntityNames.push_back(pair.first);
+            }
         }
         
-        // Update the entity's walking animation
-        updateEntityWalking(entity, *config, deltaTime);
+        // Update all walking entities using safe name-based iteration
+        for (const std::string& instanceName : walkingEntityNames) {
+            // CRASH FIX: Verify entity still exists
+            auto entityIt = entities.find(instanceName);
+            if (entityIt == entities.end()) {
+                std::cout << "WARNING: Walking entity " << instanceName << " no longer exists during update" << std::endl;
+                continue;
+            }
+            
+            Entity& entity = entityIt->second;
+            
+            // Skip if entity is no longer walking (state might have changed)
+            if (!entity.isWalking) {
+                continue;
+            }
+            
+            // Get the configuration for this entity
+            const EntityConfiguration* config = getConfiguration(entity.type);
+            if (!config) {
+                std::cerr << "Error: Cannot find configuration for entity: " << entity.instanceName << std::endl;
+                entity.isWalking = false; // Stop walking due to error
+                continue;
+            }
+            
+            // Update the entity's walking animation with additional safety
+            try {
+                updateEntityWalking(entity, *config, deltaTime);
+            } catch (const std::exception& e) {
+                std::cerr << "CRITICAL: Exception updating entity " << instanceName << ": " << e.what() << std::endl;
+                // Stop entity to prevent further crashes
+                entity.isWalking = false;
+            } catch (...) {
+                std::cerr << "CRITICAL: Unknown exception updating entity " << instanceName << std::endl;
+                // Stop entity to prevent further crashes
+                entity.isWalking = false;
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "CRITICAL: Exception in EntitiesManager::update: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "CRITICAL: Unknown exception in EntitiesManager::update!" << std::endl;
     }
 }
 
@@ -748,6 +783,11 @@ Entity* EntitiesManager::getEntity(const std::string& instanceName) {
     return nullptr;
 }
 
+// CRASH FIX: Safe entity existence check
+bool EntitiesManager::entityExists(const std::string& instanceName) const {
+    return entities.find(instanceName) != entities.end();
+}
+
 bool EntitiesManager::getNextPathWaypoint(Entity& entity, float& nextX, float& nextY) {
     // If the entity has no path or has reached the end of its path
     if (entity.path.empty() || entity.currentPathIndex >= entity.path.size()) {
@@ -763,15 +803,30 @@ bool EntitiesManager::getNextPathWaypoint(Entity& entity, float& nextX, float& n
 }
 
 void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfiguration& config, double deltaTime) {
+    // CRASH FIX: Validate entity state before processing
+    if (entity.instanceName.empty()) {
+        std::cerr << "ERROR: Entity has empty instance name in updateEntityWalking" << std::endl;
+        entity.isWalking = false;
+        return;
+    }
+    
     // Get the element name
     std::string elementName = getElementName(entity.instanceName);
+    
+    // CRASH FIX: Verify element exists before processing
+    if (!elementsManager.elementExists(elementName)) {
+        std::cerr << "ERROR: Element " << elementName << " for entity " << entity.instanceName << " no longer exists" << std::endl;
+        entity.isWalking = false;
+        return;
+    }
+    
     // Get current position
     float currentActualX, currentActualY;
     if (!elementsManager.getElementPosition(elementName, currentActualX, currentActualY)) {
         std::cerr << "Error getting position for entity: " << entity.instanceName << std::endl;
         entity.isWalking = false; // Stop walking due to error
         return;
-    }    auto updateDirectionAndSprite = [&](Entity& ent, const std::string& elName, const EntityConfiguration& cfg, float dirX, float dirY) {
+    }auto updateDirectionAndSprite = [&](Entity& ent, const std::string& elName, const EntityConfiguration& cfg, float dirX, float dirY) {
         // Only process if there's actual movement
         if (dirX == 0 && dirY == 0) {
             return; // No movement, keep current direction
@@ -819,9 +874,14 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
     };
     
     float targetX = 0.0f, targetY = 0.0f;
-    float dx = 0.0f, dy = 0.0f, distance = 0.0f;
-
-    if (entity.usePathfinding && !entity.path.empty()) {
+    float dx = 0.0f, dy = 0.0f, distance = 0.0f;    if (entity.usePathfinding && !entity.path.empty()) {
+        // CRASH FIX: Validate path state before accessing
+        if (entity.currentPathIndex >= entity.path.size()) {
+            std::cerr << "WARNING: Entity " << entity.instanceName << " has invalid path index "                      << entity.currentPathIndex << " >= " << entity.path.size() << std::endl;
+            // Reset to valid state
+            entity.currentPathIndex = std::min(entity.currentPathIndex, entity.path.size() > 0 ? entity.path.size() - 1 : 0);
+        }
+        
         // Ensure currentPathIndex is valid before accessing path
         if (entity.currentPathIndex < entity.path.size()) { // Path index must be < size to be a valid target
             const auto& waypoint = entity.path[entity.currentPathIndex]; // Target is path[currentPathIndex]
@@ -1529,144 +1589,161 @@ void EntitiesManager::processAsyncPathfindingResults() {
         return;
     }
     
-    // CRASH FIX: Add try-catch around async result processing
+    // CRASH FIX: Add comprehensive try-catch around async result processing
     try {
         // Process all completed pathfinding requests
         std::vector<AsyncPathfindingResult> results = g_entityAsyncPathfinder->getCompletedResults();
         
         for (const auto& result : results) {
-            // CRASH FIX: Validate result data before processing
+            // CRASH FIX: Enhanced validation of result data before processing
             if (result.instanceName.empty()) {
                 std::cerr << "Warning: Received pathfinding result with empty instance name" << std::endl;
                 continue;
             }
-              // Find the entity that requested this pathfinding
+            
+            // CRASH FIX: Additional safety - check if entity still exists before processing result
+            if (!entityExists(result.instanceName)) {
+                std::cerr << "Warning: Received pathfinding result for non-existent entity: " << result.instanceName << std::endl;
+                continue;
+            }
+            
+            // Find the entity that requested this pathfinding
             Entity* entity = getEntity(result.instanceName);
             if (!entity) {
                 std::cerr << "Warning: Received pathfinding result for unknown entity: " << result.instanceName << std::endl;
                 continue;
             }
-        
-        // Get the configuration
-        const EntityConfiguration* config = getConfiguration(entity->type);
-        if (!config) {
-            std::cerr << "Warning: Entity configuration not found for: " << entityNameToString(entity->type) << std::endl;
-            continue;
-        }
-        
-        std::string elementName = getElementName(result.instanceName);
-          if (result.success && result.path.size() >= 2) {
-            // Pathfinding succeeded, set up the entity for walking
             
-            // If entity is already walking, find the best transition point to avoid stopping
-            if (entity->isWalking && entity->usePathfinding && !entity->path.empty()) {
-                // Get current position
-                float currentX, currentY;
-                if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
-                    // Find the closest point in the new path to the current position
-                    size_t bestTransitionIndex = 0;
-                    float minDistance = std::numeric_limits<float>::max();
-                    
-                    for (size_t i = 0; i < result.path.size(); ++i) {
-                        float dx = result.path[i].first - currentX;
-                        float dy = result.path[i].second - currentY;
-                        float distance = std::sqrt(dx * dx + dy * dy);
+            // CRASH FIX: Double-check entity still exists in elements manager
+            std::string elementName = getElementName(result.instanceName);
+            if (!elementsManager.elementExists(elementName)) {
+                std::cerr << "Warning: Entity " << result.instanceName << " element no longer exists during pathfinding result processing" << std::endl;
+                // Clean up entity from our map as it's inconsistent
+                entities.erase(result.instanceName);
+                continue;
+            }
+            
+            // Get the configuration
+            const EntityConfiguration* config = getConfiguration(entity->type);
+            if (!config) {
+                std::cerr << "Warning: Entity configuration not found for: " << entityNameToString(entity->type) << std::endl;
+                continue;
+            }
+            
+            if (result.success && result.path.size() >= 2) {
+                // Pathfinding succeeded, set up the entity for walking
+                
+                // If entity is already walking, find the best transition point to avoid stopping
+                if (entity->isWalking && entity->usePathfinding && !entity->path.empty()) {
+                    // Get current position
+                    float currentX, currentY;
+                    if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
+                        // Find the closest point in the new path to the current position
+                        size_t bestTransitionIndex = 0;
+                        float minDistance = std::numeric_limits<float>::max();
                         
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            bestTransitionIndex = i;
-                        }
-                    }
-                    
-                    // Smooth transition: start from the best transition point in the new path
-                    entity->path = result.path;
-                    entity->currentPathIndex = std::max(1u, static_cast<unsigned int>(bestTransitionIndex));
-                    
-                    // If we're starting from a point other than the beginning, ensure current position alignment
-                    if (bestTransitionIndex > 0 && minDistance > 0.5f) {
-                        // Insert current position as a waypoint to ensure smooth transition
-                        entity->path.insert(entity->path.begin() + bestTransitionIndex, {currentX, currentY});
-                        entity->currentPathIndex = bestTransitionIndex + 1;
-                    }
-                      if (DEBUG_LOGS) {
-                        std::cout << "Entity " << result.instanceName << " smoothly transitioned to new path at index " 
-                                  << entity->currentPathIndex << " (distance: " << minDistance << ")" << std::endl;
-                    }
-                    
-                    // SPRITE DIRECTION FIX: Update sprite direction to match new path direction
-                    // Calculate direction from current position to the target waypoint
-                    if (entity->currentPathIndex < entity->path.size()) {
-                        float currentX, currentY;
-                        if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
-                            const auto& targetWaypoint = entity->path[entity->currentPathIndex];
-                            float dx = targetWaypoint.first - currentX;
-                            float dy = targetWaypoint.second - currentY;
+                        for (size_t i = 0; i < result.path.size(); ++i) {
+                            float dx = result.path[i].first - currentX;
+                            float dy = result.path[i].second - currentY;
+                            float distance = std::sqrt(dx * dx + dy * dy);
                             
-                            // Update sprite direction for the new path direction
-                            handleWaypointArrival(*entity, elementName, *config, currentX, currentY);
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                bestTransitionIndex = i;
+                            }
+                        }
+                        
+                        // Smooth transition: start from the best transition point in the new path
+                        entity->path = result.path;
+                        entity->currentPathIndex = std::max(1u, static_cast<unsigned int>(bestTransitionIndex));
+                        
+                        // If we're starting from a point other than the beginning, ensure current position alignment
+                        if (bestTransitionIndex > 0 && minDistance > 0.5f) {
+                            // Insert current position as a waypoint to ensure smooth transition
+                            entity->path.insert(entity->path.begin() + bestTransitionIndex, {currentX, currentY});
+                            entity->currentPathIndex = bestTransitionIndex + 1;
+                        }
+                        
+                        if (DEBUG_LOGS) {
+                            std::cout << "Entity " << result.instanceName << " smoothly transitioned to new path at index " 
+                                      << entity->currentPathIndex << " (distance: " << minDistance << ")" << std::endl;
+                        }
+                        
+                        // SPRITE DIRECTION FIX: Update sprite direction to match new path direction
+                        // Calculate direction from current position to the target waypoint
+                        if (entity->currentPathIndex < entity->path.size()) {
+                            float currentX, currentY;
+                            if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
+                                const auto& targetWaypoint = entity->path[entity->currentPathIndex];
+                                float dx = targetWaypoint.first - currentX;
+                                float dy = targetWaypoint.second - currentY;
+                                
+                                // Update sprite direction for the new path direction
+                                handleWaypointArrival(*entity, elementName, *config, currentX, currentY);
+                            }
+                        }
+                    } else {
+                        // Fallback: use the new path normally
+                        entity->path = result.path;
+                        entity->currentPathIndex = 1;
+                        
+                        // SPRITE DIRECTION FIX: Update sprite direction for fallback case
+                        if (entity->path.size() >= 2) {
+                            handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
                         }
                     }
                 } else {
-                    // Fallback: use the new path normally
+                    // Entity is not walking, start normally from the beginning
                     entity->path = result.path;
                     entity->currentPathIndex = 1;
+                    entity->isWalking = true;
                     
-                    // SPRITE DIRECTION FIX: Update sprite direction for fallback case
-                    if (entity->path.size() >= 2) {
-                        handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
-                    }
+                    // Enable animation for entities that weren't walking
+                    elementsManager.changeElementAnimationStatus(elementName, true);
+                    
+                    // Set initial sprite for first path segment
+                    handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
                 }
-            } else {
-                // Entity is not walking, start normally from the beginning
-                entity->path = result.path;
-                entity->currentPathIndex = 1;
-                entity->isWalking = true;
                 
-                // Enable animation for entities that weren't walking
+                // Update entity state
+                entity->walkType = result.walkType;
+                entity->usePathfinding = true;
+                entity->lastSegmentDirection = {0.0f, 0.0f};
+                entity->targetX = result.targetX;
+                entity->targetY = result.targetY;
+                entity->pathfindingRequestId = 0; // Clear the request ID
+                entity->isWaitingForPath = false; // No longer waiting
+                
+                // Ensure animation is enabled and set speed
                 elementsManager.changeElementAnimationStatus(elementName, true);
+                float animationSpeed = (result.walkType == WalkType::NORMAL) ?
+                                      config->normalWalkingAnimationSpeed :
+                                      config->sprintWalkingAnimationSpeed;
+                elementsManager.changeElementAnimationSpeed(elementName, animationSpeed);
                 
-                // Set initial sprite for first path segment
-                handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
-            }
-            
-            // Update entity state
-            entity->walkType = result.walkType;
-            entity->usePathfinding = true;
-            entity->lastSegmentDirection = {0.0f, 0.0f};
-            entity->targetX = result.targetX;
-            entity->targetY = result.targetY;
-            entity->pathfindingRequestId = 0; // Clear the request ID
-            entity->isWaitingForPath = false; // No longer waiting
-            
-            // Ensure animation is enabled and set speed
-            elementsManager.changeElementAnimationStatus(elementName, true);
-            float animationSpeed = (result.walkType == WalkType::NORMAL) ?
-                                  config->normalWalkingAnimationSpeed :
-                                  config->sprintWalkingAnimationSpeed;
-            elementsManager.changeElementAnimationSpeed(elementName, animationSpeed);
-            
-            std::cout << "Entity " << result.instanceName << " received async pathfinding result: success, path size: " 
-                      << result.path.size() << std::endl;        } else {
-            // Pathfinding failed or path too short
-            // If entity was walking before, let it continue its current movement
-            // Otherwise, stop the entity
-            if (!entity->isWalking) {
-
-                entity->isWalking = false;
-                elementsManager.changeElementAnimationStatus(elementName, false);
-                elementsManager.changeElementSpriteFrame(elementName, config->defaultSpriteSheetFrame);
-                elementsManager.changeElementSpritePhase(elementName, config->defaultSpriteSheetPhase);
-            }
-            
-            entity->pathfindingRequestId = 0; // Clear the request ID
-            entity->isWaitingForPath = false; // No longer waiting
-              if (!result.success) {
-                std::cout << "Entity " << result.instanceName << " pathfinding failed: " << result.errorMessage << std::endl;
+                std::cout << "Entity " << result.instanceName << " received async pathfinding result: success, path size: " 
+                          << result.path.size() << std::endl;
             } else {
-                std::cout << "Entity " << result.instanceName << " pathfinding completed - already at destination" << std::endl;
+                // Pathfinding failed or path too short
+                // If entity was walking before, let it continue its current movement
+                // Otherwise, stop the entity
+                if (!entity->isWalking) {
+                    entity->isWalking = false;
+                    elementsManager.changeElementAnimationStatus(elementName, false);
+                    elementsManager.changeElementSpriteFrame(elementName, config->defaultSpriteSheetFrame);
+                    elementsManager.changeElementSpritePhase(elementName, config->defaultSpriteSheetPhase);
+                }
+                
+                entity->pathfindingRequestId = 0; // Clear the request ID
+                entity->isWaitingForPath = false; // No longer waiting
+                
+                if (!result.success) {
+                    std::cout << "Entity " << result.instanceName << " pathfinding failed: " << result.errorMessage << std::endl;
+                } else {
+                    std::cout << "Entity " << result.instanceName << " pathfinding completed - already at destination" << std::endl;
+                }
             }
         }
-    }
     } catch (const std::exception& e) {
         std::cerr << "CRITICAL: Exception in processAsyncPathfindingResults: " << e.what() << std::endl;
         // Continue execution to prevent complete crash
