@@ -2,6 +2,7 @@
 #include "map.h"
 #include "elementsOnMap.h"
 #include "entities.h"
+#include "entityBehaviors.h"
 #include "camera.h"
 #include "player.h"
 #include "inputs.h"
@@ -120,7 +121,13 @@ void GameLogic::updateEntities(double deltaTime) {
     if (!m_entitiesManager) return;
     
     try {
+        // Update entity movement and animations
         m_entitiesManager->update(deltaTime);
+        
+        // Update entity behaviors (automatic behaviors like passive random walking)
+        entityBehaviorManager.update(deltaTime, *m_entitiesManager);
+        
+        // Update player slip functionality
     } catch (const std::exception& e) {
         std::cerr << "CRITICAL: Exception in entities update: " << e.what() << std::endl;
         // Continue execution to prevent complete crash

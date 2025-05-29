@@ -37,7 +37,7 @@ set(CMAKE_COLOR_MAKEFILE ON)
 include_directories(third_party/taskflow)
 
 # Main executable
-add_executable(${PROJECT_NAME} src/main.cpp src/map.cpp src/terrainGeneration.cpp src/elementsOnMap.cpp src/player.cpp src/camera.cpp src/globals.cpp src/collision.cpp src/debug.cpp src/entities.cpp src/pathfinding.cpp src/inputs.cpp src/threading.cpp src/asyncPathfinding.cpp src/crashDebug.cpp)
+add_executable(${PROJECT_NAME} src/main.cpp src/map.cpp src/terrainGeneration.cpp src/elementsOnMap.cpp src/player.cpp src/camera.cpp src/globals.cpp src/collision.cpp src/debug.cpp src/entities.cpp src/entityBehaviors.cpp src/pathfinding.cpp src/inputs.cpp src/threading.cpp src/asyncPathfinding.cpp src/crashDebug.cpp)
 
 # Find threading library
 find_package(Threads REQUIRED)

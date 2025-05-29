@@ -2,6 +2,7 @@
 #include "map.h"
 #include "elementsOnMap.h"
 #include "entities.h"
+#include "entityBehaviors.h"
 #include "camera.h"
 #include "player.h"
 #include "inputs.h"
@@ -254,11 +255,15 @@ void GameThreadManager::updateGameLogic(double deltaTime)
         
         // Process camera controls
         processCameraControls();
-    }
-      // Update entities (handle movement and animations)
+    }    // Update entities (handle movement and animations)
     // CRASH FIX: Add try-catch around entities update to prevent crashes
     try {
         m_entitiesManager->update(deltaTime);
+        
+        // Update entity behaviors (automatic behaviors like passive random walking)
+        entityBehaviorManager.update(deltaTime, *m_entitiesManager);
+        
+        // Update player slip functionality
     } catch (const std::exception& e) {
         std::cerr << "CRITICAL: Exception in entities update: " << e.what() << std::endl;
         // Continue execution to prevent complete crash
@@ -267,14 +272,14 @@ void GameThreadManager::updateGameLogic(double deltaTime)
         // Continue execution to prevent complete crash
     }
     
-    // Periodically move antagonists
+    /* // Periodically move antagonists
     if (gameTime - m_lastAntagonistMoveTime >= ANTAGONIST_MOVE_INTERVAL) {
         std::cout << "Moving antagonists at game time: " << gameTime << std::endl;
         m_entitiesManager->walkEntityWithPathFindingToRandomRadiusTarget("antagonist1", 10.0f, WalkType::NORMAL);
         m_entitiesManager->walkEntityWithPathFindingToRandomRadiusTarget("antagonist2", 20.0f, WalkType::NORMAL);
         m_entitiesManager->walkEntityWithPathFindingToRandomRadiusTarget("antagonist3", 30.0f, WalkType::NORMAL);
         m_lastAntagonistMoveTime = gameTime;
-    }
+    } */
     
     // Update game state for rendering
     {

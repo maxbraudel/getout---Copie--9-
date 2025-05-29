@@ -61,10 +61,18 @@ struct EntityInfo {
     // Granular block collision control - specify which block types to avoid or collide with
     std::vector<TextureName> avoidanceBlocks; // Blocks this entity will pathfind around (but can overlap if forced)
     std::vector<TextureName> collisionBlocks; // Blocks this entity cannot overlap with at all
-    
-    // Map boundary control
+      // Map boundary control
     bool offMapAvoidance = true; // Entity pathfinding will avoid going outside the map grid
     bool offMapCollision = true; // Entity will collide with map borders during movement
+    
+    // Automatic behavior system
+    bool automaticBehaviors = false; // Enable/disable automatic behaviors for this entity
+    
+    // Passive state behavior parameters
+    bool passiveState = false; // Enable passive state random walking behavior
+    float passiveStateWalkingRadius = 10.0f; // Radius around entity for random walks
+    float passiveStateRandomWalkTriggerTimeIntervalMin = 2.0f; // Minimum time between random walks (seconds)
+    float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)
   };
 
 // Struct to hold entity configuration
@@ -98,10 +106,18 @@ struct EntityConfiguration {
     // Granular block collision control - specify which block types to avoid or collide with
     std::vector<TextureName> avoidanceBlocks; // Blocks this entity will pathfind around (but can overlap if forced)
     std::vector<TextureName> collisionBlocks; // Blocks this entity cannot overlap with at all
-    
-    // Map boundary control
+      // Map boundary control
     bool offMapAvoidance = true; // Entity pathfinding will avoid going outside the map grid
     bool offMapCollision = true; // Entity will collide with map borders during movement
+    
+    // Automatic behavior system
+    bool automaticBehaviors = false; // Enable/disable automatic behaviors for this entity
+    
+    // Passive state behavior parameters
+    bool passiveState = false; // Enable passive state random walking behavior
+    float passiveStateWalkingRadius = 10.0f; // Radius around entity for random walks
+    float passiveStateRandomWalkTriggerTimeIntervalMin = 2.0f; // Minimum time between random walks (seconds)
+    float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)
     
     // Constructor to create from EntityInfo
     EntityConfiguration() = default;
@@ -132,10 +148,16 @@ struct EntityConfiguration {
         // Copy granular block collision settings
         avoidanceBlocks = info.avoidanceBlocks;
         collisionBlocks = info.collisionBlocks;
-        
-        // Copy map boundary control settings
+          // Copy map boundary control settings
         offMapAvoidance = info.offMapAvoidance;
         offMapCollision = info.offMapCollision;
+        
+        // Copy automatic behavior settings
+        automaticBehaviors = info.automaticBehaviors;
+        passiveState = info.passiveState;
+        passiveStateWalkingRadius = info.passiveStateWalkingRadius;
+        passiveStateRandomWalkTriggerTimeIntervalMin = info.passiveStateRandomWalkTriggerTimeIntervalMin;
+        passiveStateRandomWalkTriggerTimeIntervalMax = info.passiveStateRandomWalkTriggerTimeIntervalMax;
     }
 };
 
@@ -173,10 +195,13 @@ struct Entity {
     float lastPositionY = 0.0f;
     float lastPositionChangeTime = 0.0f;
     float stuckCheckTime = 0.0f;
-    int stuckCount = 0;
-    float interactionRadius;
+    int stuckCount = 0;    float interactionRadius;
     EntityDirection currentSegmentSpriteDirection = DIRECTION_DOWN; // Initialize to a default
     std::string currentBehavior;
+    
+    // Automatic behavior state variables
+    double behaviorTimer = 0.0; // Time accumulator for behavior timing
+    double nextBehaviorTriggerTime = 0.0; // When the next behavior should trigger
 };
 
 // EntitiesManager - Manages all entities in the game
@@ -226,10 +251,13 @@ public:
     
     // Shutdown async pathfinding system
     void shutdownAsyncPathfinding();
-            
-    // Update all entities (called once per frame)
+              // Update all entities (called once per frame)
     void update(double deltaTime);
       // Collision resolution functions removed - entities will no longer be automatically moved
+
+    // Public access for entity iteration (for behavior manager)
+    std::map<std::string, Entity>& getEntities() { return entities; }
+    const std::map<std::string, Entity>& getEntities() const { return entities; }
 
     // Draw debug paths for all entities
     void drawDebugPaths(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop);    // Draw debug collision radii for all entities

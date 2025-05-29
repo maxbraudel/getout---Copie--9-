@@ -1,4 +1,5 @@
 #include "entities.h"
+#include "entityBehaviors.h"
 #include "collision.h"
 #include "map.h" // Adding for gameMap access
 // #include "pathfinding.h" // Commented out to avoid conflicts with new async pathfinding system
@@ -80,11 +81,16 @@ static void initializeEntityTypes() {
             TextureName::WATER_3,
             TextureName::WATER_4
         };
-        
-        // Map boundary control settings
+          // Map boundary control settings
         antagonist.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
         antagonist.offMapCollision = true; // Antagonist collides with map borders
         
+        // Automatic behavior configuration
+        antagonist.automaticBehaviors = true; // Enable automatic behaviors for antagonist
+        antagonist.passiveState = true; // Enable passive state random walking
+        antagonist.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
+        antagonist.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
+        antagonist.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)
         
         // Add to the list
         entityTypes.push_back(antagonist);
@@ -107,7 +113,7 @@ static void initializeEntityTypes() {
         player.spritePhaseWalkRight = 1;
         
         // Movement speeds
-        player.normalWalkingSpeed = 3.0f;
+        player.normalWalkingSpeed = 3.5f;
         player.normalWalkingAnimationSpeed = 11.0f;
         player.sprintWalkingSpeed = 5.0f;
         player.sprintWalkingAnimationSpeed = 20.0f;    // Collision settings
@@ -145,109 +151,12 @@ static void initializeEntityTypes() {
             TextureName::WATER_3,
             TextureName::WATER_4 // Only deep water blocks movement
         };
-        
-        // Map boundary control settings
+          // Map boundary control settings
         player.offMapAvoidance = true; // Player pathfinding avoids map borders
         player.offMapCollision = true; // Player collides with map borders
-            // Add to the list
+        
+        // Add to the list
         entityTypes.push_back(player);
-
-        // Example: Amphibious entity that can traverse water but avoids sand
-        EntityInfo amphibious;
-        amphibious.typeName = "amphibious";
-        amphibious.textureName = ElementTextureName::CHARACTER1;
-        amphibious.scale = 1.0f;
-        
-        // Default sprite configuration (simplified for example)
-        amphibious.defaultSpriteSheetPhase = 2;
-        amphibious.defaultSpriteSheetFrame = 0;
-        amphibious.defaultAnimationSpeed = 11.0f;
-        
-        // Walking animation phases
-        amphibious.spritePhaseWalkUp = 0;
-        amphibious.spritePhaseWalkDown = 3;
-        amphibious.spritePhaseWalkLeft = 2;
-        amphibious.spritePhaseWalkRight = 1;
-        
-        // Movement speeds
-        amphibious.normalWalkingSpeed = 2.0f;
-        amphibious.normalWalkingAnimationSpeed = 5.0f;
-        amphibious.sprintWalkingSpeed = 8.0f;
-        amphibious.sprintWalkingAnimationSpeed = 10.0f;
-        
-        // Collision settings
-        amphibious.canCollide = true;
-        amphibious.collisionShapePoints = {
-            {-1.5f, -1.5f}, {1.5f, -1.5f}, {1.5f, 1.5f}, {-1.5f, 1.5f}
-        };
-        
-        // Element collision (empty lists for this example)
-        amphibious.avoidanceElements = {};
-        amphibious.collisionElements = {};
-        
-        // Block collision configuration - Amphibious entity prefers water, avoids sand
-        amphibious.avoidanceBlocks = {
-            TextureName::SAND  // Pathfinding avoids sand blocks
-        };
-        
-        amphibious.collisionBlocks = {
-            // Empty - can move through all blocks during movement
-        };
-        
-        // Map boundary control
-        amphibious.offMapAvoidance = true;
-        amphibious.offMapCollision = true;
-        
-        // Add to the list
-        entityTypes.push_back(amphibious);
-
-        // Example: Flying entity that ignores all block collision
-        EntityInfo flying;
-        flying.typeName = "flying";
-        flying.textureName = ElementTextureName::ANTAGONIST1;
-        flying.scale = 0.8f;
-        
-        // Default sprite configuration (simplified for example)
-        flying.defaultSpriteSheetPhase = 1;
-        flying.defaultSpriteSheetFrame = 0;
-        flying.defaultAnimationSpeed = 15.0f;
-        
-        // Walking animation phases
-        flying.spritePhaseWalkUp = 0;
-        flying.spritePhaseWalkDown = 3;
-        flying.spritePhaseWalkLeft = 2;
-        flying.spritePhaseWalkRight = 1;
-        
-        // Movement speeds
-        flying.normalWalkingSpeed = 3.0f;
-        flying.normalWalkingAnimationSpeed = 8.0f;
-        flying.sprintWalkingSpeed = 15.0f;
-        flying.sprintWalkingAnimationSpeed = 20.0f;
-        
-        // Collision settings
-        flying.canCollide = true;
-        flying.collisionShapePoints = {
-            {-1.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 1.0f}, {-1.0f, 1.0f}
-        };
-        
-        // Element collision (only avoids trees during pathfinding)
-        flying.avoidanceElements = {
-            ElementTextureName::COCONUT_TREE_1,
-            ElementTextureName::COCONUT_TREE_2,
-            ElementTextureName::COCONUT_TREE_3
-        };
-        flying.collisionElements = {};  // Can fly through elements during movement
-        
-        // Block collision configuration - Flying entity ignores all blocks
-        flying.avoidanceBlocks = {};    // No blocks avoided during pathfinding
-        flying.collisionBlocks = {};    // No block collision during movement
-        
-        // Map boundary control (still respects map boundaries)
-        flying.offMapAvoidance = true;
-        flying.offMapCollision = true;
-        
-        // Add to the list
-        entityTypes.push_back(flying);
 
 
     } catch (const std::exception& e) {
@@ -378,9 +287,14 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
         config->defaultAnimationSpeed,
         AnchorPoint::USE_TEXTURE_DEFAULT
     );
+      // Add the entity to our entities map
+    entities[instanceName] = entity;
     
-    // Add the entity to our entities map
-    entities[instanceName] = entity;    if (needsSafePosition && (safeX != x || safeY != y)) {
+    // Initialize entity behaviors
+    Entity& createdEntity = entities[instanceName];
+    entityBehaviorManager.initializeEntityBehavior(createdEntity, *config);
+    
+    if (needsSafePosition && (safeX != x || safeY != y)) {
         std::cout << "Entity " << instanceName << " placed with collision resolution - moved from (" 
                   << x << ", " << y << ") to (" << safeX << ", " << safeY << ")" << std::endl;
     } else {
