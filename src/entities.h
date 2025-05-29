@@ -212,6 +212,15 @@ public:
       // Walk an entity to specific coordinates using pathfinding
     bool walkEntityWithPathfinding(const std::string& instanceName, float x, float y, WalkType walkType = WalkType::NORMAL);
     
+    // Find the nearest safe place from given coordinates for an entity
+    bool findNearestSafePlaceFromCoordinatesForEntity(const std::string& instanceName, float x, float y, float& safeX, float& safeY);
+    
+    // Find a random safe point around an entity within a given radius
+    bool findRandomSafePointAroundTheEntity(const std::string& instanceName, float radius, float& randomX, float& randomY);
+    
+    // Walk entity to a random accessible point within the given radius
+    bool walkEntityWithPathFindingToRandomRadiusTarget(const std::string& instanceName, float radius, WalkType walkType = WalkType::NORMAL);
+    
     // Initialize async pathfinding system
     void initializeAsyncPathfinding();
     

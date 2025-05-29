@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cmath>
 #include <limits>
+#include <random>
 
 // Global async pathfinder instance (separate from pathfinding.h's AsyncPathfinder)
 static AsyncEntityPathfinder* g_entityAsyncPathfinder = nullptr;
@@ -476,6 +477,186 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
         std::cerr << "Failed to submit pathfinding request for entity: " << instanceName << std::endl;
         return false;
     }
+}
+
+bool EntitiesManager::findNearestSafePlaceFromCoordinatesForEntity(const std::string& instanceName, float x, float y, float& safeX, float& safeY) {
+    // Get the entity
+    Entity* entity = getEntity(instanceName);
+    if (!entity) {
+        std::cerr << "Entity not found: " << instanceName << std::endl;
+        return false;
+    }
+
+    // Get the configuration
+    const EntityConfiguration* config = getConfiguration(entity->typeName);
+    if (!config) {
+        std::cerr << "Entity configuration not found: " << entity->typeName << std::endl;
+        return false;
+    }
+
+    // Get the element name
+    std::string elementName = getElementName(instanceName);
+
+    // Get current position
+    float currentX, currentY;
+    if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
+        std::cerr << "Error getting position for entity: " << instanceName << std::endl;
+        return false;
+    }
+
+    // First check if the target coordinates are already accessible
+    // Check if destination would cause entity collision shape to overlap with map boundaries
+    if (config->offMapCollision && wouldEntityCollideWithMapBounds(*config, x, y)) {
+        std::cout << "Target coordinates (" << x << ", " << y << ") would cause collision with map boundaries" << std::endl;
+    }
+    // Check if destination would cause entity collision shape to overlap with collision/avoidance blocks or elements
+    else if (config->canCollide && 
+        (wouldEntityCollideWithElementsGranular(*config, x, y, true) || 
+         wouldEntityCollideWithBlocksGranular(*config, x, y, true))) {
+        std::cout << "Target coordinates (" << x << ", " << y << ") would cause collision with blocks/elements" << std::endl;
+    } else {
+        // Target coordinates are accessible
+        safeX = x;
+        safeY = y;
+        std::cout << "Entity " << instanceName << " can reach target (" << x << ", " << y << ") - no adjustment needed" << std::endl;
+        return true;
+    }
+
+    std::cout << "Entity " << instanceName << " cannot reach target (" << x << ", " << y << ") - searching for nearest accessible coordinates..." << std::endl;
+
+    // Target is not accessible, search for nearest accessible coordinates using spiral pattern
+    const float searchStep = 0.5f;
+    const float maxSearchRadius = 50.0f;
+
+    for (float radius = searchStep; radius <= maxSearchRadius; radius += searchStep) {
+        // Try points in a circle around the target coordinates
+        const int numDirections = std::max(8, static_cast<int>(radius * 4)); // More directions for larger radii
+
+        for (int i = 0; i < numDirections; i++) {
+            float angle = (i * 2.0f * M_PI) / numDirections;
+            float testX = x + radius * std::cos(angle);
+            float testY = y + radius * std::sin(angle);
+
+            // Check if this position is within map bounds
+            if (testX < 0 || testX >= GRID_SIZE || testY < 0 || testY >= GRID_SIZE) {
+                continue;
+            }
+
+            // Check if this position is valid (not colliding)
+            if (config->offMapCollision && wouldEntityCollideWithMapBounds(*config, testX, testY)) {
+                continue;
+            }
+
+            if (config->canCollide && 
+                (wouldEntityCollideWithElementsGranular(*config, testX, testY, true) || 
+                 wouldEntityCollideWithBlocksGranular(*config, testX, testY, true))) {
+                continue;
+            }
+
+            // Found an accessible safe position!
+            safeX = testX;
+            safeY = testY;
+            float distance = std::sqrt((testX - x) * (testX - x) + (testY - y) * (testY - y));
+            std::cout << "Found nearest safe accessible position for entity " << instanceName 
+                      << " at (" << safeX << ", " << safeY << ") - distance from target: " << distance << std::endl;
+            return true;
+        }
+    }
+
+    // No safe position found, return current position as fallback
+    safeX = currentX;
+    safeY = currentY;
+    std::cout << "No accessible position found within search radius - returning current position (" 
+              << safeX << ", " << safeY << ") for entity " << instanceName << std::endl;
+    return false;
+}
+
+bool EntitiesManager::findRandomSafePointAroundTheEntity(const std::string& instanceName, float radius, float& randomX, float& randomY) {
+    // Get the entity
+    Entity* entity = getEntity(instanceName);
+    if (!entity) {
+        std::cerr << "Entity not found: " << instanceName << std::endl;
+        return false;
+    }
+
+    // Get the configuration
+    const EntityConfiguration* config = getConfiguration(entity->typeName);
+    if (!config) {
+        std::cerr << "Entity configuration not found: " << entity->typeName << std::endl;
+        return false;
+    }
+
+    // Get the element name
+    std::string elementName = getElementName(instanceName);
+
+    // Get current position
+    float currentX, currentY;
+    if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
+        std::cerr << "Error getting position for entity: " << instanceName << std::endl;
+        return false;
+    }
+
+    // Set up random number generation
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> angleDist(0.0f, 2.0f * M_PI);
+    std::uniform_real_distribution<float> radiusDist(0.0f, radius);
+
+    // Try to find a random accessible point within the radius
+    const int maxAttempts = 100;
+    
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+        // Generate random angle and distance
+        float angle = angleDist(gen);
+        float distance = radiusDist(gen);
+        
+        // Calculate test position
+        float testX = currentX + distance * std::cos(angle);
+        float testY = currentY + distance * std::sin(angle);
+
+        // Check if this position is within map bounds
+        if (testX < 0 || testX >= GRID_SIZE || testY < 0 || testY >= GRID_SIZE) {
+            continue;
+        }
+
+        // Check if this position is accessible (not colliding)
+        if (config->offMapCollision && wouldEntityCollideWithMapBounds(*config, testX, testY)) {
+            continue;
+        }
+
+        if (config->canCollide && 
+            (wouldEntityCollideWithElementsGranular(*config, testX, testY, true) || 
+             wouldEntityCollideWithBlocksGranular(*config, testX, testY, true))) {
+            continue;
+        }
+
+        // Found an accessible random position!
+        randomX = testX;
+        randomY = testY;
+        float actualDistance = std::sqrt((testX - currentX) * (testX - currentX) + (testY - currentY) * (testY - currentY));
+        std::cout << "Found random accessible position for entity " << instanceName 
+                  << " at (" << randomX << ", " << randomY << ") - distance: " << actualDistance 
+                  << " (attempt " << (attempt + 1) << ")" << std::endl;
+        return true;
+    }
+
+    // No accessible random position found within attempts
+    std::cout << "No accessible random position found within " << maxAttempts 
+              << " attempts for entity " << instanceName << " with radius " << radius << std::endl;
+    return false;
+}
+
+bool EntitiesManager::walkEntityWithPathFindingToRandomRadiusTarget(const std::string& instanceName, float radius, WalkType walkType) {
+    // Find a random safe point around the entity
+    float randomX, randomY;
+    if (!findRandomSafePointAroundTheEntity(instanceName, radius, randomX, randomY)) {
+        std::cerr << "Failed to find random accessible target for entity: " << instanceName << std::endl;
+        return false;
+    }
+
+    // Use the existing pathfinding function to walk to the random target
+    std::cout << "Entity " << instanceName << " moving to random target (" << randomX << ", " << randomY << ")" << std::endl;
+    return walkEntityWithPathfinding(instanceName, randomX, randomY, walkType);
 }
 
 void EntitiesManager::update(double deltaTime) {
@@ -1470,6 +1651,7 @@ void EntitiesManager::processAsyncPathfindingResults() {
             // If entity was walking before, let it continue its current movement
             // Otherwise, stop the entity
             if (!entity->isWalking) {
+
                 entity->isWalking = false;
                 elementsManager.changeElementAnimationStatus(elementName, false);
                 elementsManager.changeElementSpriteFrame(elementName, config->defaultSpriteSheetFrame);

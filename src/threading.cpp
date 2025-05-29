@@ -270,9 +270,9 @@ void GameThreadManager::updateGameLogic(double deltaTime)
     // Periodically move antagonists
     if (gameTime - m_lastAntagonistMoveTime >= ANTAGONIST_MOVE_INTERVAL) {
         std::cout << "Moving antagonists at game time: " << gameTime << std::endl;
-        m_entitiesManager->walkEntityWithPathfinding("antagonist1", 10.0f, 46.0f, WalkType::NORMAL);
-        m_entitiesManager->walkEntityWithPathfinding("antagonist2", 20.0f, 45.0f, WalkType::NORMAL);
-        m_entitiesManager->walkEntityWithPathfinding("antagonist3", 30.0f, 44.0f, WalkType::NORMAL);
+        m_entitiesManager->walkEntityWithPathFindingToRandomRadiusTarget("antagonist1", 10.0f, WalkType::NORMAL);
+        m_entitiesManager->walkEntityWithPathFindingToRandomRadiusTarget("antagonist2", 20.0f, WalkType::NORMAL);
+        m_entitiesManager->walkEntityWithPathFindingToRandomRadiusTarget("antagonist3", 30.0f, WalkType::NORMAL);
         m_lastAntagonistMoveTime = gameTime;
     }
     
