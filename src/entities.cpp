@@ -844,8 +844,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         dx = targetX - currentActualX;
         dy = targetY - currentActualY;
         distance = std::sqrt(dx * dx + dy * dy);
-    }
-      // Stop if we\'re close enough to the target
+    }    // Stop if we\'re close enough to the target
     float stopThreshold = 0.1f; // Stop when within 0.1 distance units
     if (distance <= stopThreshold && 
         ((!entity.usePathfinding) || 
@@ -853,32 +852,38 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         // We've reached the final target
         entity.isWalking = false;
         
-        // Instead of snapping directly to target, find a safe final position
-        float finalX = entity.targetX;
-        float finalY = entity.targetY;
+        // Use current position as final position to prevent teleportation
+        float finalX = currentActualX;
+        float finalY = currentActualY;
         
-        // Check if the target position would cause collisions
-        if (config.canCollide && 
+        // Only snap to exact target if we're extremely close (prevents visible teleportation)
+        const float snapThreshold = 0.01f; // Much smaller threshold for snapping
+        if (distance <= snapThreshold) {
+            finalX = entity.targetX;
+            finalY = entity.targetY;
+            
+            std::cout << "Entity " << entity.instanceName << " snapping to exact target (" 
+                      << finalX << ", " << finalY << ") - distance: " << distance << std::endl;
+        } else {
+            std::cout << "Entity " << entity.instanceName << " stopping naturally at (" 
+                      << finalX << ", " << finalY << ") - target was (" 
+                      << entity.targetX << ", " << entity.targetY << "), distance: " << distance << std::endl;
+        }
+        
+        // Check if the final position would cause collisions (only if we're snapping)
+        if (distance <= snapThreshold && config.canCollide && 
             (wouldEntityCollideWithElementsGranular(config, finalX, finalY, false) || 
              wouldEntityCollideWithBlocksGranular(config, finalX, finalY, false))) {
             
-            std::cout << "Entity " << entity.instanceName << " target (" << finalX << ", " << finalY 
-                      << ") would cause collision - finding safe final position..." << std::endl;
-              // Try to find a safe position near the target using the collision resolution system
-            if (findSafePositionForEntity(finalX, finalY, config, gameMap)) {
-                std::cout << "Found safe final position for " << entity.instanceName 
-                          << " at (" << finalX << ", " << finalY << ") instead of (" 
-                          << entity.targetX << ", " << entity.targetY << ")" << std::endl;
-            } else {
-                // If we can't find a safe position, use current position (don't teleport)
-                finalX = currentActualX;
-                finalY = currentActualY;
-                std::cout << "Could not find safe final position for " << entity.instanceName 
-                          << " - staying at current position (" << finalX << ", " << finalY << ")" << std::endl;
-            }
+            std::cout << "Entity " << entity.instanceName << " exact target (" << finalX << ", " << finalY 
+                      << ") would cause collision - staying at current position instead" << std::endl;
+            
+            // Don't snap to target if it would cause collision, stay at current position
+            finalX = currentActualX;
+            finalY = currentActualY;
         }
         
-        // Move to the safe final position
+        // Move to the final position (usually current position, preventing teleportation)
         elementsManager.changeElementCoordinates(elementName, finalX, finalY);
         
         // Disable animation
@@ -893,8 +898,8 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
             entity.currentPathIndex = 0;
         }
         
-        std::cout << "Entity " << entity.instanceName << " reached target (" 
-                  << entity.targetX << ", " << entity.targetY << ")" << std::endl;
+        std::cout << "Entity " << entity.instanceName << " reached target area - final position (" 
+                  << finalX << ", " << finalY << ")" << std::endl;
         return;
     }
     
