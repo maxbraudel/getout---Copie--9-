@@ -1,5 +1,7 @@
 #include "globals.h"
 #include "GLFW/glfw3.h" // For GLFW_KEY_LAST
+#include "enumDefinitions.h"
+
 
 // Constants
 

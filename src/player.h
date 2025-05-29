@@ -1,5 +1,7 @@
 #ifndef PLAYER_H
 #define PLAYER_H
+#include "enumDefinitions.h"
+
 
 // Forward declaration for safety check
 class Map;

@@ -1,5 +1,4 @@
 #include "entities.h"
-#include "entityNameOps.h"
 #include "entityBehaviors.h"
 #include "collision.h"
 #include "map.h" // Adding for gameMap access
@@ -11,21 +10,8 @@
 #include <cmath>
 #include <limits>
 #include <random>
+#include "enumDefinitions.h"
 
-// Utility functions for EntityName enum
-std::string entityNameToString(EntityName entityName) {
-    switch (entityName) {
-        case EntityName::ANTAGONIST: return "antagonist";
-        case EntityName::PLAYER: return "player";
-        default: return "unknown";
-    }
-}
-
-EntityName stringToEntityName(const std::string& str) {
-    if (str == "antagonist") return EntityName::ANTAGONIST;
-    if (str == "player") return EntityName::PLAYER;
-    return EntityName::ANTAGONIST; // Default fallback
-}
 
 // Global async pathfinder instance (separate from pathfinding.h's AsyncPathfinder)
 static AsyncEntityPathfinder* g_entityAsyncPathfinder = nullptr;
@@ -83,19 +69,19 @@ static void initializeEntityTypes() {
         };
           // Block collision configuration - Antagonist avoids water during pathfinding and movement
         antagonist.avoidanceBlocks = {
-            TextureName::WATER_0,
-            TextureName::WATER_1,
-            TextureName::WATER_2,
-            TextureName::WATER_3,
-            TextureName::WATER_4
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4
         };
         
         antagonist.collisionBlocks = {
-            TextureName::WATER_0,
-            TextureName::WATER_1,
-            TextureName::WATER_2,
-            TextureName::WATER_3,
-            TextureName::WATER_4
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4
         };
           // Map boundary control settings
         antagonist.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
@@ -147,20 +133,20 @@ static void initializeEntityTypes() {
         // Player can walk through sand but avoids water for pathfinding
         // This shows how entities can have different block interaction behaviors
         player.avoidanceBlocks = {
-            TextureName::WATER_0,
-            TextureName::WATER_1,
-            TextureName::WATER_2,
-            TextureName::WATER_3,
-            TextureName::WATER_4
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4
         };
         
         // Player physically collides with deep water but can walk through shallow water
         player.collisionBlocks = {
-            TextureName::WATER_0,
-            TextureName::WATER_1,
-            TextureName::WATER_2,
-            TextureName::WATER_3,
-            TextureName::WATER_4 // Only deep water blocks movement
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4 // Only deep water blocks movement
         };          // Map boundary control settings
         player.offMapAvoidance = true; // Player pathfinding avoids map borders
         player.offMapCollision = true; // Player collides with map borders
@@ -211,11 +197,6 @@ void EntitiesManager::initializeEntityConfigurations() {
     std::cout << "Initialized " << entityTypes.size() << " predefined entity configurations" << std::endl;
 }
 
-const EntityConfiguration* EntitiesManager::getConfiguration(const std::string& typeName) const {
-    EntityName entityType = stringToEntityName(typeName);
-    return getConfiguration(entityType);
-}
-
 const EntityConfiguration* EntitiesManager::getConfiguration(EntityName entityType) const {
     auto it = configurations.find(entityType);
     if (it != configurations.end()) {
@@ -224,16 +205,23 @@ const EntityConfiguration* EntitiesManager::getConfiguration(EntityName entityTy
     return nullptr;
 }
 
+// String-based getConfiguration method for backwards compatibility
+const EntityConfiguration* EntitiesManager::getConfiguration(const std::string& typeName) const {
+    // Convert string to enum and call the enum-based method
+    if (typeName == "player") {
+        return getConfiguration(EntityName::PLAYER);
+    } else if (typeName == "antagonist") {
+        return getConfiguration(EntityName::ANTAGONIST);
+    }
+    
+    std::cerr << "Unknown entity type string: " << typeName << std::endl;
+    return nullptr;
+}
+
 void EntitiesManager::addConfiguration(const EntityConfiguration& config) {
     // Add or replace the configuration
     configurations[config.type] = config;
     std::cout << "Added entity configuration: " << entityNameToString(config.type) << std::endl;
-}
-
-bool EntitiesManager::placeEntityByType(const std::string& instanceName, const std::string& typeName, float x, float y) {
-    // Convert string to EntityName and call the enum version
-    EntityName entityType = stringToEntityName(typeName);
-    return placeEntityByType(instanceName, entityType, x, y);
 }
 
 bool EntitiesManager::placeEntityByType(const std::string& instanceName, EntityName entityType, float x, float y) {
@@ -255,10 +243,17 @@ bool EntitiesManager::placeEntityByType(const std::string& instanceName, EntityN
     return false;
 }
 
-bool EntitiesManager::placeEntity(const std::string& instanceName, const std::string& typeName, float x, float y) {
-    // Convert string to EntityName and call the enum version
-    EntityName entityType = stringToEntityName(typeName);
-    return placeEntity(instanceName, entityType, x, y);
+// String-based placeEntityByType method for backwards compatibility
+bool EntitiesManager::placeEntityByType(const std::string& instanceName, const std::string& typeName, float x, float y) {
+    // Convert string to enum and call the enum-based method
+    if (typeName == "player") {
+        return placeEntityByType(instanceName, EntityName::PLAYER, x, y);
+    } else if (typeName == "antagonist") {
+        return placeEntityByType(instanceName, EntityName::ANTAGONIST, x, y);
+    }
+    
+    std::cerr << "Unknown entity type string: " << typeName << std::endl;
+    return false;
 }
 
 bool EntitiesManager::placeEntity(const std::string& instanceName, EntityName entityType, float x, float y) {
@@ -327,6 +322,19 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, EntityName en
                 << safeX << ", " << safeY << ")" << std::endl;
     }
     return true;
+}
+
+// String-based placeEntity method for backwards compatibility
+bool EntitiesManager::placeEntity(const std::string& instanceName, const std::string& typeName, float x, float y) {
+    // Convert string to enum and call the enum-based method
+    if (typeName == "player") {
+        return placeEntity(instanceName, EntityName::PLAYER, x, y);
+    } else if (typeName == "antagonist") {
+        return placeEntity(instanceName, EntityName::ANTAGONIST, x, y);
+    }
+    
+    std::cerr << "Unknown entity type string: " << typeName << std::endl;
+    return false;
 }
 
 bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName, float x, float y, WalkType walkType) {
@@ -1337,7 +1345,7 @@ bool wouldEntityCollideWithBlocksGranular(const EntityConfiguration& config, flo
     }
     
     // Determine which block list to check based on collision type
-    const std::vector<TextureName>& blocksToCheck = useAvoidanceList ? config.avoidanceBlocks : config.collisionBlocks;
+    const std::vector<BlockName>& blocksToCheck = useAvoidanceList ? config.avoidanceBlocks : config.collisionBlocks;
     
     // If the list is empty, don't check any blocks (granular collision control)
     // This allows entities to have fine-grained control over what they collide with
@@ -1346,7 +1354,7 @@ bool wouldEntityCollideWithBlocksGranular(const EntityConfiguration& config, flo
     }
     
     // Convert to std::set for faster lookup
-    std::set<TextureName> blockSet(blocksToCheck.begin(), blocksToCheck.end());
+    std::set<BlockName> blockSet(blocksToCheck.begin(), blocksToCheck.end());
     
     // If entity has no collision shape, fall back to point-based collision
     if (config.collisionShapePoints.empty()) {
@@ -1404,7 +1412,7 @@ bool wouldEntityCollideWithBlocksGranular(const EntityConfiguration& config, flo
     for (int gridY = startGridY; gridY <= endGridY; ++gridY) {
         for (int gridX = startGridX; gridX <= endGridX; ++gridX) {
             // Get the block type at this grid position
-            TextureName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
+            BlockName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
             
             // Check if this block type is in our collision list
             if (blockSet.find(blockType) != blockSet.end()) {

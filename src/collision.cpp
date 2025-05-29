@@ -10,6 +10,8 @@
 #include <set>
 #include <unordered_map>  // Added for spatial partitioning
 #include <limits> // Added for std::numeric_limits
+#include "enumDefinitions.h"
+
 
 // Forward declaration for entitiesManager from entities.cpp
 extern EntitiesManager entitiesManager;
@@ -35,22 +37,22 @@ static float lastSpatialGridUpdateTime = 0.0f;
 static float lastCollisionDebugTime = 0.0f;
 
 // Define the set of non-traversable blocks
-std::set<TextureName> nonTraversableBlocks = {
-    TextureName::WATER_1,
-    TextureName::WATER_2,
-    TextureName::WATER_3,
-    TextureName::WATER_4
+std::set<BlockName> nonTraversableBlocks = {
+    BlockName::WATER_1,
+    BlockName::WATER_2,
+    BlockName::WATER_3,
+    BlockName::WATER_4
     // Add more block types here as needed
 };
 
 // Function to add a block type to the non-traversable set
-void addNonTraversableBlock(TextureName blockType) {
+void addNonTraversableBlock(BlockName blockType) {
     nonTraversableBlocks.insert(blockType);
     std::cout << "Added block type " << static_cast<int>(blockType) << " to non-traversable blocks." << std::endl;
 }
 
 // Function to remove a block type from the non-traversable set
-void removeNonTraversableBlock(TextureName blockType) {
+void removeNonTraversableBlock(BlockName blockType) {
     auto it = nonTraversableBlocks.find(blockType);
     if (it != nonTraversableBlocks.end()) {
         nonTraversableBlocks.erase(it);
@@ -59,7 +61,7 @@ void removeNonTraversableBlock(TextureName blockType) {
 }
 
 // Function to check if a block type is non-traversable
-bool isBlockNonTraversable(TextureName blockType) {
+bool isBlockNonTraversable(BlockName blockType) {
     return nonTraversableBlocks.find(blockType) != nonTraversableBlocks.end();
 }
 
@@ -333,7 +335,7 @@ bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap) {
     }
     
     // Get the texture type at these coordinates
-    TextureName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
+    BlockName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
     
     // Check if this block type is in our set of non-traversable blocks
     if (nonTraversableBlocks.find(blockType) != nonTraversableBlocks.end()) {
@@ -354,7 +356,7 @@ bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap) {
 }
 
 // Overloaded function that uses entity-specific non-traversable blocks
-bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap, const std::set<TextureName>& entityNonTraversableBlocks) {
+bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap, const std::set<BlockName>& entityNonTraversableBlocks) {
     // Convert floating point coordinates to grid integers
     int gridX = static_cast<int>(x);
     int gridY = static_cast<int>(y);
@@ -365,7 +367,7 @@ bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap, const std::s
     }
     
     // Get the texture type at these coordinates
-    TextureName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
+    BlockName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
     
     // Check if this block type is in the entity's set of non-traversable blocks
     if (entityNonTraversableBlocks.find(blockType) != entityNonTraversableBlocks.end()) {

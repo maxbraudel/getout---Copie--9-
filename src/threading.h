@@ -7,6 +7,8 @@
 #include <atomic>
 #include <chrono>
 #include <functional>
+#include "enumDefinitions.h"
+
 
 // Forward declarations
 class Map;

@@ -1,8 +1,11 @@
 #include "elementsOnMap.h"
 #include "debug.h"
 #include "globals.h" // For GRID_SIZE
+#include <magic_enum.hpp>
 #include <iostream>
 #include <algorithm> // Added for std::find_if
+#include "enumDefinitions.h"
+
 
 // Include stb_image without defining STB_IMAGE_IMPLEMENTATION
 // (It should already be defined in map.cpp)
@@ -184,17 +187,17 @@ if (DEBUG_LOGS) { std::cerr << "Failed to load texture: " << path << " (" << stb
     glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
     
     // Store dimensions for later use (aspect ratio calculation)
-    ElementName currentTextureName = ElementName::COCONUT_TREE_1; // Default
+    ElementName currentBlockName = ElementName::COCONUT_TREE_1; // Default
     
     // Find which texture we're currently loading
     for (const auto& texInfo : elementTexturesToLoad) {
         if (texInfo.path == path) {
-            currentTextureName = texInfo.name;
+            currentBlockName = texInfo.name;
             break;
         }
     }
     
-    textureDimensions[currentTextureName] = std::make_pair(width, height);
+    textureDimensions[currentBlockName] = std::make_pair(width, height);
     
     // Free the image data
     stbi_image_free(data);
@@ -906,29 +909,18 @@ void ElementsOnMap::listElements() const {
 if (DEBUG_LOGS) { std::cout << "=== Current Elements (" << elements.size() << " total) ===" << std::endl; }
 if (DEBUG_LOGS) { std::cout << "Index  | Name              | Type      | Position (X,Y)" << std::endl; }
 if (DEBUG_LOGS) { std::cout << "-------+-------------------+-----------+------------------" << std::endl; }
-    
-    for (size_t i = 0; i < elements.size(); ++i) {
+      for (size_t i = 0; i < elements.size(); ++i) {
         const auto& element = elements[i];
-        std::string typeName;
         
-        // Convert enum to string for display
-        switch (element.textureName) {
-            case ElementName::COCONUT_TREE_1:
-                typeName = "COCONUT_TREE_1";
-                break;
-            case ElementName::CHARACTER1:
-                typeName = "CHARACTER1";
-                break;
-            default:
-                typeName = "UNKNOWN";
-                break;
-        }
+        // Use magic_enum to convert enum to string
+        std::string typeName = std::string(magic_enum::enum_name(element.textureName));
         
         // Print element details
         printf("%-6zu | %-17s | %-9s | (%.2f, %.2f)\n", 
                i, 
                element.instanceName.c_str(), 
-               typeName.c_str(),               element.x, 
+               typeName.c_str(),
+               element.x, 
                element.y);
     }
 if (DEBUG_LOGS) { std::cout << "===================================" << std::endl; }
@@ -941,50 +933,12 @@ void ElementsOnMap::printElementPositions() const {
 if (DEBUG_LOGS) { std::cout << "\n===== Element Positions (" << elements.size() << " elements) =====" << std::endl; }
 if (DEBUG_LOGS) { std::cout << "Name                | Type       | Position (X,Y)  | Scale | Rotation | Anchor" << std::endl; }
 if (DEBUG_LOGS) { std::cout << "-------------------+------------+----------------+-------+----------+--------------" << std::endl; }
-    
-    for (const auto& element : elements) {
-        // Convert enum to string for display
-        std::string typeName;
-        switch (element.textureName) {
-            case ElementName::COCONUT_TREE_1:
-                typeName = "COCONUT_TREE_1";
-                break;
-            case ElementName::CHARACTER1:
-                typeName = "CHARACTER1";
-                break;
-            default:
-                typeName = "UNKNOWN";
-                break;
-        }
+      for (const auto& element : elements) {
+        // Use magic_enum to convert enum to string
+        std::string typeName = std::string(magic_enum::enum_name(element.textureName));
         
-        // Convert anchor point to string
-        std::string anchorName;
-        switch (element.anchorPoint) {
-            case AnchorPoint::CENTER:
-                anchorName = "CENTER";
-                break;
-            case AnchorPoint::TOP_LEFT_CORNER:
-                anchorName = "TOP_LEFT";
-                break;
-            case AnchorPoint::TOP_RIGHT_CORNER:
-                anchorName = "TOP_RIGHT";
-                break;
-            case AnchorPoint::BOTTOM_LEFT_CORNER:
-                anchorName = "BOTTOM_LEFT";
-                break;
-            case AnchorPoint::BOTTOM_RIGHT_CORNER:
-                anchorName = "BOTTOM_RIGHT";
-                break;
-            case AnchorPoint::BOTTOM_CENTER:
-                anchorName = "BOTTOM_CENTER";
-                break;
-            case AnchorPoint::USE_TEXTURE_DEFAULT:
-                anchorName = "DEFAULT";
-                break;
-            default:
-                anchorName = "UNKNOWN";
-                break;
-        }
+        // Convert anchor point to string using magic_enum
+        std::string anchorName = std::string(magic_enum::enum_name(element.anchorPoint));
         
         // Print element details with formatted column widths
         printf("%-19s | %-10s | (%6.2f,%6.2f) | %5.2f | %8.2f | %s\n", 

@@ -11,6 +11,8 @@
 #include <vector>
 #include <map>
 #include <stdexcept> // For std::runtime_error
+#include "enumDefinitions.h"
+
 
 // Forward declaration of the GLBI_Engine class
 namespace glbasimac {
@@ -21,20 +23,6 @@ namespace glbasimac {
 // To add a new texture:
 // 1. Add its type here (e.g., DIRT, STONE)
 // 2. Add its file path in Map::init() in map.cpp
-enum class TextureName {
-    GRASS_0,
-    GRASS_1,
-    GRASS_2,
-    GRASS_3,
-    GRASS_4,
-    GRASS_5,
-    SAND,
-    WATER_0,
-    WATER_1,
-    WATER_2,
-    WATER_3,
-    WATER_4
-};
 
 // Enum for texture animation type
 enum class TextureAnimationType {
@@ -65,28 +53,28 @@ public:
     // Initialize the map and load all configured textures
     bool init(glbasimac::GLBI_Engine& engine);
 
-    // Place a block at given grid coordinates using its TextureName
-    void placeBlock(TextureName name, int x, int y);
+    // Place a block at given grid coordinates using its BlockName
+    void placeBlock(BlockName name, int x, int y);
 
-    // Place multiple blocks based on a map of coordinates to TextureNames
-    void placeBlocks(const std::map<std::pair<int, int>, TextureName>& blocksToPlace);    // Place a texture on all blocks in a rectangular area using its TextureName
-    void placeBlockArea(TextureName name, int x1, int y1, int x2, int y2);
+    // Place multiple blocks based on a map of coordinates to BlockNames
+    void placeBlocks(const std::map<std::pair<int, int>, BlockName>& blocksToPlace);    // Place a texture on all blocks in a rectangular area using its BlockName
+    void placeBlockArea(BlockName name, int x1, int y1, int x2, int y2);
 
     // Draw all blocks, deltaTime for animations
     void drawBlocks(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop, double deltaTime);
 
     // Public method to get a loaded texture ID by its type
-    GLuint getTexture(TextureName type) const;
+    GLuint getTexture(BlockName type) const;
     
     // Get the texture name at the specified grid coordinates
-    TextureName getBlockNameByCoordinates(int x, int y) const;
+    BlockName getBlockNameByCoordinates(int x, int y) const;
     
 private:
     // Internal helper to load a single texture from file
     bool loadTexture(const std::string& path, GLuint& textureID, int& width, int& height);
 
     struct Block {
-        TextureName name; // Store TextureName instead of GLuint
+        BlockName name; // Store BlockName instead of GLuint
         int x;
         int y;
         float currentFrame = 0.0f; // Added for individual animation state
@@ -94,7 +82,7 @@ private:
     };
 
     std::vector<Block> blocks;
-    std::map<TextureName, BlockInfo> textureDetails; // Stores detailed info for each texture
+    std::map<BlockName, BlockInfo> textureDetails; // Stores detailed info for each texture
     std::map<std::pair<int, int>, size_t> blockPositionMap; // Maps coordinates to block index for faster lookups
     glbasimac::GLBI_Engine* enginePtr;
 };

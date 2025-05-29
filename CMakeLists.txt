@@ -36,8 +36,11 @@ set(CMAKE_COLOR_MAKEFILE ON)
 # ---Add Taskflow---
 include_directories(third_party/taskflow)
 
+# ---Add magic_enum---
+include_directories(third_party/magic_enum)
+
 # Main executable
-add_executable(${PROJECT_NAME} src/main.cpp src/map.cpp src/terrainGeneration.cpp src/elementsOnMap.cpp src/player.cpp src/camera.cpp src/globals.cpp src/collision.cpp src/debug.cpp src/entities.cpp src/entityBehaviors.cpp src/pathfinding.cpp src/inputs.cpp src/threading.cpp src/asyncPathfinding.cpp src/crashDebug.cpp)
+add_executable(${PROJECT_NAME} src/main.cpp src/map.cpp src/terrainGeneration.cpp src/elementsOnMap.cpp src/player.cpp src/camera.cpp src/globals.cpp src/collision.cpp src/debug.cpp src/entities.cpp src/entityBehaviors.cpp src/pathfinding.cpp src/inputs.cpp src/threading.cpp src/asyncPathfinding.cpp src/crashDebug.cpp src/enumDefinitions.cpp)
 
 # Find threading library
 find_package(Threads REQUIRED)

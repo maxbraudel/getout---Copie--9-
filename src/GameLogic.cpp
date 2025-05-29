@@ -9,6 +9,8 @@
 #include "debug.h"
 #include "crashDebug.h"
 #include <iostream>
+#include "enumDefinitions.h"
+
 
 GameLogic::GameLogic() 
     : m_gameMap(nullptr), m_elementsManager(nullptr), m_entitiesManager(nullptr), m_camera(nullptr),

@@ -9,16 +9,8 @@
 #include <cmath> // For distance calculations
 #include <utility> // For std::pair
 #include <chrono> // For async pathfinding timing
+#include "enumDefinitions.h"
 
-// Enum for entity types/names
-enum class EntityName {
-    ANTAGONIST,
-    PLAYER // Add more entity types as needed
-};
-
-// Utility functions for EntityName enum
-std::string entityNameToString(EntityName entityName);
-EntityName stringToEntityName(const std::string& str);
 
 // Enum for entity directions (corresponds to sprite sheet rows/phases)
 enum EntityDirection {
@@ -63,8 +55,8 @@ struct EntityInfo {
     std::vector<ElementName> collisionElements; // Elements this entity cannot overlap with at all
     
     // Granular block collision control - specify which block types to avoid or collide with
-    std::vector<TextureName> avoidanceBlocks; // Blocks this entity will pathfind around (but can overlap if forced)
-    std::vector<TextureName> collisionBlocks; // Blocks this entity cannot overlap with at all
+    std::vector<BlockName> avoidanceBlocks; // Blocks this entity will pathfind around (but can overlap if forced)
+    std::vector<BlockName> collisionBlocks; // Blocks this entity cannot overlap with at all
       // Map boundary control
     bool offMapAvoidance = true; // Entity pathfinding will avoid going outside the map grid
     bool offMapCollision = true; // Entity will collide with map borders during movement
@@ -106,8 +98,8 @@ struct EntityConfiguration {
     std::vector<ElementName> collisionElements; // Elements this entity cannot overlap with at all
     
     // Granular block collision control - specify which block types to avoid or collide with
-    std::vector<TextureName> avoidanceBlocks; // Blocks this entity will pathfind around (but can overlap if forced)
-    std::vector<TextureName> collisionBlocks; // Blocks this entity cannot overlap with at all
+    std::vector<BlockName> avoidanceBlocks; // Blocks this entity will pathfind around (but can overlap if forced)
+    std::vector<BlockName> collisionBlocks; // Blocks this entity cannot overlap with at all
       // Map boundary control
     bool offMapAvoidance = true; // Entity pathfinding will avoid going outside the map grid
     bool offMapCollision = true; // Entity will collide with map borders during movement

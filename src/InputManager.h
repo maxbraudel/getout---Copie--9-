@@ -4,6 +4,8 @@
 #include <functional>
 #include <array>
 #include <mutex>
+#include "enumDefinitions.h"
+
 
 struct GLFWwindow;
 

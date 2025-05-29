@@ -6,6 +6,8 @@
 #include "elementsOnMap.h"
 #include "camera.h"
 #include "crashDebug.h"
+#include "enumDefinitions.h"
+
 
 RenderSystem::RenderSystem() 
     : m_window(nullptr), m_width(0), m_height(0), m_initialized(false) {

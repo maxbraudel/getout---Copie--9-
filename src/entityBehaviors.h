@@ -1,5 +1,7 @@
 #ifndef ENTITY_BEHAVIORS_H
 #define ENTITY_BEHAVIORS_H
+#include "enumDefinitions.h"
+
 
 #include <string>
 

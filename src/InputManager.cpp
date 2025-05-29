@@ -1,6 +1,8 @@
 #include "InputManager.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include "enumDefinitions.h"
+
 
 // Static instance for callback access
 static InputManager* s_inputManagerInstance = nullptr;

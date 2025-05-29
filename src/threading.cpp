@@ -9,6 +9,8 @@
 #include "debug.h"
 #include "crashDebug.h"
 #include <iostream>
+#include "enumDefinitions.h"
+
 
 // Global thread manager instance
 GameThreadManager* g_threadManager = nullptr;

@@ -1,5 +1,7 @@
 #ifndef DEBUG_H
 #define DEBUG_H
+#include "enumDefinitions.h"
+
 
 // Forward declarations
 class ElementsOnMap;

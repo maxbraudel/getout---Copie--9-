@@ -1,6 +1,8 @@
 #pragma once
 
 #include <algorithm> // For std::min and std::max
+#include "enumDefinitions.h"
+
 
 class Camera {
 public:

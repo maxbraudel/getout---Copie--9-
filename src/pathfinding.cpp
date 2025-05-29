@@ -17,6 +17,8 @@
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
+#include "enumDefinitions.h"
+
 
 // Global variables for minimum distance from avoidance objects
 float MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS = 0.0f;  // Default: no buffer

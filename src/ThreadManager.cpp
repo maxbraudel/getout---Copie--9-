@@ -1,6 +1,8 @@
 #include "ThreadManager.h"
 #include <iostream>
 #include <chrono>
+#include "enumDefinitions.h"
+
 
 ThreadManager::ThreadManager() : m_running(false), m_started(false) {
 }

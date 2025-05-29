@@ -4,6 +4,8 @@
 #include <sstream>
 #include <chrono>
 #include <iomanip>
+#include "enumDefinitions.h"
+
 
 #ifdef _WIN32
 #include <windows.h>

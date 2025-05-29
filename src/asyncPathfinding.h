@@ -12,6 +12,8 @@
 #include <future>
 #include <taskflow.hpp>
 #include "entities.h"
+#include "enumDefinitions.h"
+
 
 // Forward declarations
 class Map;

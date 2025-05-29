@@ -8,6 +8,8 @@
 #include "crashDebug.h"
 #include <iostream>
 #include <chrono>
+#include "enumDefinitions.h"
+
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

@@ -9,11 +9,14 @@
 #include "camera.h"
 #include "collision.h"
 #include "terrainGeneration.h"
+#include "enumDefinitions.h"
 #include <iostream>
 #include <cmath>
 #include <algorithm>
 #include <vector>
 #include <string>
+#include "enumDefinitions.h"
+
 
 // External references to global variables and objects
 extern Map gameMap;
@@ -42,7 +45,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             bool waterFound = false;
             for (int x = 0; x < GRID_SIZE && !waterFound; x++) {
                 for (int y = 0; y < GRID_SIZE && !waterFound; y++) {
-                    TextureName blockType = gameMap.getBlockNameByCoordinates(x, y);
+                    BlockName blockType = gameMap.getBlockNameByCoordinates(x, y);
                     if (isBlockNonTraversable(blockType)) {
                         // Found a non-traversable block (water), try to teleport player near it
                         std::cout << "Testing collision recovery - attempting to teleport player to water at ("
@@ -62,7 +65,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             bool waterFound = false;
             for (int x = 0; x < GRID_SIZE && !waterFound; x++) {
                 for (int y = 0; y < GRID_SIZE && !waterFound; y++) {
-                    TextureName blockType = gameMap.getBlockNameByCoordinates(x, y);
+                    BlockName blockType = gameMap.getBlockNameByCoordinates(x, y);
                     if (isBlockNonTraversable(blockType)) {
                         // Found a non-traversable block (water), try to teleport entity near it
                         std::cout << "Testing entity collision recovery - attempting to teleport antagonist to water at ("
@@ -103,10 +106,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             sandIsBlocked = !sandIsBlocked;
             
             if (sandIsBlocked) {
-                addNonTraversableBlock(TextureName::SAND);
+                addNonTraversableBlock(BlockName::SAND);
                 std::cout << "SAND blocks are now non-traversable" << std::endl;
             } else {
-                removeNonTraversableBlock(TextureName::SAND);
+                removeNonTraversableBlock(BlockName::SAND);
                 std::cout << "SAND blocks are now traversable" << std::endl;
             }
             
@@ -124,7 +127,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             
             // Regenerate the map with the new setting
             std::cout << "Regenerating terrain with DEBUG_MAP=" << (DEBUG_MAP ? "true" : "false") << "..." << std::endl;
-            std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.65f);
+            std::map<std::pair<int, int>, BlockName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.65f);
             gameMap.placeBlocks(generatedMap);
             
             // Regenerate terrain elements
@@ -201,23 +204,23 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             float worldY = gridYInt + 0.5f;  // Center of the block
             
             // Get block name at these coordinates
-            TextureName blockName = gameMap.getBlockNameByCoordinates(gridXInt, gridYInt);
+            BlockName blockName = gameMap.getBlockNameByCoordinates(gridXInt, gridYInt);
             
             // Convert enum to string for better output
             std::string blockNameStr = "UNKNOWN";
             switch (blockName) {
-                case TextureName::GRASS_0: blockNameStr = "GRASS_0"; break;
-                case TextureName::GRASS_1: blockNameStr = "GRASS_1"; break;
-                case TextureName::GRASS_2: blockNameStr = "GRASS_2"; break;
-                case TextureName::GRASS_3: blockNameStr = "GRASS_3"; break;
-                case TextureName::GRASS_4: blockNameStr = "GRASS_4"; break;
-                case TextureName::GRASS_5: blockNameStr = "GRASS_5"; break;
-                case TextureName::SAND: blockNameStr = "SAND"; break;
-                case TextureName::WATER_0: blockNameStr = "WATER_0"; break;
-                case TextureName::WATER_1: blockNameStr = "WATER_1"; break;
-                case TextureName::WATER_2: blockNameStr = "WATER_2"; break;
-                case TextureName::WATER_3: blockNameStr = "WATER_3"; break;
-                case TextureName::WATER_4: blockNameStr = "WATER_4"; break;
+                case BlockName::GRASS_0: blockNameStr = "GRASS_0"; break;
+                case BlockName::GRASS_1: blockNameStr = "GRASS_1"; break;
+                case BlockName::GRASS_2: blockNameStr = "GRASS_2"; break;
+                case BlockName::GRASS_3: blockNameStr = "GRASS_3"; break;
+                case BlockName::GRASS_4: blockNameStr = "GRASS_4"; break;
+                case BlockName::GRASS_5: blockNameStr = "GRASS_5"; break;
+                case BlockName::SAND: blockNameStr = "SAND"; break;
+                case BlockName::WATER_0: blockNameStr = "WATER_0"; break;
+                case BlockName::WATER_1: blockNameStr = "WATER_1"; break;
+                case BlockName::WATER_2: blockNameStr = "WATER_2"; break;
+                case BlockName::WATER_3: blockNameStr = "WATER_3"; break;
+                case BlockName::WATER_4: blockNameStr = "WATER_4"; break;
                 default: blockNameStr = "UNKNOWN"; break;
             }
             
@@ -235,9 +238,8 @@ void processPlayerMovement(double deltaTime, float& playerMoveX, float& playerMo
     
     // Apply speed based on whether shift is held
     float currentSpeed = 0.0f;
-    
-    // Use player entity configuration for speeds
-    const EntityConfiguration* playerConfig = entitiesManager.getConfiguration("player");
+      // Use player entity configuration for speeds
+    const EntityConfiguration* playerConfig = entitiesManager.getConfiguration(EntityName::PLAYER);
     if (playerConfig) {
         // Use speeds from player entity configuration
         if (keyPressedStates[GLFW_KEY_LEFT_SHIFT] || keyPressedStates[GLFW_KEY_RIGHT_SHIFT]) {

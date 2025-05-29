@@ -1,4 +1,6 @@
 #pragma once
+#include "enumDefinitions.h"
+
 
 // Forward declarations
 struct GLFWwindow;

@@ -8,17 +8,8 @@
 #include <vector>
 #include <map>
 #include <mutex>
+#include "enumDefinitions.h"
 
-// Define an enum for element texture types
-enum class ElementName {
-    COCONUT_TREE_1,
-    COCONUT_TREE_2,
-    COCONUT_TREE_3,
-    CHARACTER1,
-    TEST,
-    ANTAGONIST1
-    // Add more element texture types as needed
-};
 
 // Define an enum for texture types
 enum class ElementTextureType {

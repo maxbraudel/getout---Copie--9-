@@ -13,6 +13,8 @@
 #include <future>
 #include <atomic>
 #include <chrono>
+#include "enumDefinitions.h"
+
 
 // Forward declaration for EntityConfiguration
 // struct EntityConfiguration; // No longer needed, we include entities.h

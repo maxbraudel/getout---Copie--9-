@@ -12,6 +12,8 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include "enumDefinitions.h"
+
 
 GameEngine::GameEngine() : m_running(false) {
 }

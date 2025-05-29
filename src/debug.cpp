@@ -3,6 +3,8 @@
 #include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include "enumDefinitions.h"
+
 
 // Global state for keyboard handling of debug features
 static bool lastFrameAnchorPointKeyState = false;

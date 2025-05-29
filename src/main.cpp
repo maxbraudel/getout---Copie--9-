@@ -21,6 +21,8 @@
 #include <algorithm> // For std::min and std::max
 #include <thread> // For std::this_thread::sleep_for
 #include <chrono> // For std::chrono::seconds
+#include "enumDefinitions.h"
+
 
 
 using namespace glbasimac;
@@ -174,16 +176,16 @@ int main() {
 	// elementsManager.listElements();
 		// Generate the terrain first - this will be our base map
 	std::cout << "Generating terrain..." << std::endl;
-	std::map<std::pair<int, int>, TextureName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.65f);
+	std::map<std::pair<int, int>, BlockName> generatedMap = generateTerrain(GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.65f);
 	// Apply the generated terrain - this is more efficient than placing blocks and then overwriting them
 	std::cout << "Placing generated terrain..." << std::endl;
 	gameMap.placeBlocks(generatedMap);	
 	
 	// Now add a few specific blocks (only if you need to override the terrain)
 	// These are placed after the terrain generation, so they will override any blocks at the same positions
-	/* std::map<std::pair<int, int>, TextureName> specialBlocks;
-	specialBlocks[{0, 0}] = TextureName::SAND; // Special block at top-left
-	specialBlocks[{5, 5}] = TextureName::SAND; // Special block at position
+	/* std::map<std::pair<int, int>, BlockName> specialBlocks;
+	specialBlocks[{0, 0}] = BlockName::SAND; // Special block at top-left
+	specialBlocks[{5, 5}] = BlockName::SAND; // Special block at position
 	gameMap.placeBlocks(specialBlocks);
 		// Update the generated map with special blocks to keep it in sync with the actual map
 	for (const auto& pair : specialBlocks) {
@@ -265,22 +267,21 @@ int main() {
     elementsManager.placeElement("bush47",ElementName::COCONUT_TREE_1,10.0f,11,49,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
     elementsManager.placeElement("bush48",ElementName::COCONUT_TREE_1,10.0f,11,50,0.0f,0,0,false,10.0f,AnchorPoint::USE_TEXTURE_DEFAULT,0.0f,0.0f);
 
-    gameMap.placeBlockArea(TextureName::WATER_3, 0, 33, 50, 33);
-    gameMap.placeBlockArea(TextureName::GRASS_2, 5, 33, 10, 33); */
+    gameMap.placeBlockArea(BlockName::WATER_3, 0, 33, 50, 33);
+    gameMap.placeBlockArea(BlockName::GRASS_2, 5, 33, 10, 33); */
 
 
     DEBUG_LOG_MEMORY("map_initialization_complete");
     
     // Place the antagonist entity at coordinates (10, 10)
-    std::cout << "Initializing entities..." << std::endl;
-    entitiesManager.initializeEntityConfigurations();
+    std::cout << "Initializing entities..." << std::endl;    entitiesManager.initializeEntityConfigurations();
     DEBUG_LOG_MEMORY("entity_configs_initialized");
 
-    entitiesManager.placeEntityByType("antagonist1", "antagonist", 5.0f, 30.0f);
-    entitiesManager.placeEntityByType("antagonist2", "antagonist", 6.0f, 30.0f);
-    entitiesManager.placeEntityByType("antagonist3", "antagonist", 7.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist1", EntityName::ANTAGONIST, 5.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist2", EntityName::ANTAGONIST, 6.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist3", EntityName::ANTAGONIST, 7.0f, 30.0f);
 
-    entitiesManager.placeEntityByType("player1", "player", 5.0f, 45.0f);;
+    entitiesManager.placeEntityByType("player1", EntityName::PLAYER, 5.0f, 45.0f);
     
     DEBUG_LOG_MEMORY("entities_placed");
 

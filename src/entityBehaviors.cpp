@@ -1,10 +1,12 @@
 #include "entityBehaviors.h"
 #include "entities.h"
-#include "entityNameOps.h" // For entityNameToString function
 #include "elementsOnMap.h" // For global elementsManager
 #include <iostream>
 #include <random>
 #include <chrono>
+#include "enumDefinitions.h"
+#include "enumDefinitions.h"
+
 
 // Global behavior manager instance
 EntityBehaviorManager entityBehaviorManager;

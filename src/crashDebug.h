@@ -8,6 +8,8 @@
 #include <csignal>
 #include <vector>
 #include <stdexcept>
+#include "enumDefinitions.h"
+
 
 /**
  * Comprehensive crash debugging and memory safety utilities

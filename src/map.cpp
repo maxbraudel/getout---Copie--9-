@@ -5,6 +5,7 @@
 #include <algorithm>   // For std::replace
 #include <string>
 #include <map>
+#include "enumDefinitions.h"
 
 // For cross-platform directory checking
 #ifdef _WIN32
@@ -62,35 +63,35 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     }
 
     // C++11 compatible way to initialize the map
-    std::map<TextureName, BlockInfo> textureConfigs;
+    std::map<BlockName, BlockInfo> textureConfigs;
 
     BlockInfo grass0Info;
     grass0Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass0.png";
     grass0Info.animType = TextureAnimationType::STATIC;
     grass0Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
-    textureConfigs[TextureName::GRASS_0] = grass0Info;
+    textureConfigs[BlockName::GRASS_0] = grass0Info;
 
     BlockInfo grass1Info;
     grass1Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass1.png";
     grass1Info.animType = TextureAnimationType::STATIC;
     grass1Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
-    textureConfigs[TextureName::GRASS_1] = grass1Info;
+    textureConfigs[BlockName::GRASS_1] = grass1Info;
 
     BlockInfo grass2Info;
     grass2Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass2.png";
     grass2Info.animType = TextureAnimationType::STATIC;
     grass2Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
-    textureConfigs[TextureName::GRASS_2] = grass2Info;
+    textureConfigs[BlockName::GRASS_2] = grass2Info;
 
     BlockInfo sandInfo;
     sandInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\sand.png";
     sandInfo.animType = TextureAnimationType::STATIC;
-    textureConfigs[TextureName::SAND] = sandInfo;
+    textureConfigs[BlockName::SAND] = sandInfo;
 
     BlockInfo waterInfo; // For non-animated water, if you still have it
     waterInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water.png"; // Assuming you might have a static water.png
     waterInfo.animType = TextureAnimationType::STATIC;
-    // textureConfigs[TextureName::WATER] = waterInfo; // Uncomment if you have a WATER enum and texture
+    // textureConfigs[BlockName::WATER] = waterInfo; // Uncomment if you have a WATER enum and texture
 
     BlockInfo water0Info;
     water0Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water0.png";
@@ -98,7 +99,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     water0Info.animationSpeed = 20.0f; // Example speed, adjust as needed
     water0Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
     water0Info.animationStartRandomFrame = true; // Enable random start frame
-    textureConfigs[TextureName::WATER_0] = water0Info;
+    textureConfigs[BlockName::WATER_0] = water0Info;
 
     BlockInfo water1Info;
     water1Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water1.png";
@@ -106,7 +107,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     water1Info.animationSpeed = 20.0f; // Example speed, adjust as needed
     water1Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
     water1Info.animationStartRandomFrame = true; // Enable random start frame
-    textureConfigs[TextureName::WATER_1] = water1Info;
+    textureConfigs[BlockName::WATER_1] = water1Info;
 
     BlockInfo water2Info;
     water2Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water2.png";
@@ -115,7 +116,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     water2Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
     water2Info.animationStartRandomFrame = true; // Enable random start frame
     water2Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
-    textureConfigs[TextureName::WATER_2] = water2Info;
+    textureConfigs[BlockName::WATER_2] = water2Info;
 
     BlockInfo water3Info;
     water3Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water3.png";
@@ -123,7 +124,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     water3Info.animationSpeed = 20.0f; // Example speed, adjust as needed
     water3Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
     water3Info.animationStartRandomFrame = true; // Enable random start frame
-    textureConfigs[TextureName::WATER_3] = water3Info;
+    textureConfigs[BlockName::WATER_3] = water3Info;
 
     BlockInfo water4Info;
     water4Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water4.png";
@@ -132,13 +133,13 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     water4Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
     water4Info.animationStartRandomFrame = true; // Enable random start frame
     water4Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
-    textureConfigs[TextureName::WATER_4] = water4Info;
+    textureConfigs[BlockName::WATER_4] = water4Info;
 
 
 
 
     for (auto it = textureConfigs.begin(); it != textureConfigs.end(); ++it) { // Changed to iterator loop
-        TextureName name = it->first;
+        BlockName name = it->first;
         BlockInfo& info = it->second; // Get a reference to modify
 
         std::cout << "Attempting to load texture for type " << static_cast<int>(name) << " from: " << info.path << std::endl;
@@ -219,7 +220,7 @@ bool Map::loadTexture(const std::string& path, GLuint& textureID, int& width, in
     }
 }
 
-GLuint Map::getTexture(TextureName name) const {
+GLuint Map::getTexture(BlockName name) const {
     auto it = textureDetails.find(name);
     if (it != textureDetails.end()) {
         return it->second.textureID;
@@ -228,7 +229,7 @@ GLuint Map::getTexture(TextureName name) const {
     return 0; 
 }
 
-void Map::placeBlock(TextureName name, int x, int y) {
+void Map::placeBlock(BlockName name, int x, int y) {
     // First check if a block already exists at these coordinates
     bool blockExists = false;
     size_t existingBlockIndex = 0;
@@ -285,12 +286,12 @@ void Map::placeBlock(TextureName name, int x, int y) {
     }
 }
 
-void Map::placeBlocks(const std::map<std::pair<int, int>, TextureName>& blocksToPlace) {
+void Map::placeBlocks(const std::map<std::pair<int, int>, BlockName>& blocksToPlace) {
     // Since we already maintain blockPositionMap, we don't need to create it here anymore
       // Now process the blocks we want to place
     for (const auto& pair : blocksToPlace) {
         const std::pair<int, int>& coords = pair.first;
-        TextureName name = pair.second;
+        BlockName name = pair.second;
         
         auto existingBlockIt = blockPositionMap.find(coords);
         if (existingBlockIt != blockPositionMap.end()) {
@@ -359,14 +360,14 @@ void Map::placeBlocks(const std::map<std::pair<int, int>, TextureName>& blocksTo
     }
 }
 
-void Map::placeBlockArea(TextureName name, int x1, int y1, int x2, int y2) {
+void Map::placeBlockArea(BlockName name, int x1, int y1, int x2, int y2) {
     int startX = std::min(x1, x2);
     int endX = std::max(x1, x2);
     int startY = std::min(y1, y2);
     int endY = std::max(y1, y2);
 
     // Create a map of coordinates to texture names for batch processing
-    std::map<std::pair<int, int>, TextureName> blocksToPlace;
+    std::map<std::pair<int, int>, BlockName> blocksToPlace;
     for (int iy = startY; iy <= endY; ++iy) {
         for (int ix = startX; ix <= endX; ++ix) {
             blocksToPlace[{ix, iy}] = name;
@@ -377,7 +378,7 @@ void Map::placeBlockArea(TextureName name, int x1, int y1, int x2, int y2) {
     placeBlocks(blocksToPlace);
 }
 
-TextureName Map::getBlockNameByCoordinates(int x, int y) const {
+BlockName Map::getBlockNameByCoordinates(int x, int y) const {
     // Use the blockPositionMap for direct lookups
     auto it = blockPositionMap.find({x, y});
     if (it != blockPositionMap.end()) {
@@ -394,7 +395,7 @@ TextureName Map::getBlockNameByCoordinates(int x, int y) const {
     if (x < 0 || y < 0 || x >= 70 || y >= 70) {
         std::cerr << "Warning: Coordinates (" << x << ", " << y << ") are outside the grid bounds" << std::endl;
     }
-    return TextureName::GRASS_0;
+    return BlockName::GRASS_0;
 }
 
 void Map::drawBlocks(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop, double deltaTime) {

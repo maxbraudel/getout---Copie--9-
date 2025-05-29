@@ -5,6 +5,8 @@
 #include "globals.h" // Added for GRID_SIZE
 #include <iostream>
 #include <cmath>
+#include "enumDefinitions.h"
+
 
 // Global variables for player state - 'extern' in collision.h
 bool playerDebugMode = false;
@@ -14,7 +16,7 @@ static PlayerStuckState playerStuckState;
 
 // Define a getter for player configuration to ensure it's always up-to-date
 inline const EntityConfiguration* getPlayerConfig() {
-    return entitiesManager.getConfiguration("player");
+    return entitiesManager.getConfiguration(EntityName::PLAYER);
 }
 
 
@@ -26,7 +28,7 @@ void createPlayer(float x, float y) {
     // COLLISION RESOLUTION MECHANISMS DISABLED
     // Use the entity system to create the player at the exact requested coordinates
     // No automatic safe positioning - player will be placed exactly where requested
-    bool success = entitiesManager.placeEntity(PLAYER_INSTANCE_NAME, "player", x, y);
+    bool success = entitiesManager.placeEntity(PLAYER_INSTANCE_NAME, EntityName::PLAYER, x, y);
     
     if (success) {
         if (playerDebugMode) {
@@ -50,9 +52,8 @@ void changePlayerDirection(int direction) {
         std::cerr << "Invalid direction value: " << direction << " (must be 0-3)" << std::endl;
         return;
     }
-    
-    // Get the player entity to access its configuration
-    const EntityConfiguration* config = entitiesManager.getConfiguration("player");
+      // Get the player entity to access its configuration
+    const EntityConfiguration* config = entitiesManager.getConfiguration(EntityName::PLAYER);
     if (!config) {
         std::cerr << "Player configuration not found in entity system" << std::endl;
         return;

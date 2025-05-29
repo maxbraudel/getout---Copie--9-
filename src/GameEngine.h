@@ -3,6 +3,8 @@
 
 #include <memory>
 #include <string>
+#include "enumDefinitions.h"
+
 
 // Forward declarations
 class Map;

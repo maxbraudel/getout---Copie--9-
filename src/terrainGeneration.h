@@ -3,12 +3,14 @@
 
 #include <map>
 #include <vector>
-#include "map.h" // For TextureName and std::pair<int, int>
+#include "map.h" // For BlockName and std::pair<int, int>
 #include "elementsOnMap.h" // For ElementsOnMap class
+#include "enumDefinitions.h"
+
 
 // Generates a terrain map using a placeholder Perlin noise function.
 // A real Perlin noise implementation/library should be used for better results.
-std::map<std::pair<int, int>, TextureName> generateTerrain(
+std::map<std::pair<int, int>, BlockName> generateTerrain(
     int gridWidth, 
     int gridHeight, 
     float islandFeatureSize, // Renamed from scale for clarity

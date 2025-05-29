@@ -6,6 +6,8 @@
 #include <vector>
 #include <string>
 #include <set>
+#include "enumDefinitions.h"
+
 
 // Forward declaration
 struct EntityConfiguration;
@@ -30,7 +32,7 @@ bool wouldEntityCollideWithMapBounds(const EntityConfiguration& config, float x,
 bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap);
 
 // Overloaded function that checks block collision using entity-specific non-traversable blocks
-bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap, const std::set<TextureName>& entityNonTraversableBlocks);
+bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap, const std::set<BlockName>& entityNonTraversableBlocks);
 
 // Get the names of all elements with collision enabled
 std::vector<std::string> getCollidableElementNames();
@@ -47,7 +49,7 @@ extern bool spatialGridInitialized;
 extern const float MAX_COLLISION_CHECK_RANGE;
 
 // Set of non-traversable block types (water, lava, etc.)
-extern std::set<TextureName> nonTraversableBlocks;
+extern std::set<BlockName> nonTraversableBlocks;
 
 // Collision resolution functions
 bool findSafePosition(float& x, float& y, float entityRadius, const Map& gameMap);
@@ -55,14 +57,14 @@ bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& co
 bool resolveEntityCollisionStuck(const std::string& entityId, float& x, float& y, const EntityConfiguration& config, const Map& gameMap);
 
 // Functions to manage non-traversable blocks
-void addNonTraversableBlock(TextureName blockType);
-void removeNonTraversableBlock(TextureName blockType);
-bool isBlockNonTraversable(TextureName blockType);
+void addNonTraversableBlock(BlockName blockType);
+void removeNonTraversableBlock(BlockName blockType);
+bool isBlockNonTraversable(BlockName blockType);
 void clearNonTraversableBlocks();
 void printNonTraversableBlocks();
 
-// Stream operator for TextureName enum
-std::ostream& operator<<(std::ostream& os, const TextureName& blockType);
+// Stream operator for BlockName enum
+std::ostream& operator<<(std::ostream& os, const BlockName& blockType);
 
 // Function removed - collision resolution mechanisms disabled
 

@@ -1,5 +1,5 @@
 #include "terrainGeneration.h"
-#include "map.h" // For TextureName enum and gameMap
+#include "map.h" // For BlockName enum and gameMap
 #include "collision.h" // For collision detection
 #include "globals.h" // For DEBUG_MAP flag
 #include <vector>
@@ -11,6 +11,8 @@
 #include <cstdlib> // For rand, srand
 #include <ctime>   // For time
 #include <iostream> // For debugging output
+#include "enumDefinitions.h"
+
 
 // Static variables for noise generation (assuming these are part of your existing setup)
 static std::vector<std::vector<float>> baseNoiseGrid;
@@ -77,7 +79,7 @@ float getInterpolatedNoise(float normX, float normY) {
 }
 
 
-std::map<std::pair<int, int>, TextureName> generateTerrain(
+std::map<std::pair<int, int>, BlockName> generateTerrain(
     int gridWidth, int gridHeight, 
     float islandFeatureSize, // Renamed from scale
     float seaFeatureSize,    // Added this line
@@ -87,7 +89,7 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
     if (DEBUG_MAP) {
         std::cout << "Generating DEBUG MAP - Top half: GRASS_2, Bottom half: WATER_4" << std::endl;
         
-        std::map<std::pair<int, int>, TextureName> debugMap;
+        std::map<std::pair<int, int>, BlockName> debugMap;
         int midPoint = gridHeight / 2;
         
         // Fill the grid with the debug pattern
@@ -95,10 +97,10 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
             for (int x_coord = 0; x_coord < gridWidth; ++x_coord) {
                 if (y_coord >= midPoint) {
                     // Top half - GRASS_2
-                    debugMap[{x_coord, y_coord}] = TextureName::GRASS_2;
+                    debugMap[{x_coord, y_coord}] = BlockName::GRASS_2;
                 } else {
                     // Bottom half - WATER_4
-                    debugMap[{x_coord, y_coord}] = TextureName::WATER_4;
+                    debugMap[{x_coord, y_coord}] = BlockName::WATER_4;
                 }
             }
         }
@@ -112,7 +114,7 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
     float noiseFeatureSize = islandFeatureSize / seaFeatureSize; 
     initializeBaseNoiseIfNeeded(gridWidth, gridHeight, noiseFeatureSize);
 
-    std::vector<std::vector<TextureName>> grid(gridHeight, std::vector<TextureName>(gridWidth));
+    std::vector<std::vector<BlockName>> grid(gridHeight, std::vector<BlockName>(gridWidth));
 
     // 1. Initial terrain generation based on noise
     for (int y_coord = 0; y_coord < gridHeight; ++y_coord) {
@@ -123,11 +125,11 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
             );
 
             if (noiseValue < waterThreshold) {
-                grid[y_coord][x_coord] = TextureName::WATER_0; // Initial water type (will be refined)
+                grid[y_coord][x_coord] = BlockName::WATER_0; // Initial water type (will be refined)
             } else if (noiseValue < grassThreshold) {
-                grid[y_coord][x_coord] = TextureName::SAND;
+                grid[y_coord][x_coord] = BlockName::SAND;
             } else {
-                grid[y_coord][x_coord] = TextureName::GRASS_0;
+                grid[y_coord][x_coord] = BlockName::GRASS_0;
             }
         }
     }
@@ -138,7 +140,7 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
 
     for (int y_coord = 0; y_coord < gridHeight; ++y_coord) {
         for (int x_coord = 0; x_coord < gridWidth; ++x_coord) {
-            if (grid[y_coord][x_coord] == TextureName::SAND) {
+            if (grid[y_coord][x_coord] == BlockName::SAND) {
                 distanceToSand[y_coord][x_coord] = 0;
                 bfsQueue.push({x_coord, y_coord});
             }
@@ -171,19 +173,19 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
     for (int y_coord = 0; y_coord < gridHeight; ++y_coord) {
         for (int x_coord = 0; x_coord < gridWidth; ++x_coord) {
             // Only modify if it was initially classified as a water block
-            if (grid[y_coord][x_coord] != TextureName::SAND && grid[y_coord][x_coord] != TextureName::GRASS_0) {
+            if (grid[y_coord][x_coord] != BlockName::SAND && grid[y_coord][x_coord] != BlockName::GRASS_0) {
                 int dist = distanceToSand[y_coord][x_coord];
                 
                 if (dist == 1) {
-                    grid[y_coord][x_coord] = TextureName::WATER_0;
+                    grid[y_coord][x_coord] = BlockName::WATER_0;
                 } else if (dist == 2) {
-                    grid[y_coord][x_coord] = TextureName::WATER_1;
+                    grid[y_coord][x_coord] = BlockName::WATER_1;
                 } else if (dist == 3) {
-                    grid[y_coord][x_coord] = TextureName::WATER_2;
+                    grid[y_coord][x_coord] = BlockName::WATER_2;
                 } else if (dist == 4) {
-                    grid[y_coord][x_coord] = TextureName::WATER_3;
+                    grid[y_coord][x_coord] = BlockName::WATER_3;
                 } else if (dist >= 5) {
-                    grid[y_coord][x_coord] = TextureName::WATER_4;
+                    grid[y_coord][x_coord] = BlockName::WATER_4;
                 }
                 // If dist is 0, it's sand, so this block is skipped by the outer if.
                 // If it was WATER_0 and dist is still max_int (e.g. isolated pond), it becomes WATER_5.
@@ -196,22 +198,22 @@ std::map<std::pair<int, int>, TextureName> generateTerrain(
         for (int x_coord = 0; x_coord < gridWidth; ++x_coord) {
             // Only modify if it was initially classified as GRASS_0 
             // (and not changed by water texturing, which it wouldn't be)
-            if (grid[y_coord][x_coord] == TextureName::GRASS_0) {
+            if (grid[y_coord][x_coord] == BlockName::GRASS_0) {
                 int dist = distanceToSand[y_coord][x_coord];
 
                 if (dist == 1) { // Adjacent to sand
-                    grid[y_coord][x_coord] = TextureName::GRASS_0;
+                    grid[y_coord][x_coord] = BlockName::GRASS_0;
                 } else if (dist == 2) { // One grass block away from sand
-                    grid[y_coord][x_coord] = TextureName::GRASS_1;
+                    grid[y_coord][x_coord] = BlockName::GRASS_1;
                 } else if (dist >= 3) { // Two or more grass blocks away from sand (or isolated)
-                    grid[y_coord][x_coord] = TextureName::GRASS_2;
+                    grid[y_coord][x_coord] = BlockName::GRASS_2;
                 }
             }
         }
     }
 
     // 4. Convert grid to map for return
-    std::map<std::pair<int, int>, TextureName> generatedBlocks;
+    std::map<std::pair<int, int>, BlockName> generatedBlocks;
     for (int y_coord = 0; y_coord < gridHeight; ++y_coord) {
         for (int x_coord = 0; x_coord < gridWidth; ++x_coord) {
             generatedBlocks[{x_coord, y_coord}] = grid[y_coord][x_coord];
@@ -246,8 +248,8 @@ void placeTerrainElements(
     std::vector<std::pair<int, int>> waterBlocks;
     for (int y = 0; y < gridHeight; y++) {
         for (int x = 0; x < gridWidth; x++) {
-            TextureName blockType = map.getBlockNameByCoordinates(x, y);
-            if (blockType >= TextureName::WATER_0 && blockType <= TextureName::WATER_4) {
+            BlockName blockType = map.getBlockNameByCoordinates(x, y);
+            if (blockType >= BlockName::WATER_0 && blockType <= BlockName::WATER_4) {
                 waterBlocks.push_back({x, y});
             }
         }
@@ -257,10 +259,10 @@ void placeTerrainElements(
     for (int y = 0; y < gridHeight; y++) {
         for (int x = 0; x < gridWidth; x++) {
             // Get the actual block type from the map
-            TextureName blockType = map.getBlockNameByCoordinates(x, y);
+            BlockName blockType = map.getBlockNameByCoordinates(x, y);
             
             // Count block types for debugging
-            if (blockType == TextureName::SAND) {
+            if (blockType == BlockName::SAND) {
                 // Count sand blocks and edges
                 sandCount++;
                 // Place trees with 1/50 chance, but limit to max 50 total trees for performance
@@ -346,9 +348,9 @@ void placeTerrainElements(
                         // Note: Hitbox parameters were removed as they're not supported in the function definition
                     }
                 }
-            } else if (blockType >= TextureName::GRASS_0 && blockType <= TextureName::GRASS_5) {
+            } else if (blockType >= BlockName::GRASS_0 && blockType <= BlockName::GRASS_5) {
                 grassCount++;
-            } else if (blockType >= TextureName::WATER_0 && blockType <= TextureName::WATER_4) {
+            } else if (blockType >= BlockName::WATER_0 && blockType <= BlockName::WATER_4) {
                 waterCount++;
             } else {
                 otherCount++;

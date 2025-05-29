@@ -2,6 +2,8 @@
 #include "globals.h"
 #include <iostream>
 #include <cmath> // For pow()
+#include "enumDefinitions.h"
+
 
 // Define static constants
 const float Camera::MIN_CAMERA_REGION = 5.0f; // Minimum camera region size

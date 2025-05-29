@@ -6,6 +6,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <functional>
+#include "enumDefinitions.h"
 
 /**
  * Thread Manager - handles game logic threading with clean interface

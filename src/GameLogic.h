@@ -4,6 +4,8 @@
 #include <memory>
 #include <mutex>
 #include "InputManager.h"
+#include "enumDefinitions.h"
+
 
 // Forward declarations
 class Map;
