@@ -309,20 +309,20 @@ void placeTerrainElements(
                         placedBushes.push_back({x, y});
                         
                         // Randomly pick one of the three coconut tree textures with equal probability
-                        ElementTextureName treeTexture;
+                        ElementName treeTexture;
                         int randomTree = rand() % 3;
                         switch (randomTree) {
                             case 0:
-                                treeTexture = ElementTextureName::COCONUT_TREE_1;
+                                treeTexture = ElementName::COCONUT_TREE_1;
                                 break;
                             case 1:
-                                treeTexture = ElementTextureName::COCONUT_TREE_2;
+                                treeTexture = ElementName::COCONUT_TREE_2;
                                 break;
                             case 2:
-                                treeTexture = ElementTextureName::COCONUT_TREE_3;
+                                treeTexture = ElementName::COCONUT_TREE_3;
                                 break;
                             default: // Should never happen, but just in case
-                                treeTexture = ElementTextureName::COCONUT_TREE_1;
+                                treeTexture = ElementName::COCONUT_TREE_1;
                         }                        // Add random scale variation to trees for visual diversity
                         float randomScale = 0.7f + static_cast<float>(rand()) / RAND_MAX * (1.0f - 0.7f);
                         

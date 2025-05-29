@@ -26,8 +26,7 @@ private:
     
     // Update passive state behavior (random walking)
     void updatePassiveStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config);
-    
-    // Update alert state behavior (look at nearby entities)
+      // Update alert state behavior (look at nearby entities)
     void updateAlertStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config);
     
     // Check if entity should enter alert state
@@ -35,6 +34,15 @@ private:
     
     // Update entity direction to look at target
     void lookAtTarget(Entity& entity, float targetX, float targetY, EntitiesManager& entitiesManager, const EntityConfiguration& config);
+    
+    // Update flee state behavior (run away from nearby entities)
+    void updateFleeStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config);
+    
+    // Check if entity should enter flee state
+    bool checkForFleeTriggers(Entity& entity, EntitiesManager& entitiesManager, const EntityConfiguration& config);
+    
+    // Calculate flee destination in opposite direction from target
+    bool calculateFleeDestination(Entity& entity, float targetX, float targetY, const EntityConfiguration& config, float& fleeX, float& fleeY);
 };
 
 // Global behavior manager instance

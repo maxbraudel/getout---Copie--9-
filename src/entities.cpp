@@ -1,4 +1,5 @@
 #include "entities.h"
+#include "entityNameOps.h"
 #include "entityBehaviors.h"
 #include "collision.h"
 #include "map.h" // Adding for gameMap access
@@ -10,6 +11,21 @@
 #include <cmath>
 #include <limits>
 #include <random>
+
+// Utility functions for EntityName enum
+std::string entityNameToString(EntityName entityName) {
+    switch (entityName) {
+        case EntityName::ANTAGONIST: return "antagonist";
+        case EntityName::PLAYER: return "player";
+        default: return "unknown";
+    }
+}
+
+EntityName stringToEntityName(const std::string& str) {
+    if (str == "antagonist") return EntityName::ANTAGONIST;
+    if (str == "player") return EntityName::PLAYER;
+    return EntityName::ANTAGONIST; // Default fallback
+}
 
 // Global async pathfinder instance (separate from pathfinding.h's AsyncPathfinder)
 static AsyncEntityPathfinder* g_entityAsyncPathfinder = nullptr;
@@ -26,11 +42,10 @@ static void initializeEntityTypes() {
     // CRASH FIX: Reserve memory to prevent reallocations during initialization
     entityTypes.reserve(10); // Reasonable initial capacity
     
-    try {
-        // Antagonist entity configuration
+    try {        // Antagonist entity configuration
         EntityInfo antagonist;
-        antagonist.typeName = "antagonist";
-        antagonist.textureName = ElementTextureName::ANTAGONIST1;
+        antagonist.type = EntityName::ANTAGONIST;
+        antagonist.textureName = ElementName::ANTAGONIST1;
         antagonist.scale = 1.5f;
         
         // Default sprite configuration
@@ -47,7 +62,7 @@ static void initializeEntityTypes() {
         // Movement speeds
         antagonist.normalWalkingSpeed = 1.5f;
         antagonist.normalWalkingAnimationSpeed = 4.0f;
-        antagonist.sprintWalkingSpeed = 10.0f;
+        antagonist.sprintWalkingSpeed = 3.0f;
         antagonist.sprintWalkingAnimationSpeed = 12.0f;    // Collision settings
         antagonist.canCollide = true;
         antagonist.collisionShapePoints = {
@@ -56,15 +71,15 @@ static void initializeEntityTypes() {
         // For testing: Leave lists empty to allow movement through all elements
         antagonist.avoidanceElements = {
             // Empty - no elements to avoid for pathfinding
-            ElementTextureName::COCONUT_TREE_1,
-            ElementTextureName::COCONUT_TREE_2,
-            ElementTextureName::COCONUT_TREE_3,
+            ElementName::COCONUT_TREE_1,
+            ElementName::COCONUT_TREE_2,
+            ElementName::COCONUT_TREE_3,
         };    
         antagonist.collisionElements = {
             // Empty - no elements to collide with during movement
-            ElementTextureName::COCONUT_TREE_1,
-            ElementTextureName::COCONUT_TREE_2,
-            ElementTextureName::COCONUT_TREE_3,
+            ElementName::COCONUT_TREE_1,
+            ElementName::COCONUT_TREE_2,
+            ElementName::COCONUT_TREE_3,
         };
           // Block collision configuration - Antagonist avoids water during pathfinding and movement
         antagonist.avoidanceBlocks = {
@@ -90,20 +105,25 @@ static void initializeEntityTypes() {
         antagonist.passiveState = true; // Enable passive state random walking
         antagonist.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
-        antagonist.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)
-          // Alert state configuration
-        antagonist.alertState = true; // Enable alert state behavior
+        antagonist.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)        // Alert state configuration
+        antagonist.alertState = false; // Enable alert state behavior
         antagonist.alertStateStartRadius = 0.0f; // Inner radius - immediate alert when entities get this close
         antagonist.alertStateEndRadius = 8.0f; // Outer radius - watch for entities within this range
-        antagonist.alertStateEntitiesList = {"player1"}; // Watch for player1 entity (you can add more entity names)
+        antagonist.alertStateEntitiesList = {EntityName::PLAYER}; // Watch for player entity type
+        
+        // Flee state configuration - antagonist flees from player
+        antagonist.fleeState = true; // Enable flee state behavior
+        antagonist.fleeStateStartRadius = 0.0f; // Inner radius - immediate flee when entities get this close
+        antagonist.fleeStateEndRadius = 4.0f; // Outer radius - flee from entities within this range
+        antagonist.fleeStateEntitiesList = {EntityName::PLAYER}; // Flee from player entity type
+        antagonist.fleeStateRunning = true; // Use sprint speed when fleeing
+        antagonist.fleeStateMinDistance = 8.0f; // Minimum distance to flee
+        antagonist.fleeStateMaxDistance = 15.0f; // Maximum distance to flee
         
         // Add to the list
-        entityTypes.push_back(antagonist);
-
-
-        EntityInfo player;
-        player.typeName = "player";
-        player.textureName = ElementTextureName::CHARACTER1;
+        entityTypes.push_back(antagonist);        EntityInfo player;
+        player.type = EntityName::PLAYER;
+        player.textureName = ElementName::CHARACTER1;
         player.scale = 1.5f;
         
         // Default sprite configuration
@@ -132,9 +152,9 @@ static void initializeEntityTypes() {
         };    player.collisionElements = {
             // Empty - no elements to collide with during movement
             // Empty - no elements to avoid for pathfinding
-            ElementTextureName::COCONUT_TREE_1,
-            ElementTextureName::COCONUT_TREE_2,
-            ElementTextureName::COCONUT_TREE_3,
+            ElementName::COCONUT_TREE_1,
+            ElementName::COCONUT_TREE_2,
+            ElementName::COCONUT_TREE_3,
             
         };
           // Block collision configuration - Player demonstrates different behavior than antagonist
@@ -155,11 +175,11 @@ static void initializeEntityTypes() {
             TextureName::WATER_2,
             TextureName::WATER_3,
             TextureName::WATER_4 // Only deep water blocks movement
-        };
-          // Map boundary control settings
+        };          // Map boundary control settings
         player.offMapAvoidance = true; // Player pathfinding avoids map borders
         player.offMapCollision = true; // Player collides with map borders
         
+
         // Add to the list
         entityTypes.push_back(player);
 
@@ -206,7 +226,12 @@ void EntitiesManager::initializeEntityConfigurations() {
 }
 
 const EntityConfiguration* EntitiesManager::getConfiguration(const std::string& typeName) const {
-    auto it = configurations.find(typeName);
+    EntityName entityType = stringToEntityName(typeName);
+    return getConfiguration(entityType);
+}
+
+const EntityConfiguration* EntitiesManager::getConfiguration(EntityName entityType) const {
+    auto it = configurations.find(entityType);
     if (it != configurations.end()) {
         return &(it->second);
     }
@@ -215,36 +240,48 @@ const EntityConfiguration* EntitiesManager::getConfiguration(const std::string& 
 
 void EntitiesManager::addConfiguration(const EntityConfiguration& config) {
     // Add or replace the configuration
-    configurations[config.typeName] = config;
-    std::cout << "Added entity configuration: " << config.typeName << std::endl;
+    configurations[config.type] = config;
+    std::cout << "Added entity configuration: " << entityNameToString(config.type) << std::endl;
 }
 
 bool EntitiesManager::placeEntityByType(const std::string& instanceName, const std::string& typeName, float x, float y) {
+    // Convert string to EntityName and call the enum version
+    EntityName entityType = stringToEntityName(typeName);
+    return placeEntityByType(instanceName, entityType, x, y);
+}
+
+bool EntitiesManager::placeEntityByType(const std::string& instanceName, EntityName entityType, float x, float y) {
     // Find the entity type in our predefined list
     for (const auto& entityInfo : entityTypes) {
-        if (entityInfo.typeName == typeName) {
+        if (entityInfo.type == entityType) {
             // Create configuration from the entity info
             EntityConfiguration config(entityInfo);
             // Add the configuration if it doesn't exist yet
-            if (!getConfiguration(typeName)) {
+            if (!getConfiguration(entityType)) {
                 addConfiguration(config);
             }
             // Place the entity
-            return placeEntity(instanceName, typeName, x, y);
+            return placeEntity(instanceName, entityType, x, y);
         }
     }
     
-    std::cerr << "Entity type not found: " << typeName << std::endl;
+    std::cerr << "Entity type not found: " << entityNameToString(entityType) << std::endl;
     return false;
 }
 
 bool EntitiesManager::placeEntity(const std::string& instanceName, const std::string& typeName, float x, float y) {
+    // Convert string to EntityName and call the enum version
+    EntityName entityType = stringToEntityName(typeName);
+    return placeEntity(instanceName, entityType, x, y);
+}
+
+bool EntitiesManager::placeEntity(const std::string& instanceName, EntityName entityType, float x, float y) {
     // Check if the configuration exists
-    const EntityConfiguration* config = getConfiguration(typeName);
+    const EntityConfiguration* config = getConfiguration(entityType);
     if (!config) {
-        std::cerr << "Entity configuration not found: " << typeName << std::endl;
+        std::cerr << "Entity configuration not found: " << entityNameToString(entityType) << std::endl;
         return false;
-    }    // COLLISION RESOLUTION INTEGRATION
+    }// COLLISION RESOLUTION INTEGRATION
     // Check if entity spawns in a collision area and resolve it
     float safeX = x;
     float safeY = y;
@@ -270,14 +307,12 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
             safeY = y;
         }
     }
-    
-    // Generate the element name
+      // Generate the element name
     std::string elementName = getElementName(instanceName);
-    
-    // Create an Entity object
+      // Create an Entity object
     Entity entity;
     entity.instanceName = instanceName;
-    entity.typeName = typeName;
+    entity.type = entityType;
     
     // Place the element on the map using ElementsOnMap
     elementsManager.placeElement(
@@ -298,12 +333,11 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, const std::st
     // Initialize entity behaviors
     Entity& createdEntity = entities[instanceName];
     entityBehaviorManager.initializeEntityBehavior(createdEntity, *config);
-    
-    if (needsSafePosition && (safeX != x || safeY != y)) {
+      if (needsSafePosition && (safeX != x || safeY != y)) {
         std::cout << "Entity " << instanceName << " placed with collision resolution - moved from (" 
                   << x << ", " << y << ") to (" << safeX << ", " << safeY << ")" << std::endl;
     } else {
-        std::cout << "Placed entity: " << instanceName << " (type: " << typeName << ") at (" 
+        std::cout << "Placed entity: " << instanceName << " (type: " << entityNameToString(entityType) << ") at (" 
                 << safeX << ", " << safeY << ")" << std::endl;
     }
     return true;
@@ -318,9 +352,9 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
     }
 
     // Get the configuration
-    const EntityConfiguration* config = getConfiguration(entity->typeName);
+    const EntityConfiguration* config = getConfiguration(entity->type);
     if (!config) {
-        std::cerr << "Entity configuration not found: " << entity->typeName << std::endl;
+        std::cerr << "Entity configuration not found: " << entityNameToString(entity->type) << std::endl;
         return false;
     }
 
@@ -407,9 +441,9 @@ bool EntitiesManager::findNearestSafePlaceFromCoordinatesForEntity(const std::st
     }
 
     // Get the configuration
-    const EntityConfiguration* config = getConfiguration(entity->typeName);
+    const EntityConfiguration* config = getConfiguration(entity->type);
     if (!config) {
-        std::cerr << "Entity configuration not found: " << entity->typeName << std::endl;
+        std::cerr << "Entity configuration not found: " << entityNameToString(entity->type) << std::endl;
         return false;
     }
 
@@ -499,9 +533,9 @@ bool EntitiesManager::findRandomSafePointAroundTheEntity(const std::string& inst
     }
 
     // Get the configuration
-    const EntityConfiguration* config = getConfiguration(entity->typeName);
+    const EntityConfiguration* config = getConfiguration(entity->type);
     if (!config) {
-        std::cerr << "Entity configuration not found: " << entity->typeName << std::endl;
+        std::cerr << "Entity configuration not found: " << entityNameToString(entity->type) << std::endl;
         return false;
     }
 
@@ -590,9 +624,8 @@ void EntitiesManager::update(double deltaTime) {
         if (!entity.isWalking) {
             continue;
         }
-        
-        // Get the configuration for this entity
-        const EntityConfiguration* config = getConfiguration(entity.typeName);
+          // Get the configuration for this entity
+        const EntityConfiguration* config = getConfiguration(entity.type);
         if (!config) {
             std::cerr << "Error: Cannot find configuration for entity: " << entity.instanceName << std::endl;
             entity.isWalking = false; // Stop walking due to error
@@ -659,12 +692,11 @@ void EntitiesManager::drawDebugCollisionRadii(float startX, float endX, float st
     }
 
     glLineWidth(2.0f); // Set line width for collision shapes
-    
-    for (const auto& pair : entities) {
+      for (const auto& pair : entities) {
         const Entity& entity = pair.second;
         
         // Get the configuration for this entity to access collision shape
-        const EntityConfiguration* config = getConfiguration(entity.typeName);
+        const EntityConfiguration* config = getConfiguration(entity.type);
         if (!config || !config->canCollide) {
             continue; // Skip entities without collision or configuration
         }
@@ -744,9 +776,8 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         if (dirX == 0 && dirY == 0) {
             return; // No movement, keep current direction
         }
-        
-        // DEBUG: Log direction calculation for antagonist entities
-        if (ent.typeName == "antagonist") {
+          // DEBUG: Log direction calculation for antagonist entities
+        if (ent.type == EntityName::ANTAGONIST) {
             std::cout << "DEBUG: Non-pathfinding antagonist " << ent.instanceName 
                       << " direction calc: dirX=" << dirX << ", dirY=" << dirY 
                       << " (abs: " << std::abs(dirX) << ", " << std::abs(dirY) << ")" << std::endl;
@@ -776,9 +807,8 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
             case 3: phase = config.spritePhaseWalkRight; break;
             default: phase = config.defaultSpriteSheetPhase; break;
         }
-        
-        // DEBUG: Log sprite phase changes for antagonist entities
-        if (ent.typeName == "antagonist") {
+          // DEBUG: Log sprite phase changes for antagonist entities
+        if (ent.type == EntityName::ANTAGONIST) {
             std::cout << "DEBUG: Non-pathfinding antagonist " << ent.instanceName 
                       << " direction=" << newDirection << " -> phase=" << phase 
                       << " (right should be dir=3->phase=" << cfg.spritePhaseWalkRight << ")" << std::endl;
@@ -856,37 +886,13 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         (entity.usePathfinding && entity.currentPathIndex >= entity.path.size()))) {
         // We've reached the final target
         entity.isWalking = false;
-        
-        // Use current position as final position to prevent teleportation
+          // Always use current position as final position to prevent teleportation
         float finalX = currentActualX;
         float finalY = currentActualY;
         
-        // Only snap to exact target if we're extremely close (prevents visible teleportation)
-        const float snapThreshold = 0.01f; // Much smaller threshold for snapping
-        if (distance <= snapThreshold) {
-            finalX = entity.targetX;
-            finalY = entity.targetY;
-            
-            std::cout << "Entity " << entity.instanceName << " snapping to exact target (" 
-                      << finalX << ", " << finalY << ") - distance: " << distance << std::endl;
-        } else {
-            std::cout << "Entity " << entity.instanceName << " stopping naturally at (" 
-                      << finalX << ", " << finalY << ") - target was (" 
-                      << entity.targetX << ", " << entity.targetY << "), distance: " << distance << std::endl;
-        }
-        
-        // Check if the final position would cause collisions (only if we're snapping)
-        if (distance <= snapThreshold && config.canCollide && 
-            (wouldEntityCollideWithElementsGranular(config, finalX, finalY, false) || 
-             wouldEntityCollideWithBlocksGranular(config, finalX, finalY, false))) {
-            
-            std::cout << "Entity " << entity.instanceName << " exact target (" << finalX << ", " << finalY 
-                      << ") would cause collision - staying at current position instead" << std::endl;
-            
-            // Don't snap to target if it would cause collision, stay at current position
-            finalX = currentActualX;
-            finalY = currentActualY;
-        }
+        std::cout << "Entity " << entity.instanceName << " stopping naturally at (" 
+                  << finalX << ", " << finalY << ") - target was (" 
+                  << entity.targetX << ", " << entity.targetY << "), distance: " << distance << std::endl;
         
         // Move to the final position (usually current position, preventing teleportation)
         elementsManager.changeElementCoordinates(elementName, finalX, finalY);
@@ -1013,63 +1019,113 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                 entity.lastPositionX = currentActualX;
                 entity.lastPositionY = currentActualY;
                 entity.lastPositionChangeTime = entity.stuckCheckTime;
-                entity.stuckCount = 0;
-            } else if (entity.stuckCheckTime - entity.lastPositionChangeTime >= stuckThreshold) {
+                entity.stuckCount = 0;            } else if (entity.stuckCheckTime - entity.lastPositionChangeTime >= stuckThreshold) {
                 // Entity has been stuck for too long, try collision resolution
                 entity.stuckCount++;
                 
-                std::cout << "Entity " << entity.instanceName << " is stuck (count: " << entity.stuckCount 
-                          << ") at (" << currentActualX << ", " << currentActualY 
-                          << ") - attempting collision resolution..." << std::endl;
+                // Check if entity is close to its destination - if so, don't consider it stuck
+                float distanceToTarget = std::sqrt(
+                    (currentActualX - entity.targetX) * (currentActualX - entity.targetX) +
+                    (currentActualY - entity.targetY) * (currentActualY - entity.targetY)
+                );
                 
-                float safeX = currentActualX;
-                float safeY = currentActualY;
-                
-                if (resolveEntityCollisionStuck(entity.instanceName, safeX, safeY, config, gameMap)) {
-                    // Successfully found a safe position, teleport entity there
-                    elementsManager.changeElementCoordinates(elementName, safeX, safeY);
+                const float arrivalThreshold = 0.5f; // If within 0.5 units of target, consider it arrived
+                if (distanceToTarget <= arrivalThreshold) {
+                    std::cout << "Entity " << entity.instanceName << " appears stuck but is close to target (" 
+                              << distanceToTarget << " units away) - stopping naturally instead of teleporting" << std::endl;
                     
-                    // Reset stuck detection after successful resolution
-                    entity.lastPositionX = safeX;
-                    entity.lastPositionY = safeY;
+                    // Stop the entity naturally instead of teleporting
+                    entity.isWalking = false;
+                    entity.path.clear();
+                    entity.currentPathIndex = 0;
+                    
+                    // Disable animation and reset to standing state
+                    elementsManager.changeElementAnimationStatus(elementName, false);
+                    elementsManager.changeElementSpriteFrame(elementName, 0);
+                    elementsManager.changeElementSpritePhase(elementName, config.defaultSpriteSheetPhase);
+                    
+                    // Reset stuck detection
+                    entity.lastPositionX = currentActualX;
+                    entity.lastPositionY = currentActualY;
                     entity.lastPositionChangeTime = entity.stuckCheckTime;
                     entity.stuckCount = 0;
+                } else {
+                    std::cout << "Entity " << entity.instanceName << " is stuck (count: " << entity.stuckCount 
+                              << ") at (" << currentActualX << ", " << currentActualY 
+                              << ") - distance to target: " << distanceToTarget << " - attempting collision resolution..." << std::endl;
                     
-                    // If using pathfinding, recalculate path from new position
-                    if (entity.usePathfinding && entity.isWalking && 
-                        g_entityAsyncPathfinder && !entity.isWaitingForPath) {
-                        
-                        std::cout << "Recalculating pathfinding for unstuck entity " << entity.instanceName 
-                                  << " from new position (" << safeX << ", " << safeY << ")" << std::endl;
-                        
-                        // Cancel existing pathfinding request if any
-                        if (entity.pathfindingRequestId > 0) {
-                            g_entityAsyncPathfinder->cancelPathfindingRequest(entity.instanceName);
-                        }
-                        
-                        // Request new pathfinding from safe position to original target
-                        int newRequestId = g_entityAsyncPathfinder->requestPathfinding(
-                            entity.instanceName, safeX, safeY, 
-                            entity.targetX, entity.targetY, config, entity.walkType
+                    float safeX = currentActualX;
+                    float safeY = currentActualY;
+                    
+                    if (resolveEntityCollisionStuck(entity.instanceName, safeX, safeY, config, gameMap)) {
+                        // Check if the safe position is too far from current position
+                        float teleportDistance = std::sqrt(
+                            (safeX - currentActualX) * (safeX - currentActualX) +
+                            (safeY - currentActualY) * (safeY - currentActualY)
                         );
                         
-                        if (newRequestId > 0) {
-                            entity.pathfindingRequestId = newRequestId;
-                            entity.isWaitingForPath = true;
-                            entity.lastPathRequest = std::chrono::steady_clock::now();
+                        const float maxTeleportDistance = 2.0f; // Don't teleport more than 2 units
+                        if (teleportDistance <= maxTeleportDistance) {
+                            // Safe position is close enough, teleport entity there
+                            elementsManager.changeElementCoordinates(elementName, safeX, safeY);
+                            
+                            std::cout << "Successfully resolved stuck condition for entity " << entity.instanceName 
+                                      << " - moved " << teleportDistance << " units to safe position (" << safeX << ", " << safeY << ")" << std::endl;
+                            
+                            // Reset stuck detection after successful resolution
+                            entity.lastPositionX = safeX;
+                            entity.lastPositionY = safeY;
+                            entity.lastPositionChangeTime = entity.stuckCheckTime;
+                            entity.stuckCount = 0;                            
+                            // If using pathfinding, recalculate path from new position
+                            if (entity.usePathfinding && entity.isWalking && 
+                                g_entityAsyncPathfinder && !entity.isWaitingForPath) {
+                                
+                                std::cout << "Recalculating pathfinding for unstuck entity " << entity.instanceName 
+                                          << " from new position (" << safeX << ", " << safeY << ")" << std::endl;
+                                
+                                // Cancel existing pathfinding request if any
+                                if (entity.pathfindingRequestId > 0) {
+                                    g_entityAsyncPathfinder->cancelPathfindingRequest(entity.instanceName);
+                                }
+                                
+                                // Request new pathfinding from safe position to original target
+                                int newRequestId = g_entityAsyncPathfinder->requestPathfinding(
+                                    entity.instanceName, safeX, safeY, 
+                                    entity.targetX, entity.targetY, config, entity.walkType
+                                );
+                                
+                                if (newRequestId > 0) {
+                                    entity.pathfindingRequestId = newRequestId;
+                                    entity.isWaitingForPath = true;
+                                    entity.lastPathRequest = std::chrono::steady_clock::now();
+                                }
+                            }
+                        } else {
+                            std::cout << "Safe position for entity " << entity.instanceName 
+                                      << " is too far away (" << teleportDistance << " units) - stopping entity instead of teleporting" << std::endl;
+                            
+                            // Stop the entity instead of teleporting too far
+                            entity.isWalking = false;
+                            entity.path.clear();
+                            entity.currentPathIndex = 0;
+                            
+                            // Disable animation and reset to standing state
+                            elementsManager.changeElementAnimationStatus(elementName, false);
+                            elementsManager.changeElementSpriteFrame(elementName, 0);
+                            elementsManager.changeElementSpritePhase(elementName, config.defaultSpriteSheetPhase);
+                            
+                            // Reset stuck detection
+                            entity.lastPositionX = currentActualX;
+                            entity.lastPositionY = currentActualY;
+                            entity.lastPositionChangeTime = entity.stuckCheckTime;
+                            entity.stuckCount = 0;
                         }
-                    }
-                    
-                    std::cout << "Successfully resolved stuck condition for entity " << entity.instanceName 
-                              << " - moved to safe position (" << safeX << ", " << safeY << ")" << std::endl;
-                } else {
-                    std::cout << "Failed to resolve stuck condition for entity " << entity.instanceName 
-                              << " - no safe position found. Attempt count: " << entity.stuckCount << std::endl;
-                    
-                    // If we've tried many times and still can't resolve, stop the entity
-                    if (entity.stuckCount >= 5) {
-                        std::cout << "Entity " << entity.instanceName 
-                                  << " has been stuck too many times - stopping movement" << std::endl;
+                    } else {
+                        std::cout << "Failed to resolve stuck condition for entity " << entity.instanceName 
+                                  << " - no safe position found. Stopping entity." << std::endl;
+                        
+                        // Stop the entity if no safe position can be found
                         entity.isWalking = false;
                         entity.path.clear();
                         entity.currentPathIndex = 0;
@@ -1078,6 +1134,10 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                         elementsManager.changeElementAnimationStatus(elementName, false);
                         elementsManager.changeElementSpriteFrame(elementName, 0);
                         elementsManager.changeElementSpritePhase(elementName, config.defaultSpriteSheetPhase);
+                        
+                        // Reset stuck detection to avoid immediate re-triggering
+                        entity.lastPositionChangeTime = entity.stuckCheckTime;
+                        entity.stuckCount = 0;
                     }
                 }
                 
@@ -1116,7 +1176,7 @@ bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, f
         }
     }
       // Determine which element list to check based on collision type
-    const std::vector<ElementTextureName>& elementsToCheck = useAvoidanceList ? config.avoidanceElements : config.collisionElements;
+    const std::vector<ElementName>& elementsToCheck = useAvoidanceList ? config.avoidanceElements : config.collisionElements;
     
     // If the list is empty, don't check any elements (granular collision control)
     // This allows entities to have fine-grained control over what they collide with
@@ -1324,9 +1384,9 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
     }
     
     // Get the configuration
-    const EntityConfiguration* config = getConfiguration(entity->typeName);
+    const EntityConfiguration* config = getConfiguration(entity->type);
     if (!config) {
-        std::cerr << "Entity configuration not found: " << entity->typeName << std::endl;
+        std::cerr << "Entity configuration not found: " << entityNameToString(entity->type) << std::endl;
         return false;
     }
     
@@ -1401,8 +1461,8 @@ bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& e
     float dx = targetX - currentX;
     float dy = targetY - currentY;
     
-    // DEBUG: Log direction calculation for antagonist entities
-    if (entity.typeName == "antagonist") {
+    // DEBUG: Log direction calculation for antagonist entities    // DEBUG: Log direction calculations for antagonist entities
+    if (entity.type == EntityName::ANTAGONIST) {
         std::cout << "DEBUG: Antagonist " << entity.instanceName 
                   << " direction calc: dx=" << dx << ", dy=" << dy 
                   << " (abs: " << std::abs(dx) << ", " << std::abs(dy) << ")" << std::endl;
@@ -1429,9 +1489,8 @@ bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& e
         case 3: phase = config.spritePhaseWalkRight; break;
         default: phase = config.defaultSpriteSheetPhase; break;
     }
-    
-    // DEBUG: Log sprite phase changes for antagonist entities
-    if (entity.typeName == "antagonist") {
+      // DEBUG: Log sprite phase changes for antagonist entities
+    if (entity.type == EntityName::ANTAGONIST) {
         std::cout << "DEBUG: Antagonist " << entity.instanceName 
                   << " direction=" << direction << " -> phase=" << phase 
                   << " (right should be dir=3->phase=" << config.spritePhaseWalkRight << ")" << std::endl;
@@ -1481,8 +1540,7 @@ void EntitiesManager::processAsyncPathfindingResults() {
                 std::cerr << "Warning: Received pathfinding result with empty instance name" << std::endl;
                 continue;
             }
-            
-            // Find the entity that requested this pathfinding
+              // Find the entity that requested this pathfinding
             Entity* entity = getEntity(result.instanceName);
             if (!entity) {
                 std::cerr << "Warning: Received pathfinding result for unknown entity: " << result.instanceName << std::endl;
@@ -1490,9 +1548,9 @@ void EntitiesManager::processAsyncPathfindingResults() {
             }
         
         // Get the configuration
-        const EntityConfiguration* config = getConfiguration(entity->typeName);
+        const EntityConfiguration* config = getConfiguration(entity->type);
         if (!config) {
-            std::cerr << "Warning: Entity configuration not found for: " << entity->typeName << std::endl;
+            std::cerr << "Warning: Entity configuration not found for: " << entityNameToString(entity->type) << std::endl;
             continue;
         }
         

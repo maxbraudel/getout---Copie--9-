@@ -16,6 +16,10 @@ enum class EntityName {
     PLAYER // Add more entity types as needed
 };
 
+// Utility functions for EntityName enum
+std::string entityNameToString(EntityName entityName);
+EntityName stringToEntityName(const std::string& str);
+
 // Enum for entity directions (corresponds to sprite sheet rows/phases)
 enum EntityDirection {
     DIRECTION_UP = 0,    // Or 3, depending on sprite sheet convention
@@ -33,8 +37,8 @@ enum class WalkType {
 
 // Struct to hold predefined entity types information
 struct EntityInfo {
-    std::string typeName;
-    ElementTextureName textureName;
+    EntityName type;
+    ElementName textureName;
     float scale;
     
     // Sprite configuration
@@ -55,8 +59,8 @@ struct EntityInfo {
     float sprintWalkingAnimationSpeed;      // Collision settings
     bool canCollide;
     std::vector<std::pair<float, float>> collisionShapePoints;      // Granular collision control - specify which element types to avoid or collide with
-    std::vector<ElementTextureName> avoidanceElements; // Elements this entity will pathfind around (but can overlap if forced)
-    std::vector<ElementTextureName> collisionElements; // Elements this entity cannot overlap with at all
+    std::vector<ElementName> avoidanceElements; // Elements this entity will pathfind around (but can overlap if forced)
+    std::vector<ElementName> collisionElements; // Elements this entity cannot overlap with at all
     
     // Granular block collision control - specify which block types to avoid or collide with
     std::vector<TextureName> avoidanceBlocks; // Blocks this entity will pathfind around (but can overlap if forced)
@@ -71,19 +75,26 @@ struct EntityInfo {
     bool passiveState = false; // Enable passive state random walking behavior
     float passiveStateWalkingRadius = 10.0f; // Radius around entity for random walks
     float passiveStateRandomWalkTriggerTimeIntervalMin = 2.0f; // Minimum time between random walks (seconds)
-    float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)
-    
-    // Alert state behavior parameters
+    float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)      // Alert state behavior parameters
     bool alertState = false; // Enable alert state behavior - entity stops and looks at nearby targets
     float alertStateStartRadius = 3.0f; // Inner radius - entities closer than this trigger immediate alert
     float alertStateEndRadius = 8.0f; // Outer radius - entities beyond this are ignored
-    std::vector<std::string> alertStateEntitiesList; // List of entity instance names to watch for (empty = watch all entities)
+    std::vector<EntityName> alertStateEntitiesList; // List of entity types to watch for (empty = watch all entity types)
+    
+    // Flee state behavior parameters
+    bool fleeState = false; // Enable flee state behavior - entity runs away from nearby targets
+    float fleeStateStartRadius = 2.0f; // Inner radius - entities closer than this trigger immediate flee
+    float fleeStateEndRadius = 6.0f; // Outer radius - entities beyond this are ignored
+    std::vector<EntityName> fleeStateEntitiesList; // List of entity types to flee from (empty = flee from all entity types)
+    bool fleeStateRunning = true; // Whether to use sprint speed during flee (true = sprint, false = normal walk)
+    float fleeStateMinDistance = 5.0f; // Minimum distance to flee when triggered
+    float fleeStateMaxDistance = 12.0f; // Maximum distance to flee when triggered
   };
 
 // Struct to hold entity configuration
 struct EntityConfiguration {
-    std::string typeName;
-    ElementTextureName textureName;
+    EntityName type;
+    ElementName textureName;
     float scale = 1.0f;
     
     // Default sprite configuration
@@ -105,8 +116,8 @@ struct EntityConfiguration {
     bool canCollide = true;
     std::vector<std::pair<float, float>> collisionShapePoints;
       // Granular collision control - specify which element types to avoid or collide with
-    std::vector<ElementTextureName> avoidanceElements; // Elements this entity will pathfind around (but can overlap if forced)
-    std::vector<ElementTextureName> collisionElements; // Elements this entity cannot overlap with at all
+    std::vector<ElementName> avoidanceElements; // Elements this entity will pathfind around (but can overlap if forced)
+    std::vector<ElementName> collisionElements; // Elements this entity cannot overlap with at all
     
     // Granular block collision control - specify which block types to avoid or collide with
     std::vector<TextureName> avoidanceBlocks; // Blocks this entity will pathfind around (but can overlap if forced)
@@ -121,19 +132,25 @@ struct EntityConfiguration {
     bool passiveState = false; // Enable passive state random walking behavior
     float passiveStateWalkingRadius = 10.0f; // Radius around entity for random walks
     float passiveStateRandomWalkTriggerTimeIntervalMin = 2.0f; // Minimum time between random walks (seconds)
-    float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)
-    
-    // Alert state behavior parameters
+    float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)    // Alert state behavior parameters
     bool alertState = false; // Enable alert state behavior - entity stops and looks at nearby targets
     float alertStateStartRadius = 3.0f; // Inner radius - entities closer than this trigger immediate alert
     float alertStateEndRadius = 8.0f; // Outer radius - entities beyond this are ignored
-    std::vector<std::string> alertStateEntitiesList; // List of entity instance names to watch for (empty = watch all entities)
+    std::vector<EntityName> alertStateEntitiesList; // List of entity types to watch for (empty = watch all entity types)
+    
+    // Flee state behavior parameters
+    bool fleeState = false; // Enable flee state behavior - entity runs away from nearby targets
+    float fleeStateStartRadius = 2.0f; // Inner radius - entities closer than this trigger immediate flee
+    float fleeStateEndRadius = 6.0f; // Outer radius - entities beyond this are ignored
+    std::vector<EntityName> fleeStateEntitiesList; // List of entity types to flee from (empty = flee from all entity types)
+    bool fleeStateRunning = true; // Whether to use sprint speed during flee (true = sprint, false = normal walk)
+    float fleeStateMinDistance = 5.0f; // Minimum distance to flee when triggered
+    float fleeStateMaxDistance = 12.0f; // Maximum distance to flee when triggered
     
     // Constructor to create from EntityInfo
     EntityConfiguration() = default;
-    
-    EntityConfiguration(const EntityInfo& info) {
-        typeName = info.typeName;
+      EntityConfiguration(const EntityInfo& info) {
+        type = info.type;
         textureName = info.textureName;
         scale = info.scale;
         
@@ -167,19 +184,27 @@ struct EntityConfiguration {
         passiveStateWalkingRadius = info.passiveStateWalkingRadius;
         passiveStateRandomWalkTriggerTimeIntervalMin = info.passiveStateRandomWalkTriggerTimeIntervalMin;
         passiveStateRandomWalkTriggerTimeIntervalMax = info.passiveStateRandomWalkTriggerTimeIntervalMax;
-        
-        // Copy alert state settings
+          // Copy alert state settings
         alertState = info.alertState;
         alertStateStartRadius = info.alertStateStartRadius;
         alertStateEndRadius = info.alertStateEndRadius;
         alertStateEntitiesList = info.alertStateEntitiesList;
+        
+        // Copy flee state settings
+        fleeState = info.fleeState;
+        fleeStateStartRadius = info.fleeStateStartRadius;
+        fleeStateEndRadius = info.fleeStateEndRadius;
+        fleeStateEntitiesList = info.fleeStateEntitiesList;
+        fleeStateRunning = info.fleeStateRunning;
+        fleeStateMinDistance = info.fleeStateMinDistance;
+        fleeStateMaxDistance = info.fleeStateMaxDistance;
     }
 };
 
 // Struct to hold entity instance data
 struct Entity {
     std::string instanceName;
-    std::string typeName;
+    EntityName type;
     
     // Movement target - only used when walking to a location
     bool isWalking = false;
@@ -217,13 +242,20 @@ struct Entity {
     // Automatic behavior state variables
     double behaviorTimer = 0.0; // Time accumulator for behavior timing
     double nextBehaviorTriggerTime = 0.0; // When the next behavior should trigger
-    
-    // Alert state tracking
+      // Alert state tracking
     bool isInAlertState = false; // Currently in alert state
     std::string alertTargetEntity; // Entity instance name that triggered alert state
     float alertTargetX = 0.0f; // Last known position of alert target
     float alertTargetY = 0.0f;
     double alertStateStartTime = 0.0; // When alert state started
+    
+    // Flee state tracking
+    bool isInFleeState = false; // Currently in flee state
+    std::string fleeTargetEntity; // Entity instance name that triggered flee state
+    float fleeTargetX = 0.0f; // Last known position of flee target
+    float fleeTargetY = 0.0f;
+    double fleeStateStartTime = 0.0; // When flee state started
+    float fleeTargetDistance = 0.0f; // Target distance for current flee movement
 };
 
 // EntitiesManager - Manages all entities in the game
@@ -233,19 +265,20 @@ public:
     ~EntitiesManager();
     
     // Initialize entities from predefined configurations
-    void initializeEntityConfigurations();
-      // Get a configuration by type name
+    void initializeEntityConfigurations();    // Get a configuration by type name
     const EntityConfiguration* getConfiguration(const std::string& typeName) const;
+    const EntityConfiguration* getConfiguration(EntityName entityType) const;
     
     // Add a new entity configuration
     void addConfiguration(const EntityConfiguration& config);
-    
-    // Place a new entity on the map
+      // Place a new entity on the map
     bool placeEntity(const std::string& instanceName, const std::string& typeName, float x, float y);
+    bool placeEntity(const std::string& instanceName, EntityName entityType, float x, float y);
       // Helper method to get element name from entity instance name
     static std::string getElementName(const std::string& instanceName);
       // Place a predefined entity by type
     bool placeEntityByType(const std::string& instanceName, const std::string& typeName, float x, float y);
+    bool placeEntityByType(const std::string& instanceName, EntityName entityType, float x, float y);
     
     // Get entity type name from instance name
     std::string getEntityType(const std::string& instanceName) const;
@@ -286,7 +319,7 @@ public:
     void drawDebugCollisionRadii(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop);
     
 private:
-    std::map<std::string, EntityConfiguration> configurations;    std::map<std::string, Entity> entities;    // Helper methods
+    std::map<EntityName, EntityConfiguration> configurations;    std::map<std::string, Entity> entities;    // Helper methods
     Entity* getEntity(const std::string& instanceName);
     
     // Get the next waypoint from the entity's path
