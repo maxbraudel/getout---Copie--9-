@@ -219,12 +219,14 @@ public:
     
     // Move an entity to specific coordinates (will walk there)
     bool moveEntity(const std::string& instanceName, float x, float y);
-    
-    // Teleport an entity to specific coordinates immediately (handles collisions)
+      // Teleport an entity to specific coordinates immediately (handles collisions)
     bool teleportEntity(const std::string& instanceName, float x, float y);
       // Walk an entity to specific coordinates
       // Walk an entity to specific coordinates using pathfinding
     bool walkEntityWithPathfinding(const std::string& instanceName, float x, float y, WalkType walkType = WalkType::NORMAL);
+    
+    // Stop entity movement and clear its path
+    void stopEntityMovement(const std::string& instanceName);
     
     // Find the nearest safe place from given coordinates for an entity
     bool findNearestSafePlaceFromCoordinatesForEntity(const std::string& instanceName, float x, float y, float& safeX, float& safeY);

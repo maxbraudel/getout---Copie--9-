@@ -40,8 +40,8 @@ static void initializeEntityTypes() {
         antagonist.defaultAnimationSpeed = 11.0f;
         
         // Walking animation phases
-        antagonist.spritePhaseWalkUp = 0;
-        antagonist.spritePhaseWalkDown = 3;
+        antagonist.spritePhaseWalkUp = 3;
+        antagonist.spritePhaseWalkDown = 1;
         antagonist.spritePhaseWalkLeft = 2;
         antagonist.spritePhaseWalkRight = 1;
         
@@ -637,26 +637,24 @@ void EntitiesManager::update(double deltaTime) {
             if (!entity.isWalking) {
                 continue;
             }
-            
-            // Get the configuration for this entity
+              // Get the configuration for this entity
             const EntityConfiguration* config = getConfiguration(entity.type);
             if (!config) {
                 std::cerr << "Error: Cannot find configuration for entity: " << entity.instanceName << std::endl;
-                entity.isWalking = false; // Stop walking due to error
+                stopEntityMovement(entity.instanceName); // Stop walking due to error
                 continue;
             }
             
             // Update the entity's walking animation with additional safety
             try {
-                updateEntityWalking(entity, *config, deltaTime);
-            } catch (const std::exception& e) {
+                updateEntityWalking(entity, *config, deltaTime);            } catch (const std::exception& e) {
                 std::cerr << "CRITICAL: Exception updating entity " << instanceName << ": " << e.what() << std::endl;
                 // Stop entity to prevent further crashes
-                entity.isWalking = false;
+                stopEntityMovement(instanceName);
             } catch (...) {
                 std::cerr << "CRITICAL: Unknown exception updating entity " << instanceName << std::endl;
                 // Stop entity to prevent further crashes
-                entity.isWalking = false;
+                stopEntityMovement(instanceName);
             }
         }
     } catch (const std::exception& e) {
@@ -796,29 +794,26 @@ bool EntitiesManager::getNextPathWaypoint(Entity& entity, float& nextX, float& n
     return true;
 }
 
-void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfiguration& config, double deltaTime) {
-    // CRASH FIX: Validate entity state before processing
+void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfiguration& config, double deltaTime) {    // CRASH FIX: Validate entity state before processing
     if (entity.instanceName.empty()) {
         std::cerr << "ERROR: Entity has empty instance name in updateEntityWalking" << std::endl;
-        entity.isWalking = false;
+        stopEntityMovement(entity.instanceName);
         return;
     }
     
     // Get the element name
     std::string elementName = getElementName(entity.instanceName);
-    
-    // CRASH FIX: Verify element exists before processing
+      // CRASH FIX: Verify element exists before processing
     if (!elementsManager.elementExists(elementName)) {
         std::cerr << "ERROR: Element " << elementName << " for entity " << entity.instanceName << " no longer exists" << std::endl;
-        entity.isWalking = false;
+        stopEntityMovement(entity.instanceName);
         return;
     }
     
     // Get current position
-    float currentActualX, currentActualY;
-    if (!elementsManager.getElementPosition(elementName, currentActualX, currentActualY)) {
+    float currentActualX, currentActualY;    if (!elementsManager.getElementPosition(elementName, currentActualX, currentActualY)) {
         std::cerr << "Error getting position for entity: " << entity.instanceName << std::endl;
-        entity.isWalking = false; // Stop walking due to error
+        stopEntityMovement(entity.instanceName); // Stop walking due to error
         return;
     }auto updateDirectionAndSprite = [&](Entity& ent, const std::string& elName, const EntityConfiguration& cfg, float dirX, float dirY) {
         // Only process if there's actual movement
@@ -937,10 +932,8 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
     float stopThreshold = 0.1f; // Stop when within 0.1 distance units
     if (distance <= stopThreshold && 
         ((!entity.usePathfinding) || 
-        (entity.usePathfinding && entity.currentPathIndex >= entity.path.size()))) {
-        // We've reached the final target
-        entity.isWalking = false;
-          // Always use current position as final position to prevent teleportation
+        (entity.usePathfinding && entity.currentPathIndex >= entity.path.size()))) {        // We've reached the final target
+        // Always use current position as final position to prevent teleportation
         float finalX = currentActualX;
         float finalY = currentActualY;
         
@@ -951,17 +944,8 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         // Move to the final position (usually current position, preventing teleportation)
         elementsManager.changeElementCoordinates(elementName, finalX, finalY);
         
-        // Disable animation
-        elementsManager.changeElementAnimationStatus(elementName, false);
-        
-        // Reset to frame 0 (standing frame)
-        elementsManager.changeElementSpriteFrame(elementName, 0);
-        
-        // Clear the path
-        if (entity.usePathfinding) {
-            entity.path.clear();
-            entity.currentPathIndex = 0;
-        }
+        // Stop entity movement using centralized function
+        stopEntityMovement(entity.instanceName);
         
         std::cout << "Entity " << entity.instanceName << " reached target area - final position (" 
                   << finalX << ", " << finalY << ")" << std::endl;
@@ -1082,21 +1066,13 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                     (currentActualX - entity.targetX) * (currentActualX - entity.targetX) +
                     (currentActualY - entity.targetY) * (currentActualY - entity.targetY)
                 );
-                
-                const float arrivalThreshold = 0.5f; // If within 0.5 units of target, consider it arrived
+                  const float arrivalThreshold = 0.5f; // If within 0.5 units of target, consider it arrived
                 if (distanceToTarget <= arrivalThreshold) {
                     std::cout << "Entity " << entity.instanceName << " appears stuck but is close to target (" 
                               << distanceToTarget << " units away) - stopping naturally instead of teleporting" << std::endl;
                     
-                    // Stop the entity naturally instead of teleporting
-                    entity.isWalking = false;
-                    entity.path.clear();
-                    entity.currentPathIndex = 0;
-                    
-                    // Disable animation and reset to standing state
-                    elementsManager.changeElementAnimationStatus(elementName, false);
-                    elementsManager.changeElementSpriteFrame(elementName, 0);
-                    elementsManager.changeElementSpritePhase(elementName, config.defaultSpriteSheetPhase);
+                    // Stop the entity naturally using centralized function
+                    stopEntityMovement(entity.instanceName);
                     
                     // Reset stuck detection
                     entity.lastPositionX = currentActualX;
@@ -1142,14 +1118,11 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                                 if (entity.pathfindingRequestId > 0) {
                                     g_entityAsyncPathfinder->cancelPathfindingRequest(entity.instanceName);
                                 }
-                                
-                                // Request new pathfinding from safe position to original target
+                                  // Request new pathfinding from safe position to original target
                                 int newRequestId = g_entityAsyncPathfinder->requestPathfinding(
-                                    entity.instanceName, safeX, safeY, 
-                                    entity.targetX, entity.targetY, config, entity.walkType
+                                    entity.instanceName, safeX, safeY, entity.targetX, entity.targetY, config, entity.walkType
                                 );
-                                
-                                if (newRequestId > 0) {
+                                  if (newRequestId > 0) {
                                     entity.pathfindingRequestId = newRequestId;
                                     entity.isWaitingForPath = true;
                                     entity.lastPathRequest = std::chrono::steady_clock::now();
@@ -1159,35 +1132,20 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                             std::cout << "Safe position for entity " << entity.instanceName 
                                       << " is too far away (" << teleportDistance << " units) - stopping entity instead of teleporting" << std::endl;
                             
-                            // Stop the entity instead of teleporting too far
-                            entity.isWalking = false;
-                            entity.path.clear();
-                            entity.currentPathIndex = 0;
-                            
-                            // Disable animation and reset to standing state
-                            elementsManager.changeElementAnimationStatus(elementName, false);
-                            elementsManager.changeElementSpriteFrame(elementName, 0);
-                            elementsManager.changeElementSpritePhase(elementName, config.defaultSpriteSheetPhase);
+                            // Stop the entity instead of teleporting too far using centralized function
+                            stopEntityMovement(entity.instanceName);
                             
                             // Reset stuck detection
                             entity.lastPositionX = currentActualX;
                             entity.lastPositionY = currentActualY;
                             entity.lastPositionChangeTime = entity.stuckCheckTime;
                             entity.stuckCount = 0;
-                        }
-                    } else {
+                        }                    } else {
                         std::cout << "Failed to resolve stuck condition for entity " << entity.instanceName 
                                   << " - no safe position found. Stopping entity." << std::endl;
                         
-                        // Stop the entity if no safe position can be found
-                        entity.isWalking = false;
-                        entity.path.clear();
-                        entity.currentPathIndex = 0;
-                        
-                        // Disable animation and reset to standing state
-                        elementsManager.changeElementAnimationStatus(elementName, false);
-                        elementsManager.changeElementSpriteFrame(elementName, 0);
-                        elementsManager.changeElementSpritePhase(elementName, config.defaultSpriteSheetPhase);
+                        // Stop the entity if no safe position can be found using centralized function
+                        stopEntityMovement(entity.instanceName);
                         
                         // Reset stuck detection to avoid immediate re-triggering
                         entity.lastPositionChangeTime = entity.stuckCheckTime;
@@ -1478,11 +1436,8 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
             safeY = y;
         }
     }
-    
-    // Stop any current walking
-    entity->isWalking = false;
-    entity->path.clear();
-    entity->currentPathIndex = 0;
+      // Stop any current walking
+    stopEntityMovement(instanceName);
       // Teleport the element on the map
     if (!elementsManager.changeElementCoordinates(elementName, safeX, safeY)) {
         std::cerr << "Failed to teleport entity element: " << instanceName << std::endl;
@@ -1493,10 +1448,6 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
     elementsManager.changeElementAnimationStatus(elementName, false);
     
     // Reset to default sprite
-    if (config) {
-        elementsManager.changeElementSpriteFrame(elementName, config->defaultSpriteSheetFrame);
-        elementsManager.changeElementSpritePhase(elementName, config->defaultSpriteSheetPhase);
-    }
     
     std::cout << "Teleported entity " << instanceName << " to (" << safeX << ", " << safeY << ")";
     if (needsSafePosition && (safeX != x || safeY != y)) {
@@ -1506,61 +1457,38 @@ bool EntitiesManager::teleportEntity(const std::string& instanceName, float x, f
     return true;
 }
 
-// Handle waypoint arrival - added to improve movement precision
-bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY) {
-    // Check if we're using pathfinding
-    if (!entity.usePathfinding || entity.path.empty() || entity.currentPathIndex >= entity.path.size()) {
-        return false; // Not using pathfinding or no valid path
+// General function to stop entity movement and clear its path
+void EntitiesManager::stopEntityMovement(const std::string& instanceName) {
+    // Get the entity
+    Entity* entity = getEntity(instanceName);
+    if (!entity) {
+        std::cerr << "Entity not found for stopping movement: " << instanceName << std::endl;
+        return;
     }
     
-    // Get the current target waypoint
-    const auto& targetWaypoint = entity.path[entity.currentPathIndex];
-    float targetX = targetWaypoint.first;
-    float targetY = targetWaypoint.second;
+    // Get the configuration for default sprite settings
+    const EntityConfiguration* config = getConfiguration(entity->type);
     
-    // Calculate direction to target
-    float dx = targetX - currentX;
-    float dy = targetY - currentY;
+    // Get the element name
+    std::string elementName = getElementName(instanceName);
     
-    // DEBUG: Log direction calculation for antagonist entities    // DEBUG: Log direction calculations for antagonist entities
-    if (entity.type == EntityName::ANTAGONIST) {
-        std::cout << "DEBUG: Antagonist " << entity.instanceName 
-                  << " direction calc: dx=" << dx << ", dy=" << dy 
-                  << " (abs: " << std::abs(dx) << ", " << std::abs(dy) << ")" << std::endl;
+    // Stop walking and clear path
+    entity->isWalking = false;
+    entity->path.clear();
+    entity->currentPathIndex = 0;
+    
+    // Disable animation
+    elementsManager.changeElementAnimationStatus(elementName, false);
+    
+    // Reset to default sprite
+    elementsManager.changeElementSpriteFrame(elementName, 0);
+    
+     // Cancel any pending pathfinding requests
+    if (entity->pathfindingRequestId > 0 && g_entityAsyncPathfinder) {
+        g_entityAsyncPathfinder->cancelPathfindingRequest(instanceName);
+        entity->pathfindingRequestId = 0;
     }
-      // Determine the primary direction for sprite updates
-    int direction;
-    if (std::abs(dx) >= std::abs(dy)) {
-        // Horizontal movement dominates or is equal (prefer horizontal for diagonal movement)
-        direction = (dx > 0) ? 3 : 2;  // 3 = right, 2 = left
-    } else {
-        // Vertical movement dominates
-        direction = (dy > 0) ? 0 : 1;  // 0 = up, 1 = down
-    }
-    
-    // Update entity direction
-    entity.lastDirection = direction;
-    
-    // Set the appropriate sprite phase based on direction
-    int phase;
-    switch (direction) {
-        case 0: phase = config.spritePhaseWalkUp; break;
-        case 1: phase = config.spritePhaseWalkDown; break;
-        case 2: phase = config.spritePhaseWalkLeft; break;
-        case 3: phase = config.spritePhaseWalkRight; break;
-        default: phase = config.defaultSpriteSheetPhase; break;
-    }
-      // DEBUG: Log sprite phase changes for antagonist entities
-    if (entity.type == EntityName::ANTAGONIST) {
-        std::cout << "DEBUG: Antagonist " << entity.instanceName 
-                  << " direction=" << direction << " -> phase=" << phase 
-                  << " (right should be dir=3->phase=" << config.spritePhaseWalkRight << ")" << std::endl;
-    }
-    
-    // Change the sprite phase
-    elementsManager.changeElementSpritePhase(elementName, phase);
-    
-    return true;
+    entity->isWaitingForPath = false;
 }
 
 // Async pathfinding management methods
@@ -1849,14 +1777,11 @@ void EntitiesManager::processAsyncPathfindingResults() {
                         
                         // Enable animation for entities that weren't walking
                         elementsManager.changeElementAnimationStatus(elementName, true);
-                        
-                    } catch (const std::exception& e) {
+                          } catch (const std::exception& e) {
                         std::cerr << "CRITICAL: Exception during new entity path setup for " << result.instanceName 
                                   << ": " << e.what() << std::endl;
                         // Emergency fallback
-                        entity->path.clear();
-                        entity->currentPathIndex = 0;
-                        entity->isWalking = false;
+                        stopEntityMovement(result.instanceName);
                     }
                     
                     // Set initial sprite for first path segment
@@ -1881,15 +1806,12 @@ void EntitiesManager::processAsyncPathfindingResults() {
                 
                 std::cout << "Entity " << result.instanceName << " received async pathfinding result: success, path size: " 
                           << result.path.size() << std::endl;
-            } else {
-                // Pathfinding failed or path too short
+            } else {                // Pathfinding failed or path too short
                 // If entity was walking before, let it continue its current movement
                 // Otherwise, stop the entity
                 if (!entity->isWalking) {
-                    entity->isWalking = false;
-                    elementsManager.changeElementAnimationStatus(elementName, false);
-                    elementsManager.changeElementSpriteFrame(elementName, config->defaultSpriteSheetFrame);
-                    elementsManager.changeElementSpritePhase(elementName, config->defaultSpriteSheetPhase);
+                    // Stop the entity using centralized function
+                    stopEntityMovement(result.instanceName);
                 }
                 
                 entity->pathfindingRequestId = 0; // Clear the request ID
@@ -1909,4 +1831,72 @@ void EntitiesManager::processAsyncPathfindingResults() {
         std::cerr << "CRITICAL: Unknown exception in processAsyncPathfindingResults!" << std::endl;
         // Continue execution to prevent complete crash
     }
+}
+
+// Handle waypoint arrival - update sprite direction for the next segment
+bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY) {
+    // If we don't have a next waypoint, nothing to update
+    if (entity.currentPathIndex >= entity.path.size()) {
+        return false;
+    }
+    
+    // Get the next waypoint
+    const auto& nextWaypoint = entity.path[entity.currentPathIndex];
+    float dx = nextWaypoint.first - currentX;
+    float dy = nextWaypoint.second - currentY;
+    
+    // Only update direction if there's actual movement
+    if (dx == 0 && dy == 0) {
+        return false;
+    }
+    
+    // Determine sprite direction based on movement
+    int spritePhase = config.defaultSpriteSheetPhase;
+    
+    // Use a threshold to determine the primary direction
+    const float directionThreshold = 0.2f;
+    
+    if (std::abs(dx) > std::abs(dy) + directionThreshold) {
+        // Primary horizontal movement
+        if (dx > 0) {
+            spritePhase = config.spritePhaseWalkRight;
+            entity.lastDirection = 3; // Right
+        } else {
+            spritePhase = config.spritePhaseWalkLeft;
+            entity.lastDirection = 2; // Left
+        }
+    } else if (std::abs(dy) > std::abs(dx) + directionThreshold) {
+        // Primary vertical movement
+        if (dy > 0) {
+            spritePhase = config.spritePhaseWalkDown;
+            entity.lastDirection = 1; // Down
+        } else {
+            spritePhase = config.spritePhaseWalkUp;
+            entity.lastDirection = 0; // Up
+        }
+    } else {
+        // Diagonal movement - choose based on the larger component
+        if (std::abs(dx) >= std::abs(dy)) {
+            if (dx > 0) {
+                spritePhase = config.spritePhaseWalkRight;
+                entity.lastDirection = 3; // Right
+            } else {
+                spritePhase = config.spritePhaseWalkLeft;
+                entity.lastDirection = 2; // Left
+            }
+        } else {
+            if (dy > 0) {
+                spritePhase = config.spritePhaseWalkDown;
+                entity.lastDirection = 1; // Down
+            } else {
+                spritePhase = config.spritePhaseWalkUp;
+                entity.lastDirection = 0; // Up
+            }
+        }
+    }
+    
+    // Update sprite phase
+    elementsManager.changeElementSpritePhase(elementName, spritePhase);
+    
+    return true;
 }
