@@ -26,6 +26,15 @@ private:
     
     // Update passive state behavior (random walking)
     void updatePassiveStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config);
+    
+    // Update alert state behavior (look at nearby entities)
+    void updateAlertStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config);
+    
+    // Check if entity should enter alert state
+    bool checkForAlertTriggers(Entity& entity, EntitiesManager& entitiesManager, const EntityConfiguration& config);
+    
+    // Update entity direction to look at target
+    void lookAtTarget(Entity& entity, float targetX, float targetY, EntitiesManager& entitiesManager, const EntityConfiguration& config);
 };
 
 // Global behavior manager instance

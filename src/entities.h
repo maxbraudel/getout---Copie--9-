@@ -67,12 +67,17 @@ struct EntityInfo {
     
     // Automatic behavior system
     bool automaticBehaviors = false; // Enable/disable automatic behaviors for this entity
-    
-    // Passive state behavior parameters
+      // Passive state behavior parameters
     bool passiveState = false; // Enable passive state random walking behavior
     float passiveStateWalkingRadius = 10.0f; // Radius around entity for random walks
     float passiveStateRandomWalkTriggerTimeIntervalMin = 2.0f; // Minimum time between random walks (seconds)
     float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)
+    
+    // Alert state behavior parameters
+    bool alertState = false; // Enable alert state behavior - entity stops and looks at nearby targets
+    float alertStateStartRadius = 3.0f; // Inner radius - entities closer than this trigger immediate alert
+    float alertStateEndRadius = 8.0f; // Outer radius - entities beyond this are ignored
+    std::vector<std::string> alertStateEntitiesList; // List of entity instance names to watch for (empty = watch all entities)
   };
 
 // Struct to hold entity configuration
@@ -109,8 +114,7 @@ struct EntityConfiguration {
       // Map boundary control
     bool offMapAvoidance = true; // Entity pathfinding will avoid going outside the map grid
     bool offMapCollision = true; // Entity will collide with map borders during movement
-    
-    // Automatic behavior system
+      // Automatic behavior system
     bool automaticBehaviors = false; // Enable/disable automatic behaviors for this entity
     
     // Passive state behavior parameters
@@ -118,6 +122,12 @@ struct EntityConfiguration {
     float passiveStateWalkingRadius = 10.0f; // Radius around entity for random walks
     float passiveStateRandomWalkTriggerTimeIntervalMin = 2.0f; // Minimum time between random walks (seconds)
     float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)
+    
+    // Alert state behavior parameters
+    bool alertState = false; // Enable alert state behavior - entity stops and looks at nearby targets
+    float alertStateStartRadius = 3.0f; // Inner radius - entities closer than this trigger immediate alert
+    float alertStateEndRadius = 8.0f; // Outer radius - entities beyond this are ignored
+    std::vector<std::string> alertStateEntitiesList; // List of entity instance names to watch for (empty = watch all entities)
     
     // Constructor to create from EntityInfo
     EntityConfiguration() = default;
@@ -151,13 +161,18 @@ struct EntityConfiguration {
           // Copy map boundary control settings
         offMapAvoidance = info.offMapAvoidance;
         offMapCollision = info.offMapCollision;
-        
-        // Copy automatic behavior settings
+          // Copy automatic behavior settings
         automaticBehaviors = info.automaticBehaviors;
         passiveState = info.passiveState;
         passiveStateWalkingRadius = info.passiveStateWalkingRadius;
         passiveStateRandomWalkTriggerTimeIntervalMin = info.passiveStateRandomWalkTriggerTimeIntervalMin;
         passiveStateRandomWalkTriggerTimeIntervalMax = info.passiveStateRandomWalkTriggerTimeIntervalMax;
+        
+        // Copy alert state settings
+        alertState = info.alertState;
+        alertStateStartRadius = info.alertStateStartRadius;
+        alertStateEndRadius = info.alertStateEndRadius;
+        alertStateEntitiesList = info.alertStateEntitiesList;
     }
 };
 
@@ -202,6 +217,13 @@ struct Entity {
     // Automatic behavior state variables
     double behaviorTimer = 0.0; // Time accumulator for behavior timing
     double nextBehaviorTriggerTime = 0.0; // When the next behavior should trigger
+    
+    // Alert state tracking
+    bool isInAlertState = false; // Currently in alert state
+    std::string alertTargetEntity; // Entity instance name that triggered alert state
+    float alertTargetX = 0.0f; // Last known position of alert target
+    float alertTargetY = 0.0f;
+    double alertStateStartTime = 0.0; // When alert state started
 };
 
 // EntitiesManager - Manages all entities in the game

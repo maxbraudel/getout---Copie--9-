@@ -58,12 +58,13 @@ static void initializeEntityTypes() {
             // Empty - no elements to avoid for pathfinding
             ElementTextureName::COCONUT_TREE_1,
             ElementTextureName::COCONUT_TREE_2,
-            ElementTextureName::COCONUT_TREE_2,
-        };    antagonist.collisionElements = {
+            ElementTextureName::COCONUT_TREE_3,
+        };    
+        antagonist.collisionElements = {
             // Empty - no elements to collide with during movement
             ElementTextureName::COCONUT_TREE_1,
             ElementTextureName::COCONUT_TREE_2,
-            ElementTextureName::COCONUT_TREE_2,
+            ElementTextureName::COCONUT_TREE_3,
         };
           // Block collision configuration - Antagonist avoids water during pathfinding and movement
         antagonist.avoidanceBlocks = {
@@ -84,13 +85,17 @@ static void initializeEntityTypes() {
           // Map boundary control settings
         antagonist.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
         antagonist.offMapCollision = true; // Antagonist collides with map borders
-        
-        // Automatic behavior configuration
+          // Automatic behavior configuration
         antagonist.automaticBehaviors = true; // Enable automatic behaviors for antagonist
         antagonist.passiveState = true; // Enable passive state random walking
         antagonist.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)
+          // Alert state configuration
+        antagonist.alertState = true; // Enable alert state behavior
+        antagonist.alertStateStartRadius = 0.0f; // Inner radius - immediate alert when entities get this close
+        antagonist.alertStateEndRadius = 8.0f; // Outer radius - watch for entities within this range
+        antagonist.alertStateEntitiesList = {"player1"}; // Watch for player1 entity (you can add more entity names)
         
         // Add to the list
         entityTypes.push_back(antagonist);
@@ -129,7 +134,7 @@ static void initializeEntityTypes() {
             // Empty - no elements to avoid for pathfinding
             ElementTextureName::COCONUT_TREE_1,
             ElementTextureName::COCONUT_TREE_2,
-            ElementTextureName::COCONUT_TREE_2,
+            ElementTextureName::COCONUT_TREE_3,
             
         };
           // Block collision configuration - Player demonstrates different behavior than antagonist
