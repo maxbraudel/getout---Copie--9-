@@ -61,33 +61,90 @@ void EntityBehaviorManager::updateEntityBehavior(Entity& entity, double deltaTim
         return; // No automatic behaviors enabled
     }
     
-    // PRIORITY SYSTEM: Higher priority states override lower priority ones
-    // 1. Flee state (highest priority - immediate danger response)
+    // STATE PRIORITY FIX: Check for state transitions with proper hierarchy enforcement
+    // First, determine what the highest priority active state should be based on current conditions
+    bool shouldFlee = false;
+    bool shouldAlert = false;
+    
+    // Check flee conditions (highest priority)
     if (config->fleeState) {
+        shouldFlee = checkForFleeTriggers(entity, entitiesManager, *config);
+    }
+    
+    // Check alert conditions (medium priority) - only if not fleeing
+    if (!shouldFlee && config->alertState) {
+        shouldAlert = checkForAlertTriggers(entity, entitiesManager, *config);
+    }
+      // STATE MUTUAL EXCLUSIVITY: Ensure only one behavior state is active
+    // Force transition to highest priority state, clearing lower priority states
+    if (shouldFlee) {
+        // FLEE STATE (highest priority) - clear other states
+        if (!entity.isInFleeState) {
+            // Clear alert state when entering flee state
+            if (entity.isInAlertState) {
+                entity.isInAlertState = false;
+                entity.alertTargetEntity.clear();
+                entity.alertTargetX = 0.0f;
+                entity.alertTargetY = 0.0f;
+                entity.alertStateStartTime = 0.0;
+                std::cout << "Entity " << entity.instanceName << " transitioning from alert to flee state" << std::endl;
+            }
+            
+            // Enter flee state
+            enterFleeState(entity, entitiesManager, *config);
+        }
+        
         updateFleeStateBehavior(entity, deltaTime, entitiesManager, *config);
-        
-        // If entity is in flee state, skip other behaviors
-        if (entity.isInFleeState) {
-            return;
-        }
+        return; // Skip other behaviors
     }
-    
-    // 2. Alert state (medium priority - watch for threats)
-    if (config->alertState) {
+    else if (shouldAlert) {
+        // ALERT STATE (medium priority) - clear flee state if necessary
+        if (!entity.isInAlertState) {
+            // Clear flee state when entering alert state
+            if (entity.isInFleeState) {
+                entity.isInFleeState = false;
+                entity.fleeTargetEntity.clear();
+                entity.fleeTargetX = 0.0f;
+                entity.fleeTargetY = 0.0f;
+                entity.fleeStateStartTime = 0.0;
+                entity.fleeTargetDistance = 0.0f;
+                std::cout << "Entity " << entity.instanceName << " transitioning from flee to alert state" << std::endl;
+            }
+            
+            // Enter alert state
+            enterAlertState(entity, entitiesManager, *config);
+        }
+        
         updateAlertStateBehavior(entity, deltaTime, entitiesManager, *config);
+        return; // Skip other behaviors
+    }
+    else {
+        // NO HIGH PRIORITY STATES - check if we need to clear existing states
+        if (entity.isInFleeState) {
+            // Check if flee state should continue
+            if (config->fleeState) {
+                updateFleeStateBehavior(entity, deltaTime, entitiesManager, *config);
+                if (entity.isInFleeState) {
+                    return; // Still in flee state
+                }
+            }
+        }
         
-        // If entity is in alert state, skip other behaviors
         if (entity.isInAlertState) {
-            return;
+            // Check if alert state should continue
+            if (config->alertState) {
+                updateAlertStateBehavior(entity, deltaTime, entitiesManager, *config);
+                if (entity.isInAlertState) {
+                    return; // Still in alert state
+                }
+            }
+        }
+        
+        // PASSIVE STATE (lowest priority) - only if no other states are active
+        if (config->passiveState && !entity.isInAlertState && !entity.isInFleeState) {
+            updatePassiveStateBehavior(entity, deltaTime, entitiesManager, *config);
         }
     }
-    
-    // 3. Passive state behavior (lowest priority - only if not in alert or flee)
-    if (config->passiveState && !entity.isInAlertState && !entity.isInFleeState) {
-        updatePassiveStateBehavior(entity, deltaTime, entitiesManager, *config);
-    }
-    
-    // Additional behavior types can be added here in the future
 }
 
 void EntityBehaviorManager::updatePassiveStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config) {
@@ -193,72 +250,62 @@ void EntityBehaviorManager::initializeEntityBehavior(Entity& entity, const Entit
 }
 
 void EntityBehaviorManager::updateAlertStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config) {
-    // Check if entity should enter alert state
+    // STATE PRIORITY FIX: Only handle state continuation, not initial detection
+    // Initial state detection is now handled in updateEntityBehavior
     if (!entity.isInAlertState) {
-        if (checkForAlertTriggers(entity, entitiesManager, config)) {
-            // Entity just entered alert state - stop current movement
-            if (entity.isWalking) {
-                entity.isWalking = false;
-                entity.path.clear();
-                entity.currentPathIndex = 0;
-                  // Stop animation and movement
-                std::string elementName = EntitiesManager::getElementName(entity.instanceName);
-                elementsManager.changeElementAnimationStatus(elementName, false);
-                elementsManager.changeElementSpriteFrame(elementName, 0);
-                
-                std::cout << "Entity " << entity.instanceName << " entered alert state - stopping movement" << std::endl;
-            }
-        }
-    } else {
-        // Entity is already in alert state - check if target is still in range
-        bool targetStillInRange = false;
-          // Get current entity position
-        std::string elementName = EntitiesManager::getElementName(entity.instanceName);
-        float entityX, entityY;
-        if (elementsManager.getElementPosition(elementName, entityX, entityY)) {
+        // This should not happen with the new priority system
+        std::cout << "WARNING: updateAlertStateBehavior called but entity not in alert state" << std::endl;
+        return;
+    }
+    
+    // Entity is already in alert state - check if target is still in range
+    bool targetStillInRange = false;
+      // Get current entity position
+    std::string elementName = EntitiesManager::getElementName(entity.instanceName);
+    float entityX, entityY;
+    if (elementsManager.getElementPosition(elementName, entityX, entityY)) {
+        
+        // Check if alert target entity still exists and is in range
+        if (!entity.alertTargetEntity.empty()) {
+            std::string targetElementName = EntitiesManager::getElementName(entity.alertTargetEntity);
+            float targetX, targetY;
             
-            // Check if alert target entity still exists and is in range
-            if (!entity.alertTargetEntity.empty()) {
-                std::string targetElementName = EntitiesManager::getElementName(entity.alertTargetEntity);
-                float targetX, targetY;
+            if (elementsManager.getElementPosition(targetElementName, targetX, targetY)) {
+                float distance = std::sqrt((targetX - entityX) * (targetX - entityX) + (targetY - entityY) * (targetY - entityY));
                 
-                if (elementsManager.getElementPosition(targetElementName, targetX, targetY)) {
-                    float distance = std::sqrt((targetX - entityX) * (targetX - entityX) + (targetY - entityY) * (targetY - entityY));
+                if (distance >= config.alertStateStartRadius && distance <= config.alertStateEndRadius) {
+                    targetStillInRange = true;
                     
-                    if (distance >= config.alertStateStartRadius && distance <= config.alertStateEndRadius) {
-                        targetStillInRange = true;
-                        
-                        // Update target position and look at it
-                        entity.alertTargetX = targetX;
-                        entity.alertTargetY = targetY;
-                        lookAtTarget(entity, targetX, targetY, entitiesManager, config);
-                    }
+                    // Update target position and look at it
+                    entity.alertTargetX = targetX;
+                    entity.alertTargetY = targetY;
+                    lookAtTarget(entity, targetX, targetY, entitiesManager, config);
                 }
             }
         }
-          // If target is no longer in range, exit alert state
-        if (!targetStillInRange) {
-            entity.isInAlertState = false;
-            entity.alertTargetEntity.clear();
-            entity.alertTargetX = 0.0f;
-            entity.alertTargetY = 0.0f;
-            entity.alertStateStartTime = 0.0;
-            
-            std::cout << "Entity " << entity.instanceName << " exited alert state - target out of range, retaining direction " << entity.lastDirection << std::endl;
-            
-            // Keep the direction the entity was looking during alert state
-            // Convert lastDirection to appropriate sprite phase
-            std::string elementName = EntitiesManager::getElementName(entity.instanceName);
-            int phase;
-            switch (entity.lastDirection) {
-                case 0: phase = config.spritePhaseWalkUp; break;
-                case 1: phase = config.spritePhaseWalkDown; break;
-                case 2: phase = config.spritePhaseWalkLeft; break;
-                case 3: phase = config.spritePhaseWalkRight; break;
-                default: phase = config.defaultSpriteSheetPhase; break;
-            }
-            elementsManager.changeElementSpritePhase(elementName, phase);
+    }
+      // If target is no longer in range, exit alert state
+    if (!targetStillInRange) {
+        entity.isInAlertState = false;
+        entity.alertTargetEntity.clear();
+        entity.alertTargetX = 0.0f;
+        entity.alertTargetY = 0.0f;
+        entity.alertStateStartTime = 0.0;
+        
+        std::cout << "Entity " << entity.instanceName << " exited alert state - target out of range, retaining direction " << entity.lastDirection << std::endl;
+        
+        // Keep the direction the entity was looking during alert state
+        // Convert lastDirection to appropriate sprite phase
+        std::string elementName = EntitiesManager::getElementName(entity.instanceName);
+        int phase;
+        switch (entity.lastDirection) {
+            case 0: phase = config.spritePhaseWalkUp; break;
+            case 1: phase = config.spritePhaseWalkDown; break;
+            case 2: phase = config.spritePhaseWalkLeft; break;
+            case 3: phase = config.spritePhaseWalkRight; break;
+            default: phase = config.defaultSpriteSheetPhase; break;
         }
+        elementsManager.changeElementSpritePhase(elementName, phase);
     }
 }
 
@@ -327,26 +374,19 @@ bool EntityBehaviorManager::checkForAlertTriggers(Entity& entity, EntitiesManage
     return false; // No entities found in alert range
 }
 
-void EntityBehaviorManager::lookAtTarget(Entity& entity, float targetX, float targetY, EntitiesManager& entitiesManager, const EntityConfiguration& config) {
+// Helper function to forcefully set entity face direction (overrides pathfinding direction)
+void EntityBehaviorManager::setEntityFaceDirection(Entity& entity, float directionX, float directionY, EntitiesManager& entitiesManager, const EntityConfiguration& config, const std::string& debugContext) {
     // Get current entity position
     std::string elementName = EntitiesManager::getElementName(entity.instanceName);
-    float entityX, entityY;
-    if (!elementsManager.getElementPosition(elementName, entityX, entityY)) {
-        return; // Can't get position
-    }
-    
-    // Calculate direction to target
-    float dx = targetX - entityX;
-    float dy = targetY - entityY;
     
     // Determine the primary direction for sprite updates
     int direction;
-    if (std::abs(dx) >= std::abs(dy)) {
+    if (std::abs(directionX) >= std::abs(directionY)) {
         // Horizontal movement dominates
-        direction = (dx > 0) ? 3 : 2;  // 3 = right, 2 = left
+        direction = (directionX > 0) ? 3 : 2;  // 3 = right, 2 = left
     } else {
         // Vertical movement dominates
-        direction = (dy > 0) ? 0 : 1;  // 0 = up, 1 = down
+        direction = (directionY > 0) ? 0 : 1;  // 0 = up, 1 = down
     }
     
     // Update entity direction
@@ -361,11 +401,94 @@ void EntityBehaviorManager::lookAtTarget(Entity& entity, float targetX, float ta
         case 3: phase = config.spritePhaseWalkRight; break;
         default: phase = config.defaultSpriteSheetPhase; break;
     }
-      // Change the sprite phase to look at target
+      // Forcefully change the sprite phase to override pathfinding direction
     elementsManager.changeElementSpritePhase(elementName, phase);
     
-    std::cout << "Entity " << entity.instanceName << " looking at target (" << targetX << ", " << targetY 
-              << ") - direction: " << direction << ", phase: " << phase << std::endl;
+    std::cout << "Entity " << entity.instanceName << " face direction set via " << debugContext 
+              << " - dirX=" << directionX << ", dirY=" << directionY 
+              << " -> direction: " << direction << ", phase: " << phase << std::endl;
+}
+
+// Helper function to enter flee state (called when state transitions are detected)
+void EntityBehaviorManager::enterFleeState(Entity& entity, EntitiesManager& entitiesManager, const EntityConfiguration& config) {
+    // Set flee state flag first
+    entity.isInFleeState = true;
+    entity.fleeStateStartTime = entity.behaviorTimer;
+    
+    // Stop current movement and start fleeing
+    std::string elementName = EntitiesManager::getElementName(entity.instanceName);
+    if (entity.isWalking) {
+        entity.isWalking = false;
+        entity.path.clear();
+        entity.currentPathIndex = 0;
+        // Stop animation temporarily
+        elementsManager.changeElementAnimationStatus(elementName, false);
+        elementsManager.changeElementSpriteFrame(elementName, 0);
+        
+        std::cout << "Entity " << entity.instanceName << " entered flee state - stopping current movement" << std::endl;
+    }
+    
+    // Calculate flee destination and start moving
+    float fleeX, fleeY;
+    if (calculateFleeDestination(entity, entity.fleeTargetX, entity.fleeTargetY, config, fleeX, fleeY)) {
+        // Start fleeing to calculated destination
+        WalkType walkType = config.fleeStateRunning ? WalkType::SPRINT : WalkType::NORMAL;
+        entitiesManager.walkEntityWithPathfinding(entity.instanceName, fleeX, fleeY, walkType);
+        
+        // FLEE ORIENTATION FIX: Set flee direction AFTER pathfinding starts to override pathfinding sprite direction
+        // Calculate direction away from threat for immediate sprite orientation
+        float currentX, currentY;
+        if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
+            float fleeDirectionX = currentX - entity.fleeTargetX;  // Direction away from threat
+            float fleeDirectionY = currentY - entity.fleeTargetY;
+            
+            // Force entity to face the flee direction, overriding pathfinding direction
+            setEntityFaceDirection(entity, fleeDirectionX, fleeDirectionY, entitiesManager, config, "flee-start");
+        }
+        
+        std::cout << "Entity " << entity.instanceName << " fleeing to (" << fleeX << ", " << fleeY 
+                  << ") distance " << entity.fleeTargetDistance << " with " 
+                  << (config.fleeStateRunning ? "sprint" : "normal") << " speed" << std::endl;
+    }
+}
+
+// Helper function to enter alert state (called when state transitions are detected)
+void EntityBehaviorManager::enterAlertState(Entity& entity, EntitiesManager& entitiesManager, const EntityConfiguration& config) {
+    // Set alert state flag first
+    entity.isInAlertState = true;
+    entity.alertStateStartTime = entity.behaviorTimer;
+    
+    // Stop current movement
+    std::string elementName = EntitiesManager::getElementName(entity.instanceName);
+    if (entity.isWalking) {
+        entity.isWalking = false;
+        entity.path.clear();
+        entity.currentPathIndex = 0;
+        // Stop animation and movement
+        elementsManager.changeElementAnimationStatus(elementName, false);
+        elementsManager.changeElementSpriteFrame(elementName, 0);
+        
+        std::cout << "Entity " << entity.instanceName << " entered alert state - stopping movement" << std::endl;
+    }
+    
+    // Look at the target immediately
+    lookAtTarget(entity, entity.alertTargetX, entity.alertTargetY, entitiesManager, config);
+}
+
+void EntityBehaviorManager::lookAtTarget(Entity& entity, float targetX, float targetY, EntitiesManager& entitiesManager, const EntityConfiguration& config) {
+    // Get current entity position
+    std::string elementName = EntitiesManager::getElementName(entity.instanceName);
+    float entityX, entityY;
+    if (!elementsManager.getElementPosition(elementName, entityX, entityY)) {
+        return; // Can't get position
+    }
+    
+    // Calculate direction to target
+    float dx = targetX - entityX;
+    float dy = targetY - entityY;
+    
+    // Use the new helper function to set direction
+    setEntityFaceDirection(entity, dx, dy, entitiesManager, config, "lookAtTarget");
 }
 
 void EntityBehaviorManager::updateFleeStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config) {
@@ -384,39 +507,18 @@ void EntityBehaviorManager::updateFleeStateBehavior(Entity& entity, double delta
             return;
         }
         
-        // Check if entity should enter flee state
+        // STATE PRIORITY FIX: Only handle state continuation, not initial detection
+        // Initial state detection is now handled in updateEntityBehavior
         if (!entity.isInFleeState) {
-            if (checkForFleeTriggers(entity, entitiesManager, config)) {
-                // Entity just entered flee state - stop current movement and start fleeing
-                if (entity.isWalking) {
-                    entity.isWalking = false;
-                    entity.path.clear();
-                    entity.currentPathIndex = 0;
-                    // Stop animation temporarily
-                    elementsManager.changeElementAnimationStatus(elementName, false);
-                    elementsManager.changeElementSpriteFrame(elementName, 0);
-                    
-                    std::cout << "Entity " << entity.instanceName << " entered flee state - stopping current movement" << std::endl;
-                }
-                
-                // Calculate flee destination and start moving
-                float fleeX, fleeY;
-            if (calculateFleeDestination(entity, entity.fleeTargetX, entity.fleeTargetY, config, fleeX, fleeY)) {
-                // Start fleeing to calculated destination
-                WalkType walkType = config.fleeStateRunning ? WalkType::SPRINT : WalkType::NORMAL;
-                entitiesManager.walkEntityWithPathfinding(entity.instanceName, fleeX, fleeY, walkType);
-                
-                std::cout << "Entity " << entity.instanceName << " fleeing to (" << fleeX << ", " << fleeY 
-                          << ") distance " << entity.fleeTargetDistance << " with " 
-                          << (config.fleeStateRunning ? "sprint" : "normal") << " speed" << std::endl;
-            }
+            // This should not happen with the new priority system
+            std::cout << "WARNING: updateFleeStateBehavior called but entity not in flee state" << std::endl;
+            return;
         }
-    } else {
-        // Entity is already in flee state - check if threat is still present
+        
+        // Entity is in flee state - check if threat is still present
         bool threatStillPresent = false;
         
         // Get current entity position
-        std::string elementName = EntitiesManager::getElementName(entity.instanceName);
         float entityX, entityY;
         if (elementsManager.getElementPosition(elementName, entityX, entityY)) {
             
@@ -435,13 +537,20 @@ void EntityBehaviorManager::updateFleeStateBehavior(Entity& entity, double delta
                         // Update target position
                         entity.fleeTargetX = targetX;
                         entity.fleeTargetY = targetY;
-                        
-                        // If entity finished fleeing but threat is still there, flee again
+                          // If entity finished fleeing but threat is still there, flee again
                         if (!entity.isWalking && !entity.isWaitingForPath) {
                             float newFleeX, newFleeY;
                             if (calculateFleeDestination(entity, targetX, targetY, config, newFleeX, newFleeY)) {
                                 WalkType walkType = config.fleeStateRunning ? WalkType::SPRINT : WalkType::NORMAL;
                                 entitiesManager.walkEntityWithPathfinding(entity.instanceName, newFleeX, newFleeY, walkType);
+                                
+                                // FLEE ORIENTATION FIX: Set flee direction AFTER pathfinding starts to override pathfinding sprite direction
+                                // Calculate direction away from threat for immediate sprite orientation
+                                float fleeDirectionX = entityX - targetX;  // Direction away from threat
+                                float fleeDirectionY = entityY - targetY;
+                                
+                                // Force entity to face the flee direction, overriding pathfinding direction
+                                setEntityFaceDirection(entity, fleeDirectionX, fleeDirectionY, entitiesManager, config, "flee-continue");
                                 
                                 std::cout << "Entity " << entity.instanceName << " continues fleeing to (" << newFleeX << ", " << newFleeY 
                                           << ") - threat still present" << std::endl;
@@ -451,8 +560,7 @@ void EntityBehaviorManager::updateFleeStateBehavior(Entity& entity, double delta
                 }
             }
         }
-        
-        // If threat is no longer present, exit flee state
+          // If threat is no longer present, exit flee state
         if (!threatStillPresent) {
             entity.isInFleeState = false;
             entity.fleeTargetEntity.clear();
@@ -460,9 +568,21 @@ void EntityBehaviorManager::updateFleeStateBehavior(Entity& entity, double delta
             entity.fleeTargetY = 0.0f;
             entity.fleeStateStartTime = 0.0;
             entity.fleeTargetDistance = 0.0f;
-              std::cout << "Entity " << entity.instanceName << " exited flee state - threat no longer present" << std::endl;
+              std::cout << "Entity " << entity.instanceName << " exited flee state - threat no longer present, retaining direction " << entity.lastDirection << std::endl;
+            
+            // FLEE ORIENTATION FIX: Retain the flee direction when exiting flee state
+            // Convert lastDirection to appropriate sprite phase to keep the entity facing away
+            std::string elementName = EntitiesManager::getElementName(entity.instanceName);
+            int phase;
+            switch (entity.lastDirection) {
+                case 0: phase = config.spritePhaseWalkUp; break;
+                case 1: phase = config.spritePhaseWalkDown; break;
+                case 2: phase = config.spritePhaseWalkLeft; break;
+                case 3: phase = config.spritePhaseWalkRight; break;
+                default: phase = config.defaultSpriteSheetPhase; break;
+            }
+            elementsManager.changeElementSpritePhase(elementName, phase);
         }
-    }
     
     } catch (const std::exception& e) {
         std::cerr << "CRITICAL: Exception in flee behavior for entity " << entity.instanceName 

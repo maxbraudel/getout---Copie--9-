@@ -107,7 +107,7 @@ static void initializeEntityTypes() {
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)        // Alert state configuration
         antagonist.alertState = true; // Enable alert state behavior
-        antagonist.alertStateStartRadius = 8.0f; // Inner radius - immediate alert when entities get this close
+        antagonist.alertStateStartRadius = 0.0f; // Inner radius - immediate alert when entities get this close
         antagonist.alertStateEndRadius = 10.0f; // Outer radius - watch for entities within this range
         antagonist.alertStateEntitiesList = {EntityName::PLAYER}; // Watch for player entity type
         
