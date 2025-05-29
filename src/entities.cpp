@@ -1606,15 +1606,33 @@ void EntitiesManager::processAsyncPathfindingResults() {
                         entity->path.insert(entity->path.begin() + bestTransitionIndex, {currentX, currentY});
                         entity->currentPathIndex = bestTransitionIndex + 1;
                     }
-                    
-                    if (DEBUG_LOGS) {
+                      if (DEBUG_LOGS) {
                         std::cout << "Entity " << result.instanceName << " smoothly transitioned to new path at index " 
                                   << entity->currentPathIndex << " (distance: " << minDistance << ")" << std::endl;
+                    }
+                    
+                    // SPRITE DIRECTION FIX: Update sprite direction to match new path direction
+                    // Calculate direction from current position to the target waypoint
+                    if (entity->currentPathIndex < entity->path.size()) {
+                        float currentX, currentY;
+                        if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
+                            const auto& targetWaypoint = entity->path[entity->currentPathIndex];
+                            float dx = targetWaypoint.first - currentX;
+                            float dy = targetWaypoint.second - currentY;
+                            
+                            // Update sprite direction for the new path direction
+                            handleWaypointArrival(*entity, elementName, *config, currentX, currentY);
+                        }
                     }
                 } else {
                     // Fallback: use the new path normally
                     entity->path = result.path;
                     entity->currentPathIndex = 1;
+                    
+                    // SPRITE DIRECTION FIX: Update sprite direction for fallback case
+                    if (entity->path.size() >= 2) {
+                        handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
+                    }
                 }
             } else {
                 // Entity is not walking, start normally from the beginning
