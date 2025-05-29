@@ -99,26 +99,12 @@ static void initializeEntityTypes() {
         };
           // Map boundary control settings
         antagonist.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
-        antagonist.offMapCollision = true; // Antagonist collides with map borders
-          // Automatic behavior configuration
+        antagonist.offMapCollision = true; // Antagonist collides with map borders        // Automatic behavior configuration
         antagonist.automaticBehaviors = true; // Enable automatic behaviors for antagonist
         antagonist.passiveState = true; // Enable passive state random walking
         antagonist.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
-        antagonist.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)        // Alert state configuration
-        antagonist.alertState = true; // Enable alert state behavior
-        antagonist.alertStateStartRadius = 8.0f; // Inner radius - immediate alert when entities get this close
-        antagonist.alertStateEndRadius = 10.0f; // Outer radius - watch for entities within this range
-        antagonist.alertStateEntitiesList = {EntityName::PLAYER}; // Watch for player entity type
-        
-        // Flee state configuration - antagonist flees from player
-        antagonist.fleeState = true; // Enable flee state behavior
-        antagonist.fleeStateStartRadius = 0.0f; // Inner radius - immediate flee when entities get this close
-        antagonist.fleeStateEndRadius = 7.0f; // Outer radius - flee from entities within this range
-        antagonist.fleeStateEntitiesList = {EntityName::PLAYER}; // Flee from player entity type
-        antagonist.fleeStateRunning = true; // Use sprint speed when fleeing
-        antagonist.fleeStateMinDistance = 8.0f; // Minimum distance to flee
-        antagonist.fleeStateMaxDistance = 15.0f; // Maximum distance to flee
+        antagonist.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)
         
         // Add to the list
         entityTypes.push_back(antagonist);        EntityInfo player;

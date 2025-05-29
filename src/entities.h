@@ -70,26 +70,12 @@ struct EntityInfo {
     bool offMapCollision = true; // Entity will collide with map borders during movement
     
     // Automatic behavior system
-    bool automaticBehaviors = false; // Enable/disable automatic behaviors for this entity
-      // Passive state behavior parameters
+    bool automaticBehaviors = false; // Enable/disable automatic behaviors for this entity    // Passive state behavior parameters
     bool passiveState = false; // Enable passive state random walking behavior
     float passiveStateWalkingRadius = 10.0f; // Radius around entity for random walks
     float passiveStateRandomWalkTriggerTimeIntervalMin = 2.0f; // Minimum time between random walks (seconds)
-    float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)      // Alert state behavior parameters
-    bool alertState = false; // Enable alert state behavior - entity stops and looks at nearby targets
-    float alertStateStartRadius = 3.0f; // Inner radius - entities closer than this trigger immediate alert
-    float alertStateEndRadius = 8.0f; // Outer radius - entities beyond this are ignored
-    std::vector<EntityName> alertStateEntitiesList; // List of entity types to watch for (empty = watch all entity types)
-    
-    // Flee state behavior parameters
-    bool fleeState = false; // Enable flee state behavior - entity runs away from nearby targets
-    float fleeStateStartRadius = 2.0f; // Inner radius - entities closer than this trigger immediate flee
-    float fleeStateEndRadius = 6.0f; // Outer radius - entities beyond this are ignored
-    std::vector<EntityName> fleeStateEntitiesList; // List of entity types to flee from (empty = flee from all entity types)
-    bool fleeStateRunning = true; // Whether to use sprint speed during flee (true = sprint, false = normal walk)
-    float fleeStateMinDistance = 5.0f; // Minimum distance to flee when triggered
-    float fleeStateMaxDistance = 12.0f; // Maximum distance to flee when triggered
-  };
+    float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)
+};
 
 // Struct to hold entity configuration
 struct EntityConfiguration {
@@ -127,25 +113,11 @@ struct EntityConfiguration {
     bool offMapCollision = true; // Entity will collide with map borders during movement
       // Automatic behavior system
     bool automaticBehaviors = false; // Enable/disable automatic behaviors for this entity
-    
-    // Passive state behavior parameters
+      // Passive state behavior parameters
     bool passiveState = false; // Enable passive state random walking behavior
     float passiveStateWalkingRadius = 10.0f; // Radius around entity for random walks
     float passiveStateRandomWalkTriggerTimeIntervalMin = 2.0f; // Minimum time between random walks (seconds)
-    float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)    // Alert state behavior parameters
-    bool alertState = false; // Enable alert state behavior - entity stops and looks at nearby targets
-    float alertStateStartRadius = 3.0f; // Inner radius - entities closer than this trigger immediate alert
-    float alertStateEndRadius = 8.0f; // Outer radius - entities beyond this are ignored
-    std::vector<EntityName> alertStateEntitiesList; // List of entity types to watch for (empty = watch all entity types)
-    
-    // Flee state behavior parameters
-    bool fleeState = false; // Enable flee state behavior - entity runs away from nearby targets
-    float fleeStateStartRadius = 2.0f; // Inner radius - entities closer than this trigger immediate flee
-    float fleeStateEndRadius = 6.0f; // Outer radius - entities beyond this are ignored
-    std::vector<EntityName> fleeStateEntitiesList; // List of entity types to flee from (empty = flee from all entity types)
-    bool fleeStateRunning = true; // Whether to use sprint speed during flee (true = sprint, false = normal walk)
-    float fleeStateMinDistance = 5.0f; // Minimum distance to flee when triggered
-    float fleeStateMaxDistance = 12.0f; // Maximum distance to flee when triggered
+    float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)
     
     // Constructor to create from EntityInfo
     EntityConfiguration() = default;
@@ -177,27 +149,12 @@ struct EntityConfiguration {
         collisionBlocks = info.collisionBlocks;
           // Copy map boundary control settings
         offMapAvoidance = info.offMapAvoidance;
-        offMapCollision = info.offMapCollision;
-          // Copy automatic behavior settings
+        offMapCollision = info.offMapCollision;        // Copy automatic behavior settings
         automaticBehaviors = info.automaticBehaviors;
         passiveState = info.passiveState;
         passiveStateWalkingRadius = info.passiveStateWalkingRadius;
         passiveStateRandomWalkTriggerTimeIntervalMin = info.passiveStateRandomWalkTriggerTimeIntervalMin;
         passiveStateRandomWalkTriggerTimeIntervalMax = info.passiveStateRandomWalkTriggerTimeIntervalMax;
-          // Copy alert state settings
-        alertState = info.alertState;
-        alertStateStartRadius = info.alertStateStartRadius;
-        alertStateEndRadius = info.alertStateEndRadius;
-        alertStateEntitiesList = info.alertStateEntitiesList;
-        
-        // Copy flee state settings
-        fleeState = info.fleeState;
-        fleeStateStartRadius = info.fleeStateStartRadius;
-        fleeStateEndRadius = info.fleeStateEndRadius;
-        fleeStateEntitiesList = info.fleeStateEntitiesList;
-        fleeStateRunning = info.fleeStateRunning;
-        fleeStateMinDistance = info.fleeStateMinDistance;
-        fleeStateMaxDistance = info.fleeStateMaxDistance;
     }
 };
 
@@ -238,24 +195,9 @@ struct Entity {
     int stuckCount = 0;    float interactionRadius;
     EntityDirection currentSegmentSpriteDirection = DIRECTION_DOWN; // Initialize to a default
     std::string currentBehavior;
-    
-    // Automatic behavior state variables
+      // Automatic behavior state variables
     double behaviorTimer = 0.0; // Time accumulator for behavior timing
     double nextBehaviorTriggerTime = 0.0; // When the next behavior should trigger
-      // Alert state tracking
-    bool isInAlertState = false; // Currently in alert state
-    std::string alertTargetEntity; // Entity instance name that triggered alert state
-    float alertTargetX = 0.0f; // Last known position of alert target
-    float alertTargetY = 0.0f;
-    double alertStateStartTime = 0.0; // When alert state started
-    
-    // Flee state tracking
-    bool isInFleeState = false; // Currently in flee state
-    std::string fleeTargetEntity; // Entity instance name that triggered flee state
-    float fleeTargetX = 0.0f; // Last known position of flee target
-    float fleeTargetY = 0.0f;
-    double fleeStateStartTime = 0.0; // When flee state started
-    float fleeTargetDistance = 0.0f; // Target distance for current flee movement
 };
 
 // EntitiesManager - Manages all entities in the game
