@@ -30,7 +30,7 @@ enum class WalkType {
 // Struct to hold predefined entity types information
 struct EntityInfo {
     EntityName type;
-    ElementName textureName;
+    ElementName elementName;
     float scale;
     
     // Sprite configuration
@@ -72,7 +72,7 @@ struct EntityInfo {
 // Struct to hold entity configuration
 struct EntityConfiguration {
     EntityName type;
-    ElementName textureName;
+    ElementName elementName;
     float scale = 1.0f;
     
     // Default sprite configuration
@@ -115,7 +115,7 @@ struct EntityConfiguration {
     EntityConfiguration() = default;
       EntityConfiguration(const EntityInfo& info) {
         type = info.type;
-        textureName = info.textureName;
+        elementName = info.elementName;
         scale = info.scale;
         
         defaultSpriteSheetPhase = info.defaultSpriteSheetPhase;

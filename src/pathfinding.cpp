@@ -21,8 +21,8 @@
 
 
 // Global variables for minimum distance from avoidance objects
-float MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS = 0.0f;  // Default: no buffer
-float MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS = 0.0f; // Default: no buffer
+float MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS = 0.2f;  // Default: no buffer
+float MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS = 0.2f; // Default: no buffer
 
 // Global instances for performance optimization
 PathfindingStats g_pathfindingStats;

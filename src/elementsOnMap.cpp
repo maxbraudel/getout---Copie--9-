@@ -208,7 +208,7 @@ if (DEBUG_LOGS) { std::cerr << "Failed to load texture: " << path << " (" << stb
     return textureID;
 }
 
-void ElementsOnMap::placeElement(const std::string& instanceName, ElementName textureName, 
+void ElementsOnMap::placeElement(const std::string& instanceName, ElementName elementName, 
                                float scale, float x, float y, float rotation,
                                int spriteSheetPhase, int spriteSheetFrame,
                                bool isAnimated, float animationSpeed,
@@ -225,7 +225,7 @@ if (DEBUG_LOGS) { std::cerr << "WARNING: Element with name '" << instanceName <<
         if (existingIndex < elements.size()) {
             const auto& existingElement = elements[existingIndex];
             std::cerr << "  Details: position=(" << existingElement.x << "," << existingElement.y 
-                      << "), texture=" << static_cast<int>(existingElement.textureName) << std::endl;
+                      << "), texture=" << static_cast<int>(existingElement.elementName) << std::endl;
         }
         
 if (DEBUG_LOGS) { std::cerr << "To modify the existing element, use functions like changeElementCoordinates() instead." << std::endl; }
@@ -233,7 +233,7 @@ if (DEBUG_LOGS) { std::cerr << "To modify the existing element, use functions li
     }    // Create a PlacedElement explicitly instead of using initializer list (C++11 compatibility)
     PlacedElement element;
     element.instanceName = instanceName;
-    element.textureName = textureName;
+    element.elementName = elementName;
     element.scale = scale;    element.x = x;
     element.y = y;
     element.rotation = rotation;
@@ -242,7 +242,7 @@ if (DEBUG_LOGS) { std::cerr << "To modify the existing element, use functions li
     if (anchorPoint == AnchorPoint::USE_TEXTURE_DEFAULT) {
         // Look up the texture\'s default anchor point
         bool found = false;        for (const auto& texInfo : elementTexturesToLoad) {
-            if (texInfo.name == textureName) {
+            if (texInfo.name == elementName) {
                 element.anchorPoint = texInfo.anchorPoint;
                 element.anchorOffsetX = texInfo.anchorOffsetX + anchorOffsetX; // Add custom offset to default
                 element.anchorOffsetY = texInfo.anchorOffsetY + anchorOffsetY; // Add custom offset to default
@@ -279,12 +279,12 @@ if (DEBUG_LOGS) { std::cerr << "To modify the existing element, use functions li
     // First, find the texture info
     bool isSpritesheet = false;
     for (const auto& texInfo : elementTexturesToLoad) {
-        if (texInfo.name == textureName) {
+        if (texInfo.name == elementName) {
             if (texInfo.type == ElementTextureType::SPRITESHEET && 
                 texInfo.spriteWidth > 0 && 
-                textureDimensions.find(textureName) != textureDimensions.end()) {
+                textureDimensions.find(elementName) != textureDimensions.end()) {
                 
-                auto texDim = textureDimensions[textureName];
+                auto texDim = textureDimensions[elementName];
                 int totalWidth = texDim.first;
                 element.numFramesInPhase = totalWidth / texInfo.spriteWidth;
                 isSpritesheet = true;
@@ -299,7 +299,7 @@ if (DEBUG_LOGS) { std::cerr << "To modify the existing element, use functions li
     elementIndexMap[instanceName] = newIndex;
     
     std::cout << "Placed element: " << instanceName << " (Texture: " 
-              << static_cast<int>(textureName) << ") at (" << x << ", " << y 
+              << static_cast<int>(elementName) << ") at (" << x << ", " << y 
               << ") with scale " << scale;
               
     if (isSpritesheet) {
@@ -429,7 +429,7 @@ if (DEBUG_LOGS) { std::cerr << "Element not found for scaling: " << instanceName
     if (anchorPoint == AnchorPoint::USE_TEXTURE_DEFAULT) {
         // Look up the default anchor point from the texture definition
         for (const auto& texInfo : elementTexturesToLoad) {
-            if (texInfo.name == it->textureName) {
+            if (texInfo.name == it->elementName) {
                 anchorPoint = texInfo.anchorPoint;
                 break;
             }
@@ -548,11 +548,11 @@ if (DEBUG_LOGS) { std::cerr << "Element not found for changing sprite phase: " <
     
     // Look up texture info to check if it's a spritesheet
     for (const auto& texInfo : elementTexturesToLoad) {
-        if (texInfo.name == it->textureName) {
+        if (texInfo.name == it->elementName) {
             if (texInfo.type == ElementTextureType::SPRITESHEET && 
-                textureDimensions.find(it->textureName) != textureDimensions.end()) {
+                textureDimensions.find(it->elementName) != textureDimensions.end()) {
                 
-                auto dims = textureDimensions[it->textureName];
+                auto dims = textureDimensions[it->elementName];
                 int totalHeight = dims.second;
                 int numPhases = totalHeight / texInfo.spriteHeight;
                 
@@ -658,7 +658,7 @@ void ElementsOnMap::drawElements(float startX, float endX, float startY, float e
     // Direct OpenGL drawing (bypassing GLBI_Engine's texture limitations)
     for (auto& element : elements) { // Changed to non-const to update animation state
         // Get the texture ID
-        auto it = textureIDs.find(element.textureName);
+        auto it = textureIDs.find(element.elementName);
         if (it == textureIDs.end()) {
 if (DEBUG_LOGS) { std::cerr << "Texture not found for element: " << element.instanceName << std::endl; }
             continue;
@@ -675,7 +675,7 @@ if (DEBUG_LOGS) { std::cerr << "Texture not found for element: " << element.inst
         
         // Look up element texture info
         for (const auto& texInfo : elementTexturesToLoad) {
-            if (texInfo.name == element.textureName) {
+            if (texInfo.name == element.elementName) {
                 isSpritesheet = (texInfo.type == ElementTextureType::SPRITESHEET);
                 spriteWidth = texInfo.spriteWidth;
                 spriteHeight = texInfo.spriteHeight;
@@ -684,8 +684,8 @@ if (DEBUG_LOGS) { std::cerr << "Texture not found for element: " << element.inst
         }
         
         // Get total texture dimensions
-        if (textureDimensions.find(element.textureName) != textureDimensions.end()) {
-            auto dims = textureDimensions[element.textureName];
+        if (textureDimensions.find(element.elementName) != textureDimensions.end()) {
+            auto dims = textureDimensions[element.elementName];
             textureWidth = dims.first;
             textureHeight = dims.second;
         }
@@ -913,7 +913,7 @@ if (DEBUG_LOGS) { std::cout << "-------+-------------------+-----------+--------
         const auto& element = elements[i];
         
         // Use magic_enum to convert enum to string
-        std::string typeName = std::string(magic_enum::enum_name(element.textureName));
+        std::string typeName = elementNameToString(element.elementName);
         
         // Print element details
         printf("%-6zu | %-17s | %-9s | (%.2f, %.2f)\n", 
@@ -935,7 +935,7 @@ if (DEBUG_LOGS) { std::cout << "Name                | Type       | Position (X,Y
 if (DEBUG_LOGS) { std::cout << "-------------------+------------+----------------+-------+----------+--------------" << std::endl; }
       for (const auto& element : elements) {
         // Use magic_enum to convert enum to string
-        std::string typeName = std::string(magic_enum::enum_name(element.textureName));
+        std::string typeName = elementNameToString(element.elementName);
         
         // Convert anchor point to string using magic_enum
         std::string anchorName = std::string(magic_enum::enum_name(element.anchorPoint));

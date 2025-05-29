@@ -48,7 +48,7 @@ struct ElementInfo {
 // Struct to hold placed element information
 struct PlacedElement {
     std::string instanceName; // Unique name for this instance (e.g., "bush1")
-    ElementName textureName;
+    ElementName elementName;
     float scale;
     float x; // Grid-relative float coordinates (e.g., 0.5 for center of cell 0)
     float y;
@@ -87,7 +87,7 @@ public:
     void listElements() const;
     
     // Place an element at the specified coordinates
-    void placeElement(const std::string& instanceName, ElementName textureName, 
+    void placeElement(const std::string& instanceName, ElementName elementName, 
                       float scale, float x, float y, float rotation = 0.0f,
                       int spriteSheetPhase = 0, int spriteSheetFrame = 0,
                       bool isAnimated = false, float animationSpeed = 10.0f,
@@ -130,8 +130,8 @@ public:
     void drawElements(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop, double deltaTime = 0.0);
     
     // Get texture dimensions for the specified texture
-    std::pair<int, int> getTextureDimensions(ElementName textureName) const {
-        auto it = textureDimensions.find(textureName);
+    std::pair<int, int> getTextureDimensions(ElementName elementName) const {
+        auto it = textureDimensions.find(elementName);
         if (it != textureDimensions.end()) {
             return it->second;
         }

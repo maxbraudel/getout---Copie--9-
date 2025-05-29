@@ -31,7 +31,7 @@ static void initializeEntityTypes() {
     try {        // Antagonist entity configuration
         EntityInfo antagonist;
         antagonist.type = EntityName::ANTAGONIST;
-        antagonist.textureName = ElementName::ANTAGONIST1;
+        antagonist.elementName = ElementName::ANTAGONIST1;
         antagonist.scale = 1.5f;
         
         // Default sprite configuration
@@ -48,8 +48,8 @@ static void initializeEntityTypes() {
         // Movement speeds
         antagonist.normalWalkingSpeed = 1.5f;
         antagonist.normalWalkingAnimationSpeed = 4.0f;
-        antagonist.sprintWalkingSpeed = 3.0f;
-        antagonist.sprintWalkingAnimationSpeed = 12.0f;    // Collision settings
+        antagonist.sprintWalkingSpeed = 4.0f;
+        antagonist.sprintWalkingAnimationSpeed = 8.0f;    // Collision settings
         antagonist.canCollide = true;
         antagonist.collisionShapePoints = {
             {-0.2f, -0.1f}, {0.2f, -0.1f}, {0.2f, 0.1f}, {-0.2f, 0.1f}
@@ -95,7 +95,7 @@ static void initializeEntityTypes() {
         // Add to the list
         entityTypes.push_back(antagonist);        EntityInfo player;
         player.type = EntityName::PLAYER;
-        player.textureName = ElementName::CHARACTER1;
+        player.elementName = ElementName::CHARACTER1;
         player.scale = 1.5f;
         
         // Default sprite configuration
@@ -110,7 +110,7 @@ static void initializeEntityTypes() {
         player.spritePhaseWalkRight = 1;
         
         // Movement speeds
-        player.normalWalkingSpeed = 3.5f;
+        player.normalWalkingSpeed = 2.5f;
         player.normalWalkingAnimationSpeed = 11.0f;
         player.sprintWalkingSpeed = 5.0f;
         player.sprintWalkingAnimationSpeed = 20.0f;    // Collision settings
@@ -298,7 +298,7 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, EntityName en
     // Place the element on the map using ElementsOnMap
     elementsManager.placeElement(
         elementName,
-        config->textureName,
+        config->elementName,
         config->scale,
         safeX, safeY,  // Use the requested position (no automatic adjustment)
         0.0f,  // rotation
@@ -1273,7 +1273,7 @@ bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, f
         // Check if this element's texture type is in our list to check
         bool shouldCheckThisElement = false;
         for (const auto& textureType : elementsToCheck) {
-            if (currentElement->textureName == textureType) {
+            if (currentElement->elementName == textureType) {
                 shouldCheckThisElement = true;
                 break;
             }
