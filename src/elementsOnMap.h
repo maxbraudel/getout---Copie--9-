@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <mutex>
 
 // Define an enum for element texture types
 enum class ElementName {
@@ -145,9 +146,9 @@ public:
         }
         return std::make_pair(0, 0); // Return zeros if texture not found
     }
-    
-    // Get the total number of elements
+      // Get the total number of elements
     size_t getElementsCount() const {
+        std::lock_guard<std::mutex> lock(elementsMutex);
         return elements.size();
     }
       // Toggle debug visualization of anchor points
@@ -162,9 +163,10 @@ public:
     }
       // Print detailed position information for all placed elements
     void printElementPositions() const;
-    
-    // Get the elements vector (for collision detection)
-    const std::vector<PlacedElement>& getElements() const {
+      // Get the elements vector (for collision detection)
+    // Returns a copy to ensure thread safety
+    std::vector<PlacedElement> getElements() const {
+        std::lock_guard<std::mutex> lock(elementsMutex);
         return elements;
     }
 
@@ -181,6 +183,9 @@ private:
 
     // Debug visualization flag
     bool showAnchorPoints = false;
+    
+    // Mutex to protect concurrent access to elements vector
+    mutable std::mutex elementsMutex;
 };
 
 // Global instance

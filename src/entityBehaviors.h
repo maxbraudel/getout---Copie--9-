@@ -30,11 +30,8 @@ private:
     void updateAlertStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config);
       // Check if entity should enter alert state
     bool checkForAlertTriggers(Entity& entity, EntitiesManager& entitiesManager, const EntityConfiguration& config);
-    
-    // Update entity direction to look at target
+      // Update entity direction to look at target
     void lookAtTarget(Entity& entity, float targetX, float targetY, EntitiesManager& entitiesManager, const EntityConfiguration& config);
-      // Helper function to forcefully set entity face direction (overrides pathfinding direction)
-    void setEntityFaceDirection(Entity& entity, float directionX, float directionY, EntitiesManager& entitiesManager, const EntityConfiguration& config, const std::string& debugContext = "manual");
     
     // Helper function to enter flee state (called when state transitions are detected)
     void enterFleeState(Entity& entity, EntitiesManager& entitiesManager, const EntityConfiguration& config);
@@ -47,9 +44,8 @@ private:
     
     // Check if entity should enter flee state
     bool checkForFleeTriggers(Entity& entity, EntitiesManager& entitiesManager, const EntityConfiguration& config);
-    
-    // Calculate flee destination in opposite direction from target
-    bool calculateFleeDestination(Entity& entity, float targetX, float targetY, const EntityConfiguration& config, float& fleeX, float& fleeY);
+      // Calculate flee destination in opposite direction from target
+    bool calculateFleeDestination(Entity& entity, float targetX, float targetY, const EntityConfiguration& config, float& fleeX, float& fleeY, EntitiesManager& entitiesManager);
 };
 
 // Global behavior manager instance

@@ -210,6 +210,8 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementName te
                                int spriteSheetPhase, int spriteSheetFrame,
                                bool isAnimated, float animationSpeed,
                                AnchorPoint anchorPoint, float anchorOffsetX, float anchorOffsetY) {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     // Check if an element with this name already exists
     auto mapIt = elementIndexMap.find(instanceName);
     if (mapIt != elementIndexMap.end()) {
@@ -308,6 +310,8 @@ if (DEBUG_LOGS) { std::cout << std::endl; }
 }
 
 bool ElementsOnMap::changeElementCoordinates(const std::string& instanceName, float newX, float newY, float newRotation) {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     // Find element by name directly
     auto it = std::find_if(elements.begin(), elements.end(),
         [&instanceName](const PlacedElement& element) {
@@ -333,6 +337,8 @@ if (DEBUG_LOGS) { std::cout << "Moved element: " << instanceName << " to (" << n
 }
 
 bool ElementsOnMap::moveElement(const std::string& instanceName, float deltaX, float deltaY) {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     // First, find the element by name directly (not using the index map)
     // This fixes the issue with elements being sorted in drawElements
     auto it = std::find_if(elements.begin(), elements.end(),
@@ -369,6 +375,8 @@ if (DEBUG_LOGS) { std::cerr << "Element index out of range for relative movement
 }
 
 bool ElementsOnMap::getElementPosition(const std::string& instanceName, float& x, float& y) {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     // Find the element by name directly instead of using the index map
     auto it = std::find_if(elements.begin(), elements.end(),
         [&instanceName](const PlacedElement& element) {
@@ -387,6 +395,8 @@ if (DEBUG_LOGS) { std::cerr << "Element not found for position query: " << insta
 }
 
 bool ElementsOnMap::elementExists(const std::string& instanceName) const {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     // Find the element by name directly
     auto it = std::find_if(elements.begin(), elements.end(),
         [&instanceName](const PlacedElement& element) {
@@ -397,6 +407,8 @@ bool ElementsOnMap::elementExists(const std::string& instanceName) const {
 }
 
 bool ElementsOnMap::changeElementScale(const std::string& instanceName, float newScale) {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     // Find element by name directly
     auto it = std::find_if(elements.begin(), elements.end(),
         [&instanceName](const PlacedElement& element) {
@@ -474,6 +486,8 @@ if (DEBUG_LOGS) { std::cerr << "Element not found for scaling: " << instanceName
 }
 
 bool ElementsOnMap::changeElementRotation(const std::string& instanceName, float newRotation) {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     // Find element by name directly
     auto it = std::find_if(elements.begin(), elements.end(),
         [&instanceName](const PlacedElement& element) {
@@ -491,6 +505,8 @@ if (DEBUG_LOGS) { std::cout << "Changed element rotation: " << instanceName << "
 }
 
 bool ElementsOnMap::changeElementSpriteFrame(const std::string& instanceName, int newFrame) {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     // Find element by name directly
     auto it = std::find_if(elements.begin(), elements.end(),
         [&instanceName](const PlacedElement& element) {
@@ -514,6 +530,8 @@ if (DEBUG_LOGS) { std::cerr << "Element doesn't support sprite frames: " << inst
 }
 
 bool ElementsOnMap::changeElementSpritePhase(const std::string& instanceName, int newPhase) {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     // Find element by name directly to handle elements being sorted in drawElements
     auto it = std::find_if(elements.begin(), elements.end(),
         [&instanceName](const PlacedElement& element) {
@@ -557,6 +575,8 @@ if (DEBUG_LOGS) { std::cerr << "Couldn't find texture info for element: " << ins
 }
 
 bool ElementsOnMap::changeElementAnimationStatus(const std::string& instanceName, bool isAnimated) {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     // Find element by name directly
     auto it = std::find_if(elements.begin(), elements.end(),
         [&instanceName](const PlacedElement& element) {
@@ -575,6 +595,8 @@ if (DEBUG_LOGS) { std::cerr << "Element not found for changing animation status:
 }
 
 bool ElementsOnMap::changeElementAnimationSpeed(const std::string& instanceName, float newSpeed) {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     // Find element by name directly
     auto it = std::find_if(elements.begin(), elements.end(),
         [&instanceName](const PlacedElement& element) {
@@ -597,6 +619,8 @@ if (DEBUG_LOGS) { std::cerr << "Invalid animation speed (must be non-negative): 
 }
 
 void ElementsOnMap::drawElements(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop, double deltaTime) {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     if (elements.empty()) {
         return;
     }
@@ -877,6 +901,8 @@ if (DEBUG_LOGS) { std::cerr << "Texture not found for element: " << element.inst
 }
 
 void ElementsOnMap::listElements() const {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
 if (DEBUG_LOGS) { std::cout << "=== Current Elements (" << elements.size() << " total) ===" << std::endl; }
 if (DEBUG_LOGS) { std::cout << "Index  | Name              | Type      | Position (X,Y)" << std::endl; }
 if (DEBUG_LOGS) { std::cout << "-------+-------------------+-----------+------------------" << std::endl; }
@@ -909,6 +935,8 @@ if (DEBUG_LOGS) { std::cout << "===================================" << std::end
 }
 
 void ElementsOnMap::printElementPositions() const {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     // Print a header for position information
 if (DEBUG_LOGS) { std::cout << "\n===== Element Positions (" << elements.size() << " elements) =====" << std::endl; }
 if (DEBUG_LOGS) { std::cout << "Name                | Type       | Position (X,Y)  | Scale | Rotation | Anchor" << std::endl; }
@@ -992,6 +1020,8 @@ if (DEBUG_LOGS) { std::cout << "================================================
 
 // Implementation of removeElement method to remove an element by its instance name
 bool ElementsOnMap::removeElement(const std::string& instanceName) {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     // Find the element in the index map
     auto it = elementIndexMap.find(instanceName);
     if (it == elementIndexMap.end()) {
@@ -1021,6 +1051,8 @@ bool ElementsOnMap::removeElement(const std::string& instanceName) {
 
 // Implementation of removeAllElementsByCategory method to remove elements by category prefix
 int ElementsOnMap::removeAllElementsByCategory(const std::string& category) {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
     int removedCount = 0;
     
     // Create a temporary list of element names to remove

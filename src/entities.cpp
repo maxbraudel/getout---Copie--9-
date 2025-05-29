@@ -107,14 +107,14 @@ static void initializeEntityTypes() {
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)        // Alert state configuration
         antagonist.alertState = true; // Enable alert state behavior
-        antagonist.alertStateStartRadius = 0.0f; // Inner radius - immediate alert when entities get this close
+        antagonist.alertStateStartRadius = 8.0f; // Inner radius - immediate alert when entities get this close
         antagonist.alertStateEndRadius = 10.0f; // Outer radius - watch for entities within this range
         antagonist.alertStateEntitiesList = {EntityName::PLAYER}; // Watch for player entity type
         
         // Flee state configuration - antagonist flees from player
         antagonist.fleeState = true; // Enable flee state behavior
         antagonist.fleeStateStartRadius = 0.0f; // Inner radius - immediate flee when entities get this close
-        antagonist.fleeStateEndRadius = 8.0f; // Outer radius - flee from entities within this range
+        antagonist.fleeStateEndRadius = 7.0f; // Outer radius - flee from entities within this range
         antagonist.fleeStateEntitiesList = {EntityName::PLAYER}; // Flee from player entity type
         antagonist.fleeStateRunning = true; // Use sprint speed when fleeing
         antagonist.fleeStateMinDistance = 8.0f; // Minimum distance to flee
@@ -1324,10 +1324,12 @@ bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, f
                 
                 elementWorldShapePoints.push_back({currentElement->x + rotatedX, currentElement->y + rotatedY});
             }
-            
-            // Perform polygon-polygon collision detection using Separating Axis Theorem (SAT)
-            if (polygonPolygonCollision(entityWorldShapePoints, elementWorldShapePoints)) {
-                return true; // Collision detected
+              // Perform polygon-polygon collision detection using Separating Axis Theorem (SAT)
+            // Check if both polygons have valid points before collision detection
+            if (!entityWorldShapePoints.empty() && !elementWorldShapePoints.empty()) {
+                if (polygonPolygonCollision(entityWorldShapePoints, elementWorldShapePoints)) {
+                    return true; // Collision detected
+                }
             }
         }
     }
@@ -1380,6 +1382,11 @@ bool wouldEntityCollideWithBlocksGranular(const EntityConfiguration& config, flo
         float rotatedY = scaledX * entitySinA + scaledY * entityCosA;
         
         entityWorldShapePoints.push_back({x + rotatedX, y + rotatedY});
+    }
+      // CRASH FIX: Check if transformation actually produced any points
+    if (entityWorldShapePoints.empty()) {
+        std::cerr << "CRITICAL: entityWorldShapePoints is empty after transformation - using fallback collision detection" << std::endl;
+        return wouldCollideWithMapBlock(x, y, gameMap, blockSet);
     }
     
     // Find the bounding box of the entity's collision shape

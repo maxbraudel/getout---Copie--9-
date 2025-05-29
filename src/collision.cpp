@@ -655,9 +655,14 @@ bool polygonPolygonCollision(const std::vector<std::pair<float, float>>& poly1, 
             axis.second /= length;
         }
     };
-    
-    // Function to project polygon onto axis
+      // Function to project polygon onto axis
     auto projectPolygon = [](const std::vector<std::pair<float, float>>& polygon, const std::pair<float, float>& axis) -> std::pair<float, float> {
+        // CRASH FIX: Additional safety check for empty polygon
+        if (polygon.empty()) {
+            std::cerr << "CRITICAL: Attempting to project empty polygon in SAT collision detection" << std::endl;
+            return {0.0f, 0.0f};
+        }
+        
         float min = polygon[0].first * axis.first + polygon[0].second * axis.second;
         float max = min;
         
