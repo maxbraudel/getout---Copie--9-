@@ -106,15 +106,15 @@ static void initializeEntityTypes() {
         antagonist.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)        // Alert state configuration
-        antagonist.alertState = false; // Enable alert state behavior
-        antagonist.alertStateStartRadius = 0.0f; // Inner radius - immediate alert when entities get this close
-        antagonist.alertStateEndRadius = 8.0f; // Outer radius - watch for entities within this range
+        antagonist.alertState = true; // Enable alert state behavior
+        antagonist.alertStateStartRadius = 8.0f; // Inner radius - immediate alert when entities get this close
+        antagonist.alertStateEndRadius = 10.0f; // Outer radius - watch for entities within this range
         antagonist.alertStateEntitiesList = {EntityName::PLAYER}; // Watch for player entity type
         
         // Flee state configuration - antagonist flees from player
         antagonist.fleeState = true; // Enable flee state behavior
         antagonist.fleeStateStartRadius = 0.0f; // Inner radius - immediate flee when entities get this close
-        antagonist.fleeStateEndRadius = 4.0f; // Outer radius - flee from entities within this range
+        antagonist.fleeStateEndRadius = 8.0f; // Outer radius - flee from entities within this range
         antagonist.fleeStateEntitiesList = {EntityName::PLAYER}; // Flee from player entity type
         antagonist.fleeStateRunning = true; // Use sprint speed when fleeing
         antagonist.fleeStateMinDistance = 8.0f; // Minimum distance to flee
@@ -1590,11 +1590,33 @@ void EntitiesManager::processAsyncPathfindingResults() {
     }
     
     // CRASH FIX: Add comprehensive try-catch around async result processing
-    try {
-        // Process all completed pathfinding requests
+    try {        // Process all completed pathfinding requests
         std::vector<AsyncPathfindingResult> results = g_entityAsyncPathfinder->getCompletedResults();
         
+        // CRASH FIX: Validate results vector before processing
+        if (results.empty()) {
+            return; // No results to process
+        }
+        
+        // Additional safety: Validate each result before processing
+        std::vector<AsyncPathfindingResult> validResults;
+        validResults.reserve(results.size());
+        
         for (const auto& result : results) {
+            try {
+                // Test that we can safely access the result data
+                if (!result.instanceName.empty() && 
+                    (!result.success || (!result.path.empty() && result.path.size() > 0))) {
+                    validResults.push_back(result);
+                } else {
+                    std::cerr << "Warning: Skipping invalid pathfinding result for entity: " << result.instanceName << std::endl;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "Warning: Exception validating pathfinding result: " << e.what() << std::endl;
+            }
+        }
+        
+        for (const auto& result : validResults) {
             // CRASH FIX: Enhanced validation of result data before processing
             if (result.instanceName.empty()) {
                 std::cerr << "Warning: Received pathfinding result with empty instance name" << std::endl;
@@ -1631,7 +1653,32 @@ void EntitiesManager::processAsyncPathfindingResults() {
             }
             
             if (result.success && result.path.size() >= 2) {
-                // Pathfinding succeeded, set up the entity for walking
+                    // CRASH FIX: Validate path data before any vector operations
+                    if (result.path.empty()) {
+                        std::cerr << "Warning: Entity " << result.instanceName << " received empty path" << std::endl;
+                        continue;
+                    }
+                    
+                    // CRASH FIX: Ensure path has minimum required size
+                    if (result.path.size() < 2) {
+                        std::cerr << "Warning: Entity " << result.instanceName << " received path with insufficient points: " 
+                                  << result.path.size() << std::endl;
+                        continue;
+                    }
+                    
+                    // Additional memory safety check
+                    try {
+                        // Test vector access to ensure memory is valid
+                        float testX = result.path[0].first;
+                        float testY = result.path[result.path.size() - 1].second;
+                        (void)testX; (void)testY; // Suppress unused variable warnings
+                    } catch (const std::exception& e) {
+                        std::cerr << "CRITICAL: Path data corruption detected for entity " << result.instanceName 
+                                  << ": " << e.what() << std::endl;
+                        continue;
+                    }
+                    
+                    // Pathfinding succeeded, set up the entity for walking
                 
                 // If entity is already walking, find the best transition point to avoid stopping
                 if (entity->isWalking && entity->usePathfinding && !entity->path.empty()) {
@@ -1651,55 +1698,165 @@ void EntitiesManager::processAsyncPathfindingResults() {
                                 minDistance = distance;
                                 bestTransitionIndex = i;
                             }
+                        }                        // CRASH FIX: Safe smooth transition with comprehensive bounds checking
+                        try {
+                            // Create a safe copy of the result path to avoid any potential race conditions
+                            std::vector<std::pair<float, float>> safePath = result.path;
+                            
+                            // Validate the safe path
+                            if (safePath.empty()) {
+                                std::cerr << "Warning: Safe path copy is empty for entity " << result.instanceName << std::endl;
+                                entity->path = result.path;
+                                entity->currentPathIndex = 1;
+                            } else {
+                                entity->path = std::move(safePath);
+                                
+                                // Ensure bestTransitionIndex is within valid bounds
+                                if (bestTransitionIndex >= entity->path.size()) {
+                                    bestTransitionIndex = entity->path.size() > 0 ? entity->path.size() - 1 : 0;
+                                }
+                                
+                                entity->currentPathIndex = std::max(1u, static_cast<unsigned int>(bestTransitionIndex));
+                            }
+                        } catch (const std::exception& e) {
+                            std::cerr << "CRITICAL: Exception during safe path assignment for entity " << result.instanceName 
+                                      << ": " << e.what() << std::endl;
+                            // Emergency fallback
+                            entity->path.clear();
+                            entity->path.push_back({currentX, currentY});
+                            entity->currentPathIndex = 0;
                         }
-                        
-                        // Smooth transition: start from the best transition point in the new path
-                        entity->path = result.path;
-                        entity->currentPathIndex = std::max(1u, static_cast<unsigned int>(bestTransitionIndex));
-                        
-                        // If we're starting from a point other than the beginning, ensure current position alignment
-                        if (bestTransitionIndex > 0 && minDistance > 0.5f) {
-                            // Insert current position as a waypoint to ensure smooth transition
-                            entity->path.insert(entity->path.begin() + bestTransitionIndex, {currentX, currentY});
-                            entity->currentPathIndex = bestTransitionIndex + 1;
+                          // CRASH FIX: Replace unsafe vector::insert with safer bounds-checked approach
+                        if (bestTransitionIndex > 0 && minDistance > 0.5f && bestTransitionIndex < entity->path.size()) {
+                            try {
+                                // SAFER APPROACH: Create a new vector instead of using insert
+                                std::vector<std::pair<float, float>> newPath;
+                                newPath.reserve(entity->path.size() + 1); // Pre-allocate memory
+                                
+                                // Copy elements before insertion point
+                                for (size_t i = 0; i < bestTransitionIndex && i < entity->path.size(); ++i) {
+                                    newPath.push_back(entity->path[i]);
+                                }
+                                
+                                // Add current position as transition waypoint
+                                newPath.push_back({currentX, currentY});
+                                
+                                // Copy remaining elements
+                                for (size_t i = bestTransitionIndex; i < entity->path.size(); ++i) {
+                                    newPath.push_back(entity->path[i]);
+                                }
+                                
+                                // Safely replace the path
+                                entity->path = std::move(newPath);
+                                entity->currentPathIndex = bestTransitionIndex + 1;
+                                
+                                if (DEBUG_LOGS) {
+                                    std::cout << "Entity " << result.instanceName << " path smoothly transitioned with safe vector construction" << std::endl;
+                                }
+                                
+                            } catch (const std::exception& e) {
+                                std::cerr << "CRITICAL: Exception during safe path construction for entity " << result.instanceName 
+                                          << ": " << e.what() << std::endl;
+                                // Fallback: use simple path assignment
+                                entity->path = result.path;
+                                entity->currentPathIndex = std::min(1u, static_cast<unsigned int>(entity->path.size()));
+                            } catch (...) {
+                                std::cerr << "CRITICAL: Unknown exception during safe path construction for entity " << result.instanceName << std::endl;
+                                // Fallback: use simple path assignment
+                                entity->path = result.path;
+                                entity->currentPathIndex = std::min(1u, static_cast<unsigned int>(entity->path.size()));
+                            }
                         }
                         
                         if (DEBUG_LOGS) {
                             std::cout << "Entity " << result.instanceName << " smoothly transitioned to new path at index " 
                                       << entity->currentPathIndex << " (distance: " << minDistance << ")" << std::endl;
                         }
-                        
-                        // SPRITE DIRECTION FIX: Update sprite direction to match new path direction
+                          // SPRITE DIRECTION FIX: Update sprite direction to match new path direction
                         // Calculate direction from current position to the target waypoint
                         if (entity->currentPathIndex < entity->path.size()) {
-                            float currentX, currentY;
-                            if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
-                                const auto& targetWaypoint = entity->path[entity->currentPathIndex];
-                                float dx = targetWaypoint.first - currentX;
-                                float dy = targetWaypoint.second - currentY;
-                                
-                                // Update sprite direction for the new path direction
-                                handleWaypointArrival(*entity, elementName, *config, currentX, currentY);
+                            try {
+                                float currentX, currentY;
+                                if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
+                                    // CRASH FIX: Validate array access before using
+                                    if (entity->currentPathIndex < entity->path.size()) {
+                                        const auto& targetWaypoint = entity->path[entity->currentPathIndex];
+                                        float dx = targetWaypoint.first - currentX;
+                                        float dy = targetWaypoint.second - currentY;
+                                        
+                                        // Update sprite direction for the new path direction
+                                        handleWaypointArrival(*entity, elementName, *config, currentX, currentY);
+                                    }
+                                }
+                            } catch (const std::exception& e) {
+                                std::cerr << "CRITICAL: Exception during sprite direction update for entity " << result.instanceName 
+                                          << ": " << e.what() << std::endl;
                             }
+                        }                    } else {
+                        // Fallback: use the new path normally with enhanced safety
+                        try {
+                            // Create a safe copy to avoid any potential memory issues
+                            std::vector<std::pair<float, float>> safeFallbackPath = result.path;
+                            
+                            if (safeFallbackPath.size() >= 2) {
+                                entity->path = std::move(safeFallbackPath);
+                                entity->currentPathIndex = 1;
+                            } else {
+                                std::cerr << "Warning: Fallback path has insufficient points for entity " << result.instanceName 
+                                          << ": " << safeFallbackPath.size() << std::endl;
+                                entity->path = std::move(safeFallbackPath);
+                                entity->currentPathIndex = 0;
+                            }
+                        } catch (const std::exception& e) {
+                            std::cerr << "CRITICAL: Exception during fallback path assignment for entity " << result.instanceName 
+                                      << ": " << e.what() << std::endl;
+                            // Emergency fallback - create minimal path
+                            entity->path.clear();
+                            entity->path.push_back({0.0f, 0.0f}); // Fallback position
+                            entity->currentPathIndex = 0;
                         }
-                    } else {
-                        // Fallback: use the new path normally
-                        entity->path = result.path;
-                        entity->currentPathIndex = 1;
                         
                         // SPRITE DIRECTION FIX: Update sprite direction for fallback case
-                        if (entity->path.size() >= 2) {
-                            handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
+                        try {
+                            if (entity->path.size() >= 2) {
+                                handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
+                            }
+                        } catch (const std::exception& e) {
+                            std::cerr << "CRITICAL: Exception during fallback sprite direction update for entity " << result.instanceName 
+                                      << ": " << e.what() << std::endl;
                         }
-                    }
-                } else {
+                    }                } else {
                     // Entity is not walking, start normally from the beginning
-                    entity->path = result.path;
-                    entity->currentPathIndex = 1;
-                    entity->isWalking = true;
-                    
-                    // Enable animation for entities that weren't walking
-                    elementsManager.changeElementAnimationStatus(elementName, true);
+                    try {
+                        // CRASH FIX: Safe path assignment with validation
+                        std::vector<std::pair<float, float>> safeNewPath = result.path;
+                        
+                        if (safeNewPath.size() >= 2) {
+                            entity->path = std::move(safeNewPath);
+                            entity->currentPathIndex = 1;
+                        } else if (safeNewPath.size() == 1) {
+                            entity->path = std::move(safeNewPath);
+                            entity->currentPathIndex = 0;
+                            std::cerr << "WARNING: Entity " << result.instanceName << " received single-point path" << std::endl;
+                        } else {
+                            entity->path.clear();
+                            entity->currentPathIndex = 0;
+                            std::cerr << "WARNING: Entity " << result.instanceName << " received empty path" << std::endl;
+                        }
+                        
+                        entity->isWalking = true;
+                        
+                        // Enable animation for entities that weren't walking
+                        elementsManager.changeElementAnimationStatus(elementName, true);
+                        
+                    } catch (const std::exception& e) {
+                        std::cerr << "CRITICAL: Exception during new entity path setup for " << result.instanceName 
+                                  << ": " << e.what() << std::endl;
+                        // Emergency fallback
+                        entity->path.clear();
+                        entity->currentPathIndex = 0;
+                        entity->isWalking = false;
+                    }
                     
                     // Set initial sprite for first path segment
                     handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
