@@ -41,7 +41,7 @@ static void initializeEntityTypes() {
         
         // Walking animation phases
         antagonist.spritePhaseWalkUp = 3;
-        antagonist.spritePhaseWalkDown = 1;
+        antagonist.spritePhaseWalkDown = 0;
         antagonist.spritePhaseWalkLeft = 2;
         antagonist.spritePhaseWalkRight = 1;
         
@@ -91,6 +91,12 @@ static void initializeEntityTypes() {
         antagonist.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)
+        
+        // Alert state configuration - antagonist becomes alert when player is nearby
+        antagonist.alertState = true; // Enable alert state behavior
+        antagonist.alertStateStartRadius = 6.0f; // Start becoming alert when player is 3 units away
+        antagonist.alertStateEndRadius = 8.0f; // Stop being alert when player is 8+ units away
+        antagonist.alertStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers alert state
         
         // Add to the list
         entityTypes.push_back(antagonist);        EntityInfo player;

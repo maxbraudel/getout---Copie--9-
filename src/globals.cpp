@@ -9,7 +9,7 @@
 const double FRAMERATE_IN_SECONDS = 1. / 60.; // 60 FPS
 
 // Grid properties
-const int GRID_SIZE = 300;
+const int GRID_SIZE = 50;
 // Player speeds are defined in entity configuration in entities.cpp
 const float PLAYER_BASE_SPEED = 3.0f;   // DEPRECATED: Use playerConfig->normalWalkingSpeed instead
 const float PLAYER_SPRINT_SPEED = 6.0f; // DEPRECATED: Use playerConfig->sprintWalkingSpeed instead
@@ -39,7 +39,7 @@ bool showGridLines = false;
 bool hideOutsideGrid = false; // Controls whether to hide pixels outside the map grid
 
 // Debug flags
-bool DEBUG_MAP = false; // Set to true to use simplified debug map
+bool DEBUG_MAP = true; // Set to true to use simplified debug map
 bool DEBUG_SHOW_PATHS = false; // Set to true to display entity paths
 
 // Debug logging control

@@ -24,9 +24,11 @@ public:
 
 private:
     // Update behavior for a specific entity
-    void updateEntityBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager);
-      // Update passive state behavior (random walking)
+    void updateEntityBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager);    // Update passive state behavior (random walking)
     void updatePassiveStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config);
+    
+    // Update alert state behavior (facing trigger entities)
+    void updateAlertStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config);
 };
 
 // Global behavior manager instance
