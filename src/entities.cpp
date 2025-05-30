@@ -91,12 +91,20 @@ static void initializeEntityTypes() {
         antagonist.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)
-        
-        // Alert state configuration - antagonist becomes alert when player is nearby
-        antagonist.alertState = true; // Enable alert state behavior
+          // Alert state configuration - antagonist becomes alert when player is nearby
+        antagonist.alertState = false; // Enable alert state behavior
         antagonist.alertStateStartRadius = 6.0f; // Start becoming alert when player is 3 units away
         antagonist.alertStateEndRadius = 8.0f; // Stop being alert when player is 8+ units away
         antagonist.alertStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers alert state
+        
+        // Flee state configuration - antagonist flees when player gets too close
+        antagonist.fleeState = true; // Enable flee state behavior
+        antagonist.fleeStateRunning = true; // Run when fleeing
+        antagonist.fleeStateStartRadius = 0.0f; // Start fleeing when player is 2 units away
+        antagonist.fleeStateEndRadius = 8.0f; // Stop fleeing when player is 4+ units away
+        antagonist.fleeStateMinDistance = 6.0f; // Maintain at least 6 units distance from player
+        antagonist.fleeStateMaxDistance = 10.0f; // Flee up to 10 units away
+        antagonist.fleeStateEntitiesList = { EntityName::PLAYER }; // Player triggers flee state
         
         // Add to the list
         entityTypes.push_back(antagonist);        EntityInfo player;

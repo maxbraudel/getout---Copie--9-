@@ -67,12 +67,20 @@ struct EntityInfo {
     float passiveStateWalkingRadius = 10.0f; // Radius around entity for random walks
     float passiveStateRandomWalkTriggerTimeIntervalMin = 2.0f; // Minimum time between random walks (seconds)
     float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)
-    
-    // Alert state behavior parameters
+      // Alert state behavior parameters
     bool alertState = false; // Enable alert state behavior (facing trigger entities)
     float alertStateStartRadius = 3.0f; // Inner radius where alert state begins
     float alertStateEndRadius = 8.0f; // Outer radius where alert state ends
     std::vector<EntityName> alertStateTriggerEntitiesList; // List of entity types that trigger alert state
+    
+    // Flee state behavior parameters
+    bool fleeState = false; // Enable flee state behavior (running away from trigger entities)
+    bool fleeStateRunning = true; // Whether to run (true) or walk (false) during flee
+    float fleeStateStartRadius = 3.0f; // Inner radius where flee state begins
+    float fleeStateEndRadius = 6.0f; // Outer radius where flee state ends
+    float fleeStateMinDistance = 8.0f; // Minimum distance to maintain from trigger entities
+    float fleeStateMaxDistance = 12.0f; // Maximum distance to flee to
+    std::vector<EntityName> fleeStateEntitiesList; // List of entity types that trigger flee state
 };
 
 // Struct to hold entity configuration
@@ -115,12 +123,20 @@ struct EntityConfiguration {
     float passiveStateWalkingRadius = 10.0f; // Radius around entity for random walks
     float passiveStateRandomWalkTriggerTimeIntervalMin = 2.0f; // Minimum time between random walks (seconds)
     float passiveStateRandomWalkTriggerTimeIntervalMax = 8.0f; // Maximum time between random walks (seconds)
-    
-    // Alert state behavior parameters
+      // Alert state behavior parameters
     bool alertState = false; // Enable alert state behavior (facing trigger entities)
     float alertStateStartRadius = 3.0f; // Inner radius where alert state begins
     float alertStateEndRadius = 8.0f; // Outer radius where alert state ends
     std::vector<EntityName> alertStateTriggerEntitiesList; // List of entity types that trigger alert state
+    
+    // Flee state behavior parameters
+    bool fleeState = false; // Enable flee state behavior (running away from trigger entities)
+    bool fleeStateRunning = true; // Whether to run (true) or walk (false) during flee
+    float fleeStateStartRadius = 3.0f; // Inner radius where flee state begins
+    float fleeStateEndRadius = 6.0f; // Outer radius where flee state ends
+    float fleeStateMinDistance = 8.0f; // Minimum distance to maintain from trigger entities
+    float fleeStateMaxDistance = 12.0f; // Maximum distance to flee to
+    std::vector<EntityName> fleeStateEntitiesList; // List of entity types that trigger flee state
     
     // Constructor to create from EntityInfo
     EntityConfiguration() = default;
@@ -158,12 +174,20 @@ struct EntityConfiguration {
         passiveStateWalkingRadius = info.passiveStateWalkingRadius;
         passiveStateRandomWalkTriggerTimeIntervalMin = info.passiveStateRandomWalkTriggerTimeIntervalMin;
         passiveStateRandomWalkTriggerTimeIntervalMax = info.passiveStateRandomWalkTriggerTimeIntervalMax;
-        
-        // Copy alert state behavior settings
+          // Copy alert state behavior settings
         alertState = info.alertState;
         alertStateStartRadius = info.alertStateStartRadius;
         alertStateEndRadius = info.alertStateEndRadius;
         alertStateTriggerEntitiesList = info.alertStateTriggerEntitiesList;
+        
+        // Copy flee state behavior settings
+        fleeState = info.fleeState;
+        fleeStateRunning = info.fleeStateRunning;
+        fleeStateStartRadius = info.fleeStateStartRadius;
+        fleeStateEndRadius = info.fleeStateEndRadius;
+        fleeStateMinDistance = info.fleeStateMinDistance;
+        fleeStateMaxDistance = info.fleeStateMaxDistance;
+        fleeStateEntitiesList = info.fleeStateEntitiesList;
     }
 };
 
@@ -206,11 +230,16 @@ struct Entity {
     std::string currentBehavior;    // Automatic behavior state variables
     double behaviorTimer = 0.0; // Time accumulator for behavior timing
     double nextBehaviorTriggerTime = 0.0; // When the next behavior should trigger
-    
-    // Alert state variables
+      // Alert state variables
     bool isInAlertState = false; // Current alert state status
     std::string alertTargetEntityName = ""; // Name of the entity that triggered alert state
     float alertTargetDistance = 0.0f; // Distance to the alert target entity
+    
+    // Flee state variables
+    bool isInFleeState = false; // Current flee state status
+    std::string fleeTargetEntityName = ""; // Name of the entity that triggered flee state
+    float fleeTargetDistance = 0.0f; // Distance to the flee target entity
+    double fleeStateTimer = 0.0; // Timer for flee state recalculation (every 0.5 seconds)
 };
 
 // EntitiesManager - Manages all entities in the game

@@ -62,20 +62,24 @@ void EntityBehaviorManager::updateEntityBehavior(Entity& entity, double deltaTim
     const EntityConfiguration* config = entitiesManager.getConfiguration(entity.type);
     if (!config || !config->automaticBehaviors) {
         return; // No automatic behaviors enabled
+    }    // FLEE STATE - highest priority behavior that can interrupt all others
+    if (config->fleeState) {
+        updateFleeStateBehavior(entity, deltaTime, entitiesManager, *config);
     }
 
-    // ALERT STATE - priority behavior that can interrupt passive state
-    if (config->alertState) {
+    // ALERT STATE - priority behavior that can interrupt passive state (but not flee state)
+    if (config->alertState && !entity.isInFleeState) {
         updateAlertStateBehavior(entity, deltaTime, entitiesManager, *config);
     }
 
-    // PASSIVE STATE - only triggered when not in alert state
-    if (config->passiveState && !entity.isInAlertState) {
+    // PASSIVE STATE - only triggered when not in alert or flee state
+    if (config->passiveState && !entity.isInAlertState && !entity.isInFleeState) {
         updatePassiveStateBehavior(entity, deltaTime, entitiesManager, *config);
-    } else if (config->passiveState && entity.isInAlertState) {
-        // Debug: Log when passive state is skipped due to alert state
+    } else if (config->passiveState && (entity.isInAlertState || entity.isInFleeState)) {
+        // Debug: Log when passive state is skipped due to higher priority states
         std::cout << "DEBUG: Skipping passive state for " << entity.instanceName 
-                  << " because isInAlertState = " << entity.isInAlertState << std::endl;
+                  << " because isInAlertState = " << entity.isInAlertState 
+                  << ", isInFleeState = " << entity.isInFleeState << std::endl;
     }
 }
 
@@ -254,5 +258,152 @@ void EntityBehaviorManager::updateAlertStateBehavior(Entity& entity, double delt
         entity.alertTargetEntityName = "";
         entity.alertTargetDistance = 0.0f;
         
+    }
+}
+
+void EntityBehaviorManager::updateFleeStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config) {
+    // Get current entity position
+    std::string elementName = EntitiesManager::getElementName(entity.instanceName);
+    float currentX, currentY;
+    if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
+        return; // Can't get position, skip flee behavior
+    }
+    
+    // Update flee state timer
+    entity.fleeStateTimer += deltaTime;
+    
+    // Find the nearest threat entity within the flee range
+    std::string nearestThreatEntity = "";
+    float nearestThreatDistance = std::numeric_limits<float>::max();
+    bool foundThreatEntity = false;
+    
+    // Check all entities to find threat entities
+    const auto& allEntities = entitiesManager.getEntities();
+    for (const auto& pair : allEntities) {
+        const Entity& otherEntity = pair.second;
+        
+        // Skip self
+        if (otherEntity.instanceName == entity.instanceName) {
+            continue;
+        }
+        
+        // Check if this entity type is in the flee trigger list
+        bool isThreatEntity = false;
+        for (const EntityName& threatType : config.fleeStateEntitiesList) {
+            if (otherEntity.type == threatType) {
+                isThreatEntity = true;
+                break;
+            }
+        }
+        
+        if (!isThreatEntity) {
+            continue;
+        }
+        
+        // Get other entity position
+        std::string otherElementName = EntitiesManager::getElementName(otherEntity.instanceName);
+        float otherX, otherY;
+        if (!elementsManager.getElementPosition(otherElementName, otherX, otherY)) {
+            continue; // Can't get position, skip this entity
+        }
+        
+        // Calculate distance
+        float dx = otherX - currentX;
+        float dy = otherY - currentY;
+        float distance = std::sqrt(dx * dx + dy * dy);
+        
+        // Check if within flee range
+        if (distance >= config.fleeStateStartRadius && distance <= config.fleeStateEndRadius) {
+            foundThreatEntity = true;
+            
+            // Check if this is the nearest threat entity
+            if (distance < nearestThreatDistance) {
+                nearestThreatDistance = distance;
+                nearestThreatEntity = otherEntity.instanceName;
+            }
+        }
+    }
+    
+    // Update flee state
+    bool wasInFleeState = entity.isInFleeState;
+    entity.isInFleeState = foundThreatEntity;
+    
+    // Debug: Log flee state changes
+    if (wasInFleeState != entity.isInFleeState) {
+        std::cout << "DEBUG: Flee state changed for " << entity.instanceName 
+                  << " - was: " << wasInFleeState << ", now: " << entity.isInFleeState << std::endl;
+    }
+    
+    if (foundThreatEntity) {
+        // Enter or continue flee state
+        entity.fleeTargetEntityName = nearestThreatEntity;
+        entity.fleeTargetDistance = nearestThreatDistance;
+        
+        if (!wasInFleeState) {
+            std::cout << "Entity " << entity.instanceName << " entering flee state - threatened by " 
+                      << nearestThreatEntity << " at distance " << nearestThreatDistance << std::endl;
+            
+            // Stop current movement when entering flee state
+            entitiesManager.stopEntityMovement(entity.instanceName);
+            
+            // Reset flee timer to force immediate pathfinding
+            entity.fleeStateTimer = 0.5;
+        }
+        
+        // Recalculate flee path every 0.5 seconds or when first entering flee state
+        if (entity.fleeStateTimer >= 0.5) {
+            entity.fleeStateTimer = 0.0; // Reset timer
+            
+            // Get threat entity position for safe point calculation
+            std::string threatElementName = EntitiesManager::getElementName(nearestThreatEntity);
+            float threatX, threatY;
+            if (elementsManager.getElementPosition(threatElementName, threatX, threatY)) {
+                // Calculate direction away from threat
+                float dx = currentX - threatX;
+                float dy = currentY - threatY;
+                float distance = std::sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0.0f) {
+                    // Normalize direction vector
+                    dx /= distance;
+                    dy /= distance;
+                    
+                    // Calculate target flee distance (between min and max)
+                    float targetFleeDistance = config.fleeStateMinDistance;
+                    if (nearestThreatDistance < config.fleeStateMinDistance) {
+                        // If too close, flee to minimum safe distance
+                        targetFleeDistance = config.fleeStateMinDistance;
+                    } else {
+                        // If within acceptable range, flee to maximum distance
+                        targetFleeDistance = config.fleeStateMaxDistance;
+                    }
+                    
+                    // Calculate safe point
+                    float safeX = currentX + dx * targetFleeDistance;
+                    float safeY = currentY + dy * targetFleeDistance;
+                    
+                    std::cout << "Entity " << entity.instanceName << " fleeing from " << nearestThreatEntity 
+                              << " - moving to safe point (" << safeX << ", " << safeY << ") at distance " 
+                              << targetFleeDistance << std::endl;
+                      // Move to safe point using appropriate walk type
+                    WalkType walkType = config.fleeStateRunning ? WalkType::SPRINT : WalkType::NORMAL;
+                    entitiesManager.walkEntityWithPathfinding(
+                        entity.instanceName, 
+                        safeX, 
+                        safeY, 
+                        walkType
+                    );
+                }
+            }
+        }
+    } else if (wasInFleeState) {
+        // Exit flee state
+        std::cout << "Entity " << entity.instanceName << " exiting flee state - no threat entities in range" << std::endl;
+        entity.fleeTargetEntityName = "";
+        entity.fleeTargetDistance = 0.0f;
+        entity.fleeStateTimer = 0.0;
+        
+        // Stop fleeing movement when exiting flee state
+        // entitiesManager.stopEntityMovement(entity.instanceName);
     }
 }
