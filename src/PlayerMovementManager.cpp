@@ -1,0 +1,412 @@
+#include "PlayerMovementManager.h"
+#include "map.h"
+#include "elementsOnMap.h"
+#include "entities.h"
+#include "player.h"
+#include "collision.h"
+#include "inputs.h"
+#include "debug.h"
+#include "crashDebug.h"
+#include <iostream>
+#include <algorithm>
+
+// Global player movement manager instance
+PlayerMovementManager* g_playerMovementManager = nullptr;
+
+PlayerMovementManager::PlayerMovementManager()
+    : m_running(false)
+    , m_threadStarted(false)
+    , m_gameMap(nullptr)
+    , m_elementsManager(nullptr)
+    , m_entitiesManager(nullptr)
+{
+    // Initialize player state
+    m_playerState = {};
+    m_currentInput = {};
+    
+    // Initialize timing
+    m_playerState.lastUpdate = std::chrono::high_resolution_clock::now();
+}
+
+PlayerMovementManager::~PlayerMovementManager()
+{
+    stopThread();
+}
+
+bool PlayerMovementManager::initialize(Map* gameMap, ElementsOnMap* elementsManager, EntitiesManager* entitiesManager)
+{
+    DEBUG_VALIDATE_PTR(gameMap);
+    DEBUG_VALIDATE_PTR(elementsManager);
+    DEBUG_VALIDATE_PTR(entitiesManager);
+    
+    if (!gameMap || !elementsManager || !entitiesManager) {
+        std::cerr << "CRASH FIX: PlayerMovementManager::initialize - Invalid parameters" << std::endl;
+        DEBUG_LOG_MEMORY("player_movement_init_failed");
+        return false;
+    }
+    
+    m_gameMap = gameMap;
+    m_elementsManager = elementsManager;
+    m_entitiesManager = entitiesManager;
+    
+    // Get initial player position
+    if (!getPlayerPosition(m_playerState.x, m_playerState.y)) {
+        std::cerr << "Warning: Could not get initial player position" << std::endl;
+        m_playerState.x = 0.0f;
+        m_playerState.y = 0.0f;
+    }
+    
+    DEBUG_LOG_MEMORY("player_movement_initialized");
+    std::cout << "PlayerMovementManager initialized successfully at (" << m_playerState.x << ", " << m_playerState.y << ")" << std::endl;
+    return true;
+}
+
+void PlayerMovementManager::startThread()
+{
+    if (m_threadStarted.load()) {
+        std::cout << "Player movement thread already started" << std::endl;
+        return;
+    }
+    
+    m_running.store(true);
+    
+    // Start player movement thread
+    m_movementThread = std::thread(&PlayerMovementManager::playerMovementThread, this);
+    
+    m_threadStarted.store(true);
+    std::cout << "Player movement thread started successfully" << std::endl;
+}
+
+void PlayerMovementManager::stopThread()
+{
+    if (!m_threadStarted.load()) {
+        return;
+    }
+    
+    std::cout << "Stopping player movement thread..." << std::endl;
+    
+    // Signal thread to stop
+    m_running.store(false);
+    
+    // Wake up the thread if it's waiting
+    m_inputAvailable.notify_all();
+    
+    // Wait for thread to finish
+    if (m_movementThread.joinable()) {
+        m_movementThread.join();
+    }
+    
+    m_threadStarted.store(false);
+    std::cout << "Player movement thread stopped" << std::endl;
+}
+
+void PlayerMovementManager::setPlayerInput(float moveX, float moveY, bool sprint)
+{
+    std::lock_guard<std::mutex> lock(m_inputMutex);
+    
+    // Create new input
+    PlayerInput newInput;
+    newInput.moveX = moveX;
+    newInput.moveY = moveY;
+    newInput.sprint = sprint;
+    newInput.timestamp = std::chrono::high_resolution_clock::now();
+    newInput.valid = true;
+    
+    // Update current input
+    m_currentInput = newInput;
+    
+    // Add to queue (with size limit to prevent lag accumulation)
+    if (m_inputQueue.size() < MAX_INPUT_QUEUE_SIZE) {
+        m_inputQueue.push(newInput);
+    } else {
+        // Remove oldest input if queue is full
+        m_inputQueue.pop();
+        m_inputQueue.push(newInput);
+    }
+    
+    // Notify the movement thread
+    m_inputAvailable.notify_one();
+}
+
+PlayerMovementManager::PlayerState PlayerMovementManager::getPlayerState() const
+{
+    std::lock_guard<std::mutex> lock(m_stateMutex);
+    return m_playerState;
+}
+
+void PlayerMovementManager::syncWithGameState()
+{
+    std::lock_guard<std::mutex> lock(m_stateMutex);
+    
+    if (m_playerState.needsSync) {
+        // Get the actual position from the game elements
+        float actualX, actualY;
+        if (getPlayerPosition(actualX, actualY)) {
+            // Check if there's a significant discrepancy
+            float deltaX = std::abs(actualX - m_playerState.x);
+            float deltaY = std::abs(actualY - m_playerState.y);
+            
+            if (deltaX > 0.1f || deltaY > 0.1f) {
+                std::cout << "Syncing player position: (" << m_playerState.x << ", " << m_playerState.y 
+                          << ") -> (" << actualX << ", " << actualY << ")" << std::endl;
+                m_playerState.x = actualX;
+                m_playerState.y = actualY;
+            }
+        }
+        
+        m_playerState.needsSync = false;
+    }
+}
+
+void PlayerMovementManager::playerMovementThread()
+{
+    std::cout << "Player movement thread started with " << PLAYER_UPDATE_FPS << " FPS target" << std::endl;
+    
+    auto lastTime = std::chrono::high_resolution_clock::now();
+    double accumulatedTime = 0.0;
+    
+    while (m_running.load()) {
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        auto elapsed = std::chrono::duration<double>(currentTime - lastTime).count();
+        lastTime = currentTime;
+        
+        // Accumulate time for fixed timestep
+        accumulatedTime += elapsed;
+        
+        // Process movement at fixed timestep
+        while (accumulatedTime >= PLAYER_UPDATE_TIMESTEP && m_running.load()) {
+            auto updateStart = std::chrono::high_resolution_clock::now();
+            
+            // Get current input
+            PlayerInput currentInput;
+            {
+                std::lock_guard<std::mutex> lock(m_inputMutex);
+                if (!m_inputQueue.empty()) {
+                    currentInput = m_inputQueue.front();
+                    m_inputQueue.pop();
+                } else {
+                    currentInput = m_currentInput;
+                }
+            }
+            
+            // Process player movement if input is valid
+            if (currentInput.valid) {
+                processPlayerMovement(currentInput, PLAYER_UPDATE_TIMESTEP);
+            }
+            
+            accumulatedTime -= PLAYER_UPDATE_TIMESTEP;
+            m_movementUpdatesProcessed++;
+            
+            // Track performance
+            auto updateEnd = std::chrono::high_resolution_clock::now();
+            double updateTime = std::chrono::duration<double>(updateEnd - updateStart).count();
+            m_averageUpdateTime.store((m_averageUpdateTime.load() * 0.9) + (updateTime * 0.1)); // Rolling average
+        }
+        
+        // Sleep for a short time to prevent 100% CPU usage
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+    }
+    
+    std::cout << "Player movement thread ended. Processed " << m_movementUpdatesProcessed.load() << " updates" << std::endl;
+}
+
+void PlayerMovementManager::processPlayerMovement(const PlayerInput& input, double deltaTime)
+{
+    // Skip if no movement
+    if (input.moveX == 0.0f && input.moveY == 0.0f) {
+        std::lock_guard<std::mutex> lock(m_stateMutex);
+        if (m_playerState.isMoving) {
+            m_playerState.isMoving = false;
+            
+            // Disable animation in the main thread
+            if (m_elementsManager) {
+                m_elementsManager->changeElementAnimationStatus("player1", false);
+                m_elementsManager->changeElementSpriteFrame("player1", 0);
+            }
+        }
+        return;
+    }
+    
+    // Get player configuration
+    const EntityConfiguration* config = m_entitiesManager->getConfiguration(EntityName::PLAYER);
+    if (!config) {
+        std::cerr << "Player configuration not found in player movement thread" << std::endl;
+        return;
+    }
+    
+    // Calculate movement speed based on sprint state
+    float speed = input.sprint ? config->sprintWalkingSpeed : config->normalWalkingSpeed;
+    
+    // Calculate movement delta for this frame
+    float deltaX = input.moveX * speed * static_cast<float>(deltaTime);
+    float deltaY = input.moveY * speed * static_cast<float>(deltaTime);
+    
+    // Normalize diagonal movement
+    if (deltaX != 0.0f && deltaY != 0.0f) {
+        float normalizeFactor = 0.7071f; // 1/sqrt(2)
+        deltaX *= normalizeFactor;
+        deltaY *= normalizeFactor;
+    }
+    
+    // Check collision and get actual movement
+    float actualDeltaX, actualDeltaY;
+    bool canMove = false;
+    
+    {
+        std::lock_guard<std::mutex> lock(m_stateMutex);
+        float newX = m_playerState.x + deltaX;
+        float newY = m_playerState.y + deltaY;
+        canMove = checkPlayerCollision(newX, newY, actualDeltaX, actualDeltaY);
+        m_collisionChecksPerformed++;
+    }
+    
+    // Update player position if movement is possible
+    if (canMove) {
+        updatePlayerPosition(actualDeltaX, actualDeltaY);
+    }
+    
+    // Update movement state
+    {
+        std::lock_guard<std::mutex> lock(m_stateMutex);
+        bool wasMoving = m_playerState.isMoving;
+        m_playerState.isMoving = canMove;
+        m_playerState.lastUpdate = std::chrono::high_resolution_clock::now();
+        
+        // Handle animation state changes
+        if (canMove && !wasMoving) {
+            // Started moving - enable animation
+            if (m_elementsManager) {
+                m_elementsManager->changeElementAnimationStatus("player1", true);
+                float animSpeed = input.sprint ? config->sprintWalkingAnimationSpeed : config->normalWalkingAnimationSpeed;
+                m_elementsManager->changeElementAnimationSpeed("player1", animSpeed);
+            }
+        } else if (!canMove && wasMoving) {
+            // Stopped moving - disable animation
+            if (m_elementsManager) {
+                m_elementsManager->changeElementAnimationStatus("player1", false);
+                m_elementsManager->changeElementSpriteFrame("player1", 0);
+            }
+        }
+    }
+}
+
+void PlayerMovementManager::updatePlayerPosition(float deltaX, float deltaY)
+{
+    std::lock_guard<std::mutex> lock(m_stateMutex);
+    
+    // Update internal state
+    m_playerState.x += deltaX;
+    m_playerState.y += deltaY;
+    m_playerState.needsSync = true;
+    
+    // Update actual game element position
+    if (m_elementsManager) {
+        m_elementsManager->moveElement("player1", deltaX, deltaY);
+        
+        // Update sprite direction based on movement
+        const EntityConfiguration* config = m_entitiesManager->getConfiguration(EntityName::PLAYER);
+        if (config) {
+            if (deltaX > 0 && std::abs(deltaX) > std::abs(deltaY)) {
+                // Moving right
+                m_elementsManager->changeElementSpritePhase("player1", config->spritePhaseWalkRight);
+            } else if (deltaX < 0 && std::abs(deltaX) > std::abs(deltaY)) {
+                // Moving left
+                m_elementsManager->changeElementSpritePhase("player1", config->spritePhaseWalkLeft);
+            } else if (deltaY > 0) {
+                // Moving up
+                m_elementsManager->changeElementSpritePhase("player1", config->spritePhaseWalkUp);
+            } else if (deltaY < 0) {
+                // Moving down
+                m_elementsManager->changeElementSpritePhase("player1", config->spritePhaseWalkDown);
+            }
+        }
+    }
+}
+
+bool PlayerMovementManager::checkPlayerCollision(float newX, float newY, float& actualDeltaX, float& actualDeltaY) const
+{
+    const EntityConfiguration* config = m_entitiesManager->getConfiguration(EntityName::PLAYER);
+    if (!config) {
+        actualDeltaX = 0.0f;
+        actualDeltaY = 0.0f;
+        return false;
+    }
+    
+    float deltaX = newX - m_playerState.x;
+    float deltaY = newY - m_playerState.y;
+    
+    // Check if the combined movement would collide
+    bool collisionWithElement = wouldEntityCollideWithElementsGranular(*config, newX, newY, false);
+    bool collisionWithBlock = wouldEntityCollideWithBlocksGranular(*config, newX, newY, false);
+    bool collisionWithEntity = wouldEntityCollideWithEntitiesGranular(*config, newX, newY, false, "player1");
+    bool canMove = !(collisionWithElement || collisionWithBlock || collisionWithEntity);
+    
+    if (canMove) {
+        // Can move diagonally
+        actualDeltaX = deltaX;
+        actualDeltaY = deltaY;
+        return true;
+    }
+    
+    // Try axis-separated movement if diagonal fails
+    if (deltaX != 0 && deltaY != 0) {
+        // Try horizontal only
+        float testX = m_playerState.x + deltaX;
+        float testY = m_playerState.y;
+        bool horizontalCollision = wouldEntityCollideWithElementsGranular(*config, testX, testY, false) ||
+                                  wouldEntityCollideWithBlocksGranular(*config, testX, testY, false) ||
+                                  wouldEntityCollideWithEntitiesGranular(*config, testX, testY, false, "player1");
+        
+        // Try vertical only
+        float testX2 = m_playerState.x;
+        float testY2 = m_playerState.y + deltaY;
+        bool verticalCollision = wouldEntityCollideWithElementsGranular(*config, testX2, testY2, false) ||
+                                wouldEntityCollideWithBlocksGranular(*config, testX2, testY2, false) ||
+                                wouldEntityCollideWithEntitiesGranular(*config, testX2, testY2, false, "player1");
+        
+        // Set actual movement based on what's possible
+        actualDeltaX = horizontalCollision ? 0.0f : deltaX;
+        actualDeltaY = verticalCollision ? 0.0f : deltaY;
+        
+        return (!horizontalCollision || !verticalCollision);
+    }
+    
+    // Single-axis movement that's blocked
+    actualDeltaX = 0.0f;
+    actualDeltaY = 0.0f;
+    return false;
+}
+
+// Convenience functions implementation
+bool initializePlayerMovement(Map* gameMap, ElementsOnMap* elementsManager, EntitiesManager* entitiesManager)
+{
+    if (g_playerMovementManager != nullptr) {
+        std::cout << "Player movement manager already initialized" << std::endl;
+        return true;
+    }
+    
+    g_playerMovementManager = new PlayerMovementManager();
+    return g_playerMovementManager->initialize(gameMap, elementsManager, entitiesManager);
+}
+
+void startPlayerMovementThread()
+{
+    if (g_playerMovementManager != nullptr) {
+        g_playerMovementManager->startThread();
+    }
+}
+
+void stopPlayerMovementThread()
+{
+    if (g_playerMovementManager != nullptr) {
+        g_playerMovementManager->stopThread();
+    }
+}
+
+void cleanupPlayerMovement()
+{
+    if (g_playerMovementManager != nullptr) {
+        delete g_playerMovementManager;
+        g_playerMovementManager = nullptr;
+    }
+}

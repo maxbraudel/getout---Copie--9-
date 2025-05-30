@@ -15,10 +15,12 @@ class Map;
 class ElementsOnMap;
 class EntitiesManager;
 class Camera;
+class PlayerMovementManager;
 
 /**
  * GameThreadManager handles the separation of game logic and rendering into separate threads
- * - Game logic runs at fixed 60Hz timestep 
+ * - Game logic runs at fixed 60Hz timestep for entities and world state
+ * - Player movement runs at 120Hz in separate thread for responsiveness
  * - Rendering runs at variable rate (up to display refresh rate)
  * - Thread synchronization prevents race conditions
  */
@@ -56,9 +58,11 @@ public:
     
     // Thread-safe getter for current game state
     GameState getGameState();
-    
-    // Thread-safe setter for input state
+      // Thread-safe setter for input state (now routes to player movement manager)
     void setInputState(float moveX, float moveY, bool debugKeys[], bool cameraControls[]);
+
+    // Set player movement input (routes to PlayerMovementManager)
+    void setPlayerMovementInput(float moveX, float moveY, bool sprint);
     
 private:
     // Thread functions

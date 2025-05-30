@@ -385,19 +385,37 @@ int main() {
 			DEBUG_VALIDATE_PTR(g_threadManager);
 			
 			// Get current game state from thread manager
-			auto gameState = g_threadManager->getGameState();
-        
-        // Process input and send to thread manager
+			auto gameState = g_threadManager->getGameState();        // Process input and send to thread manager
         float playerMoveX = 0.0f;
         float playerMoveY = 0.0f;
-        processPlayerMovement(gameState.deltaTime, playerMoveX, playerMoveY);
         
-        // Prepare input arrays for thread manager
+        // Get normalized input direction (not multiplied by speed or deltaTime)
+        // Check arrow keys for player movement direction
+        if (keyPressedStates[GLFW_KEY_UP] || keyPressedStates[GLFW_KEY_W]) {
+            playerMoveY += 1.0f;
+        }
+        if (keyPressedStates[GLFW_KEY_DOWN] || keyPressedStates[GLFW_KEY_S]) {
+            playerMoveY -= 1.0f;
+        }
+        if (keyPressedStates[GLFW_KEY_LEFT] || keyPressedStates[GLFW_KEY_A]) {
+            playerMoveX -= 1.0f;
+        }
+        if (keyPressedStates[GLFW_KEY_RIGHT] || keyPressedStates[GLFW_KEY_D]) {
+            playerMoveX += 1.0f;
+        }
+        
+        // Check sprint state for player movement
+        bool sprint = keyPressedStates[GLFW_KEY_LEFT_SHIFT] || keyPressedStates[GLFW_KEY_RIGHT_SHIFT];
+        
+        // Set player movement input directly to the player movement manager
+        g_threadManager->setPlayerMovementInput(playerMoveX, playerMoveY, sprint);
+        
+        // Prepare input arrays for thread manager (debug keys and camera controls only)
         bool debugKeys[10] = {false};
         bool cameraControls[5] = {false};
         
-        // Set input state in thread manager
-        g_threadManager->setInputState(playerMoveX, playerMoveY, debugKeys, cameraControls);
+        // Set input state in thread manager (now excludes player movement)
+        g_threadManager->setInputState(0.0f, 0.0f, debugKeys, cameraControls);
 
         /* Render here */
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background

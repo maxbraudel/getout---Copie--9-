@@ -27,4 +27,7 @@ void cleanupInputs();
 // Key state utility functions
 bool isKeyPressed(int key);
 
+// External key state array - accessible from other modules
+extern bool keyPressedStates[GLFW_KEY_LAST + 1];
+
 #endif // INPUTS_H

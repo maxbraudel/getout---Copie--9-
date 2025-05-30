@@ -1,4 +1,5 @@
 #include "threading.h"
+#include "PlayerMovementManager.h"
 #include "map.h"
 #include "elementsOnMap.h"
 #include "entities.h"
@@ -65,8 +66,15 @@ bool GameThreadManager::initialize(Map* gameMap, ElementsOnMap* elementsManager,
     m_lastGameUpdate = std::chrono::high_resolution_clock::now();
     m_lastRenderUpdate = m_lastGameUpdate;
     
+    // Initialize player movement manager
+    if (!initializePlayerMovement(gameMap, elementsManager, entitiesManager)) {
+        std::cerr << "Failed to initialize player movement manager" << std::endl;
+        DEBUG_LOG_MEMORY("player_movement_init_failed");
+        return false;
+    }
+    
     DEBUG_LOG_MEMORY("thread_manager_initialized");
-    std::cout << "GameThreadManager initialized successfully" << std::endl;
+    std::cout << "GameThreadManager initialized successfully with async player movement" << std::endl;
     return true;
 }
 
@@ -79,6 +87,9 @@ void GameThreadManager::startThreads()
     
     m_running.store(true);
     
+    // Start player movement thread first
+    startPlayerMovementThread();
+    
     // Start game logic thread
     m_gameThread = std::thread(&GameThreadManager::gameLogicThread, this);
     
@@ -86,7 +97,7 @@ void GameThreadManager::startThreads()
     m_renderThread = std::thread(&GameThreadManager::renderThread, this);
     
     m_threadsStarted.store(true);
-    std::cout << "Game threads started successfully" << std::endl;
+    std::cout << "Game threads started successfully with async player movement" << std::endl;
 }
 
 void GameThreadManager::stopThreads()
@@ -99,6 +110,9 @@ void GameThreadManager::stopThreads()
     
     // Signal threads to stop
     m_running.store(false);
+    
+    // Stop player movement thread first
+    stopPlayerMovementThread();
     
     // Wake up any waiting threads
     m_gameStateChanged.notify_all();
@@ -124,10 +138,15 @@ GameThreadManager::GameState GameThreadManager::getGameState()
 
 void GameThreadManager::setInputState(float moveX, float moveY, bool debugKeys[], bool cameraControls[])
 {
+    // Route player movement to the dedicated player movement manager
+    // Note: Sprint state is handled in the main thread and passed directly to setPlayerMovementInput
+    
+    // Handle debug keys and camera controls in the main game logic thread
     std::lock_guard<std::mutex> lock(m_inputStateMutex);
     
-    m_inputState.moveX = moveX;
-    m_inputState.moveY = moveY;
+    // We no longer store player movement in the main input state
+    m_inputState.moveX = 0.0f;
+    m_inputState.moveY = 0.0f;
     
     // Copy debug keys
     for (int i = 0; i < 10; i++) {
@@ -140,6 +159,13 @@ void GameThreadManager::setInputState(float moveX, float moveY, bool debugKeys[]
     }
     
     m_inputState.stateUpdated = true;
+}
+
+void GameThreadManager::setPlayerMovementInput(float moveX, float moveY, bool sprint)
+{
+    if (g_playerMovementManager != nullptr) {
+        g_playerMovementManager->setPlayerInput(moveX, moveY, sprint);
+    }
 }
 
 void GameThreadManager::gameLogicThread()
@@ -227,37 +253,21 @@ void GameThreadManager::updateGameLogic(double deltaTime)
     // Update game time
     static double gameTime = 0.0;
     gameTime += deltaTime;
-    
-    // Process input if updated
+      // Process input if updated (debug keys and camera controls only - player movement handled separately)
     if (currentInput.stateUpdated) {
-        // Track if player is moving
-        static bool wasMoving = false;
-        bool isMoving = (currentInput.moveX != 0.0f || currentInput.moveY != 0.0f);
-        
-        // Move the player if any movement key is pressed
-        if (isMoving) {
-            // If player just started moving, print debug message
-            if (!wasMoving) {
-                std::cout << "Player started moving" << std::endl;
-            }
-            movePlayer(currentInput.moveX, currentInput.moveY);
-        }
-        // If player just stopped moving, disable animation and set to standing frame
-        else if (wasMoving) {
-            std::cout << "Player stopped moving - disabling animation" << std::endl;
-            m_elementsManager->changeElementAnimationStatus("player1", false);
-            m_elementsManager->changeElementSpriteFrame("player1", 0); // Set to standing frame
-        }
-        
-        // Update movement state
-        wasMoving = isMoving;
-        
         // Process debug keys
         processDebugKeys(*m_elementsManager);
         
         // Process camera controls
         processCameraControls();
-    }    // Update entities (handle movement and animations)
+    }
+    
+    // Sync player position from the dedicated player movement thread
+    if (g_playerMovementManager != nullptr) {
+        g_playerMovementManager->syncWithGameState();
+    }
+    
+    // Update entities (handle movement and animations) - this is now the main focus of the game logic thread
     // CRASH FIX: Add try-catch around entities update to prevent crashes
     try {
         m_entitiesManager->update(deltaTime);
@@ -282,16 +292,24 @@ void GameThreadManager::updateGameLogic(double deltaTime)
         m_entitiesManager->walkEntityWithPathFindingToRandomRadiusTarget("antagonist3", 30.0f, WalkType::NORMAL);
         m_lastAntagonistMoveTime = gameTime;
     } */
-    
-    // Update game state for rendering
+      // Update game state for rendering
     {
         std::lock_guard<std::mutex> lock(m_gameStateMutex);
         
-        // Get player position
-        getPlayerPosition(m_currentGameState.playerX, m_currentGameState.playerY);
+        // Get player position and movement state from the dedicated player movement manager
+        if (g_playerMovementManager != nullptr) {
+            auto playerState = g_playerMovementManager->getPlayerState();
+            m_currentGameState.playerX = playerState.x;
+            m_currentGameState.playerY = playerState.y;
+            m_currentGameState.playerMoving = playerState.isMoving;
+        } else {
+            // Fallback to direct position query if player movement manager is not available
+            getPlayerPosition(m_currentGameState.playerX, m_currentGameState.playerY);
+            m_currentGameState.playerMoving = false;
+        }
+        
         m_currentGameState.currentTime = gameTime;
         m_currentGameState.deltaTime = deltaTime;
-        m_currentGameState.playerMoving = (currentInput.moveX != 0.0f || currentInput.moveY != 0.0f);
           // Update camera position based on player position
         extern int windowWidth, windowHeight; // From globals.h
         
@@ -334,6 +352,9 @@ void stopGameThreads()
 
 void cleanupThreading()
 {
+    // Clean up player movement manager first
+    cleanupPlayerMovement();
+    
     if (g_threadManager != nullptr) {
         delete g_threadManager;
         g_threadManager = nullptr;
