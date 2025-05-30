@@ -143,7 +143,8 @@ static void initializeEntityTypes() {
         // For testing: Leave lists empty to allow movement through all elements
         player.avoidanceElements = {
             // Empty - no elements to avoid for pathfinding
-        };    player.collisionElements = {
+        };
+        player.collisionElements = {
             // Empty - no elements to collide with during movement
             // Empty - no elements to avoid for pathfinding
             ElementName::COCONUT_TREE_1,
@@ -155,21 +156,17 @@ static void initializeEntityTypes() {
         // Player can walk through sand but avoids water for pathfinding
         // This shows how entities can have different block interaction behaviors
         player.avoidanceBlocks = {
-            BlockName::WATER_0,
-            BlockName::WATER_1,
-            BlockName::WATER_2,
-            BlockName::WATER_3,
-            BlockName::WATER_4
+
         };
         
         // Player physically collides with deep water but can walk through shallow water
-        player.collisionBlocks = {
+        /* player.collisionBlocks = {
             BlockName::WATER_0,
             BlockName::WATER_1,
             BlockName::WATER_2,
             BlockName::WATER_3,
             BlockName::WATER_4 // Only deep water blocks movement
-        };          // Map boundary control settings
+        };  */         // Map boundary control settings
         player.offMapAvoidance = true; // Player pathfinding avoids map borders
         player.offMapCollision = true; // Player collides with map borders
         

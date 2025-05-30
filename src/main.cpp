@@ -280,6 +280,19 @@ int main() {
     entitiesManager.placeEntityByType("antagonist1", EntityName::ANTAGONIST, 5.0f, 30.0f);
     entitiesManager.placeEntityByType("antagonist2", EntityName::ANTAGONIST, 6.0f, 30.0f);
     entitiesManager.placeEntityByType("antagonist3", EntityName::ANTAGONIST, 7.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist4", EntityName::ANTAGONIST, 8.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist5", EntityName::ANTAGONIST, 9.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist6", EntityName::ANTAGONIST, 10.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist7", EntityName::ANTAGONIST, 11.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist8", EntityName::ANTAGONIST, 12.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist9", EntityName::ANTAGONIST, 13.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist10", EntityName::ANTAGONIST, 14.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist11", EntityName::ANTAGONIST, 15.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist12", EntityName::ANTAGONIST, 16.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist13", EntityName::ANTAGONIST, 17.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist14", EntityName::ANTAGONIST, 18.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist15", EntityName::ANTAGONIST, 19.0f, 30.0f);
+
 
     entitiesManager.placeEntityByType("player1", EntityName::PLAYER, 5.0f, 45.0f);
     

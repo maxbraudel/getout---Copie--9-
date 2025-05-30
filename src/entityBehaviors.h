@@ -35,6 +35,16 @@ private:
     void updateAttackStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config);
 };
 
+// Helper function to calculate distance between collision boundaries of two entities
+float calculateDistanceBetweenEntityCollisionBoundaries(
+    const std::string& entityInstanceName1, float x1, float y1,
+    const std::string& entityInstanceName2, float x2, float y2,
+    EntitiesManager& entitiesManager
+);
+
+// Helper function to calculate distance from a point to a line segment
+float pointToLineSegmentDistance(float px, float py, float x1, float y1, float x2, float y2);
+
 // Global behavior manager instance
 extern EntityBehaviorManager entityBehaviorManager;
 

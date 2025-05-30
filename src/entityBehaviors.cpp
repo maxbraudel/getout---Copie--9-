@@ -623,8 +623,7 @@ void EntityBehaviorManager::updateAttackStateBehavior(Entity& entity, double del
                 break;
             }
         }
-        
-        if (!isTargetEntity) {
+          if (!isTargetEntity) {
             continue;
         }
         
@@ -635,10 +634,12 @@ void EntityBehaviorManager::updateAttackStateBehavior(Entity& entity, double del
             continue; // Can't get position, skip this entity
         }
         
-        // Calculate distance
-        float dx = otherX - currentX;
-        float dy = otherY - currentY;
-        float distance = std::sqrt(dx * dx + dy * dy);
+        // Calculate distance between collision boundaries instead of centers
+        float distance = calculateDistanceBetweenEntityCollisionBoundaries(
+            entity.instanceName, currentX, currentY,
+            otherEntity.instanceName, otherX, otherY,
+            entitiesManager
+        );
         
         // Check if within attack range
         if (distance >= config.attackStateStartRadius && distance <= config.attackStateEndRadius) {
@@ -683,9 +684,8 @@ void EntityBehaviorManager::updateAttackStateBehavior(Entity& entity, double del
             // Get target entity position for attack calculation
             std::string targetElementName = EntitiesManager::getElementName(nearestTargetEntity);
             float targetX, targetY;
-            if (elementsManager.getElementPosition(targetElementName, targetX, targetY)) {
-                // Check if entity is touching the target's collision area (very close)
-                const float touchingDistance = 1.0f; // Consider "touching" when within 1 unit
+            if (elementsManager.getElementPosition(targetElementName, targetX, targetY)) {                // Check if entity is touching the target's collision boundary
+                const float touchingDistance = 0.1f; // Consider "touching" when collision boundaries are within 0.1 unit
                 
                 if (nearestTargetDistance <= touchingDistance) {
                     // Entity is touching the target - start waiting before next charge
@@ -743,4 +743,119 @@ void EntityBehaviorManager::updateAttackStateBehavior(Entity& entity, double del
         // Stop attacking movement when exiting attack state
         // entitiesManager.stopEntityMovement(entity.instanceName);
     }
+}
+
+// Helper function to calculate distance between collision boundaries of two entities
+float calculateDistanceBetweenEntityCollisionBoundaries(
+    const std::string& entityInstanceName1, float x1, float y1,
+    const std::string& entityInstanceName2, float x2, float y2,
+    EntitiesManager& entitiesManager
+) {
+    // Get entity configurations to access collision shapes
+    Entity* entity1 = entitiesManager.getEntity(entityInstanceName1);
+    Entity* entity2 = entitiesManager.getEntity(entityInstanceName2);
+    
+    if (!entity1 || !entity2) {
+        // Fallback to center-to-center distance if entities not found
+        float dx = x2 - x1;
+        float dy = y2 - y1;
+        return std::sqrt(dx * dx + dy * dy);
+    }
+    
+    const EntityConfiguration* config1 = entitiesManager.getConfiguration(entity1->type);
+    const EntityConfiguration* config2 = entitiesManager.getConfiguration(entity2->type);
+    
+    if (!config1 || !config2 || config1->collisionShapePoints.empty() || config2->collisionShapePoints.empty()) {
+        // Fallback to center-to-center distance if no collision shapes
+        float dx = x2 - x1;
+        float dy = y2 - y1;
+        return std::sqrt(dx * dx + dy * dy);
+    }
+    
+    // Transform collision shapes to world coordinates
+    std::vector<std::pair<float, float>> worldShape1, worldShape2;
+    
+    // Entity 1 collision shape (no rotation for entities currently)
+    for (const auto& point : config1->collisionShapePoints) {
+        worldShape1.push_back({x1 + point.first, y1 + point.second});
+    }
+    
+    // Entity 2 collision shape (no rotation for entities currently)
+    for (const auto& point : config2->collisionShapePoints) {
+        worldShape2.push_back({x2 + point.first, y2 + point.second});
+    }
+    
+    // Calculate minimum distance between the two polygons
+    float minDistance = std::numeric_limits<float>::max();
+    
+    // Check distance from each point in shape1 to each edge in shape2
+    for (const auto& point1 : worldShape1) {
+        for (size_t i = 0; i < worldShape2.size(); ++i) {
+            size_t nextI = (i + 1) % worldShape2.size();
+            const auto& edgeStart = worldShape2[i];
+            const auto& edgeEnd = worldShape2[nextI];
+            
+            // Calculate distance from point to line segment
+            float distance = pointToLineSegmentDistance(point1.first, point1.second,
+                                                       edgeStart.first, edgeStart.second,
+                                                       edgeEnd.first, edgeEnd.second);
+            minDistance = std::min(minDistance, distance);
+        }
+    }
+    
+    // Check distance from each point in shape2 to each edge in shape1
+    for (const auto& point2 : worldShape2) {
+        for (size_t i = 0; i < worldShape1.size(); ++i) {
+            size_t nextI = (i + 1) % worldShape1.size();
+            const auto& edgeStart = worldShape1[i];
+            const auto& edgeEnd = worldShape1[nextI];
+            
+            // Calculate distance from point to line segment
+            float distance = pointToLineSegmentDistance(point2.first, point2.second,
+                                                       edgeStart.first, edgeStart.second,
+                                                       edgeEnd.first, edgeEnd.second);
+            minDistance = std::min(minDistance, distance);
+        }
+    }
+    
+    // If polygons are overlapping, distance should be 0
+    if (polygonPolygonCollision(worldShape1, worldShape2)) {
+        return 0.0f;
+    }
+    
+    return minDistance;
+}
+
+// Helper function to calculate distance from a point to a line segment
+float pointToLineSegmentDistance(float px, float py, float x1, float y1, float x2, float y2) {
+    // Vector from line start to point
+    float dx = px - x1;
+    float dy = py - y1;
+    
+    // Vector from line start to line end
+    float ldx = x2 - x1;
+    float ldy = y2 - y1;
+    
+    // Length squared of the line segment
+    float lineLength2 = ldx * ldx + ldy * ldy;
+    
+    if (lineLength2 == 0.0f) {
+        // Line segment is actually a point
+        return std::sqrt(dx * dx + dy * dy);
+    }
+    
+    // Project point onto line (parameter t)
+    float t = (dx * ldx + dy * ldy) / lineLength2;
+    
+    // Clamp t to line segment
+    t = std::max(0.0f, std::min(1.0f, t));
+    
+    // Find closest point on line segment
+    float closestX = x1 + t * ldx;
+    float closestY = y1 + t * ldy;
+    
+    // Return distance from point to closest point on line segment
+    float distX = px - closestX;
+    float distY = py - closestY;
+    return std::sqrt(distX * distX + distY * distY);
 }
