@@ -66,35 +66,35 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     std::map<BlockName, BlockInfo> textureConfigs;
 
     BlockInfo grass0Info;
-    grass0Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass0.png";
+    grass0Info.path = "../assets/textures/blocks/grass0.png";
     grass0Info.animType = TextureAnimationType::STATIC;
     grass0Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
     textureConfigs[BlockName::GRASS_0] = grass0Info;
 
     BlockInfo grass1Info;
-    grass1Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass1.png";
+    grass1Info.path = "../assets/textures/blocks/grass1.png";
     grass1Info.animType = TextureAnimationType::STATIC;
     grass1Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
     textureConfigs[BlockName::GRASS_1] = grass1Info;
 
     BlockInfo grass2Info;
-    grass2Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\grass2.png";
+    grass2Info.path = "../assets/textures/blocks/grass2.png";
     grass2Info.animType = TextureAnimationType::STATIC;
     grass2Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
     textureConfigs[BlockName::GRASS_2] = grass2Info;
 
     BlockInfo sandInfo;
-    sandInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\sand.png";
+    sandInfo.path = "../assets/textures/blocks/sand.png";
     sandInfo.animType = TextureAnimationType::STATIC;
     textureConfigs[BlockName::SAND] = sandInfo;
 
     BlockInfo waterInfo; // For non-animated water, if you still have it
-    waterInfo.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water.png"; // Assuming you might have a static water.png
+    waterInfo.path = "../assets/textures/blocks/water.png"; // Assuming you might have a static water.png
     waterInfo.animType = TextureAnimationType::STATIC;
     // textureConfigs[BlockName::WATER] = waterInfo; // Uncomment if you have a WATER enum and texture
 
     BlockInfo water0Info;
-    water0Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water0.png";
+    water0Info.path = "../assets/textures/blocks/water0.png";
     water0Info.animType = TextureAnimationType::ANIMATED;
     water0Info.animationSpeed = 20.0f; // Example speed, adjust as needed
     water0Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
@@ -102,7 +102,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     textureConfigs[BlockName::WATER_0] = water0Info;
 
     BlockInfo water1Info;
-    water1Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water1.png";
+    water1Info.path = "../assets/textures/blocks/water1.png";
     water1Info.animType = TextureAnimationType::ANIMATED;
     water1Info.animationSpeed = 20.0f; // Example speed, adjust as needed
     water1Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
@@ -110,7 +110,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     textureConfigs[BlockName::WATER_1] = water1Info;
 
     BlockInfo water2Info;
-    water2Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water2.png";
+    water2Info.path = "../assets/textures/blocks/water2.png";
     water2Info.animType = TextureAnimationType::ANIMATED;
     water2Info.animationSpeed = 20.0f; // Example speed, adjust as needed
     water2Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
@@ -119,7 +119,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     textureConfigs[BlockName::WATER_2] = water2Info;
 
     BlockInfo water3Info;
-    water3Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water3.png";
+    water3Info.path = "../assets/textures/blocks/water3.png";
     water3Info.animType = TextureAnimationType::ANIMATED;
     water3Info.animationSpeed = 20.0f; // Example speed, adjust as needed
     water3Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
@@ -127,7 +127,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     textureConfigs[BlockName::WATER_3] = water3Info;
 
     BlockInfo water4Info;
-    water4Info.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout\\assets\\textures\\blocks\\water4.png";
+    water4Info.path = "../assets/textures/blocks/water4.png";
     water4Info.animType = TextureAnimationType::ANIMATED;
     water4Info.animationSpeed = 20.0f; // Example speed, adjust as needed
     water4Info.frameHeight = 16; // Assuming 16px frame height, adjust if different

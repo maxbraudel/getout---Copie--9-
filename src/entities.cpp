@@ -86,7 +86,7 @@ static void initializeEntityTypes() {
         
         // Entity collision configuration - Antagonist avoids player for pathfinding but can collide during movement
         antagonist.avoidanceEntities = {
-            EntityName::ANTAGONIST // Avoid player during pathfinding
+            EntityName::ANTAGONIST,
         };
         
         antagonist.collisionEntities = {

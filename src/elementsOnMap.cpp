@@ -20,13 +20,13 @@ static std::vector<ElementInfo> createElementTexturesToLoad() {
       // Static texture for test/grass
     ElementInfo testTexture;
     testTexture.name = ElementName::TEST;
-    testTexture.path = "C:\\\\Users\\\\famillebraudel\\\\Documents\\\\Developpement\\\\getout - Copie (9)\\\\assets\\\\textures\\\\blocks\\\\grass.png";
+    testTexture.path = "../assets/textures/blocks/grass.png";
     testTexture.type = ElementTextureType::STATIC;
     testTexture.anchorPoint = AnchorPoint::CENTER; // Default center anchor
     textures.push_back(testTexture);    // Static texture for coconut tree 1
     ElementInfo coconutTree1Texture;
     coconutTree1Texture.name = ElementName::COCONUT_TREE_1;
-    coconutTree1Texture.path = "C:\\\\Users\\\\famillebraudel\\\\Documents\\\\Developpement\\\\getout - Copie (9)\\\\assets\\\\textures\\\\decorations\\\\coconut_tree_1.png";
+    coconutTree1Texture.path = "../assets/textures/decorations/coconut_tree_1.png";
     coconutTree1Texture.type = ElementTextureType::STATIC;
     coconutTree1Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree1Texture.anchorOffsetX = -0.3f; // X offset
@@ -38,7 +38,7 @@ static std::vector<ElementInfo> createElementTexturesToLoad() {
     };
     textures.push_back(coconutTree1Texture);    ElementInfo coconutTree2Texture;
     coconutTree2Texture.name = ElementName::COCONUT_TREE_2;
-    coconutTree2Texture.path = "C:\\\\Users\\\\famillebraudel\\\\Documents\\\\Developpement\\\\getout - Copie (9)\\\\assets\\\\textures\\\\decorations\\\\coconut_tree_2.png";
+    coconutTree2Texture.path = "../assets/textures/decorations/coconut_tree_2.png";
     coconutTree2Texture.type = ElementTextureType::STATIC;
     coconutTree2Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree2Texture.anchorOffsetX = 0.0f; // No offset
@@ -49,7 +49,7 @@ static std::vector<ElementInfo> createElementTexturesToLoad() {
     };
     textures.push_back(coconutTree2Texture);    ElementInfo coconutTree3Texture;
     coconutTree3Texture.name = ElementName::COCONUT_TREE_3;
-    coconutTree3Texture.path = "C:\\\\Users\\\\famillebraudel\\\\Documents\\\\Developpement\\\\getout - Copie (9)\\\\assets\\\\textures\\\\decorations\\\\coconut_tree_3.png";
+    coconutTree3Texture.path = "../assets/textures/decorations/coconut_tree_3.png";
     coconutTree3Texture.type = ElementTextureType::STATIC;    coconutTree3Texture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Tree grows from ground up, so anchor at bottom
     coconutTree3Texture.anchorOffsetX = 0.3f; // No offset
     coconutTree3Texture.anchorOffsetY = 0.4f; // No offset
@@ -61,7 +61,7 @@ static std::vector<ElementInfo> createElementTexturesToLoad() {
       // Sprite sheet texture for character
     ElementInfo characterTexture;
     characterTexture.name = ElementName::CHARACTER1;
-    characterTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\entities\\player.png";
+    characterTexture.path = "../assets/textures/entities/player.png";
     characterTexture.type = ElementTextureType::SPRITESHEET;
     characterTexture.spriteWidth = 32;  // Assuming 32px width for each sprite frame
     characterTexture.spriteHeight = 48; // Assuming 48px height for each sprite frame
@@ -72,7 +72,7 @@ static std::vector<ElementInfo> createElementTexturesToLoad() {
 
     ElementInfo antagonistTexture;
     antagonistTexture.name = ElementName::ANTAGONIST1;
-    antagonistTexture.path = "C:\\Users\\famillebraudel\\Documents\\Developpement\\getout - Copie (9)\\assets\\textures\\entities\\player3.png";
+    antagonistTexture.path = "../assets/textures/entities/player3.png";
     antagonistTexture.type = ElementTextureType::SPRITESHEET;
     antagonistTexture.spriteWidth = 32;  // Assuming 32px width for each sprite frame
     antagonistTexture.spriteHeight = 48; // Assuming 48px height for each sprite frame

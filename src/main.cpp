@@ -129,7 +129,7 @@ int main() {
 	glfwSetErrorCallback(onError);
     
     // Create a windowed mode window and its OpenGL context
-    GLFWwindow* window = glfwCreateWindow(1024, 1024, "Digger 2D Game", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1024, 1024, "Sorbet Coco", nullptr, nullptr);
     if (!window) {
         glfwTerminate();
         return -1;
