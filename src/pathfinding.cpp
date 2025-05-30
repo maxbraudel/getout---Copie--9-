@@ -25,7 +25,7 @@ float MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS = 0.0f;  // Default: no buffer
 float MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS = 0.0f; // Default: no buffer
 
 // Pathfinding cooldown system
-const float PATH_FINDING_COOLDOWN = 1.0f; // seconds - Minimum time between pathfinding calculations per entity
+const float PATH_FINDING_COOLDOWN = 0.7f; // seconds - Minimum time between pathfinding calculations per entity (increased for performance)
 static std::unordered_map<std::string, std::chrono::steady_clock::time_point> entityLastPathfindingTime;
 static std::mutex pathfindingCooldownMutex;
 
@@ -677,14 +677,15 @@ std::vector<std::pair<float, float>> findPathOptimized(
     startNode->hCost = calculateHeuristic(startX, startY, goalX, goalY);
     startNode->fCost = startNode->gCost + startNode->hCost;
     openSet.push(startNode);
-    allNodes[{startX, startY}] = startNode;
-    
+    allNodes[{startX, startY}] = startNode;    
     std::unordered_set<std::pair<float, float>, PairHash> closedSet;
     std::vector<std::pair<float, float>> path;
     int iterations = 0;
-    const int maxIterations = static_cast<int>((GRID_SIZE * GRID_SIZE) / (stepSize * stepSize)) * 4;
-    
-    while (!openSet.empty()) {
+    // CRITICAL PERFORMANCE FIX: Limit maximum iterations to prevent catastrophic performance
+    // Was: (GRID_SIZE * GRID_SIZE) / (stepSize * stepSize) * 4 = up to 4M+ iterations!
+    // Now: Fixed maximum of 2000 iterations regardless of grid size
+    const int maxIterations = 2000;
+      while (!openSet.empty()) {
         iterations++;
         if (iterations > maxIterations) {
             if (DEBUG_LOGS) {
@@ -696,6 +697,27 @@ std::vector<std::pair<float, float>> findPathOptimized(
             }
             allNodes.clear();
             return {};
+        }
+        
+        // PERFORMANCE FIX: Early termination for unreachable goals
+        // If we've explored many nodes and the best node isn't getting closer, abort
+        if (iterations > 500 && iterations % 100 == 0) {
+            Node* bestNode = openSet.top();
+            float distanceToGoal = calculateHeuristic(bestNode->x, bestNode->y, goalX, goalY);
+            
+            // If the closest node we can find is still very far from the goal, 
+            // and we've tried many iterations, the goal is likely unreachable
+            if (distanceToGoal > stepSize * 10.0f) {
+                if (DEBUG_LOGS) {
+                    std::cerr << "Pathfinding: Early termination - goal likely unreachable. Distance: " 
+                              << distanceToGoal << " after " << iterations << " iterations." << std::endl;
+                }
+                for (auto& pair_node : allNodes) { 
+                    delete pair_node.second; 
+                }
+                allNodes.clear();
+                return {};
+            }
         }
         
         Node* currentNode = openSet.top();
@@ -844,9 +866,19 @@ std::vector<std::pair<float, float>> findPath(
     const Map& gameMap,
     const EntityConfiguration& entityConfig,
     const std::string& excludeInstanceName
-) {
-    // Use larger step size for much better performance (4x fewer nodes to explore)
-    const float stepSize = 1.0f; // Increased from 0.5f to 1.0f
+) {    // PERFORMANCE FIX: Adaptive step size based on distance for better performance
+    float distance = std::sqrt((goalX - startX) * (goalX - startX) + (goalY - startY) * (goalY - startY));
+    float stepSize;
+    if (distance > 20.0f) {
+        // Long distance: use larger step size for faster pathfinding
+        stepSize = 2.0f;
+    } else if (distance > 10.0f) {
+        // Medium distance: balanced step size
+        stepSize = 1.5f;
+    } else {
+        // Short distance: smaller step size for precision
+        stepSize = 1.0f;
+    }
     
     // Auto-caching: Pre-calculate collision shapes for this entity if not cached
     if (!g_collisionCache.hasEntityShape(entityConfig)) {
@@ -1087,13 +1119,14 @@ std::vector<std::pair<float, float>> AsyncPathfinder::findPathWithCancellation(
     startNode->fCost = startNode->gCost + startNode->hCost;
     openSet.push(startNode);
     allNodes[{startX, startY}] = startNode;
-    
-    std::unordered_set<std::pair<float, float>, PairHash> closedSet;
+      std::unordered_set<std::pair<float, float>, PairHash> closedSet;
     std::vector<std::pair<float, float>> path;
     int iterations = 0;
-    const int maxIterations = static_cast<int>((GRID_SIZE * GRID_SIZE) / (stepSize * stepSize)) * 4;
-    
-    while (!openSet.empty()) {
+    // CRITICAL PERFORMANCE FIX: Limit maximum iterations to prevent catastrophic performance  
+    // Was: (GRID_SIZE * GRID_SIZE) / (stepSize * stepSize) * 4 = up to 4M+ iterations!
+    // Now: Fixed maximum of 2000 iterations regardless of grid size
+    const int maxIterations = 2000;
+      while (!openSet.empty()) {
         // Check for cancellation every few iterations
         if (iterations % 50 == 0 && shouldCancel_) {
             // Clean up and return empty path
@@ -1114,6 +1147,27 @@ std::vector<std::pair<float, float>> AsyncPathfinder::findPathWithCancellation(
             }
             allNodes.clear();
             return {};
+        }
+        
+        // PERFORMANCE FIX: Early termination for unreachable goals
+        // If we've explored many nodes and the best node isn't getting closer, abort
+        if (iterations > 500 && iterations % 100 == 0) {
+            Node* bestNode = openSet.top();
+            float distanceToGoal = calculateHeuristic(bestNode->x, bestNode->y, goalX, goalY);
+            
+            // If the closest node we can find is still very far from the goal, 
+            // and we've tried many iterations, the goal is likely unreachable
+            if (distanceToGoal > stepSize * 10.0f) {
+                if (DEBUG_LOGS) {
+                    std::cerr << "AsyncPathfinder: Early termination - goal likely unreachable. Distance: " 
+                              << distanceToGoal << " after " << iterations << " iterations." << std::endl;
+                }
+                for (auto& pair_node : allNodes) { 
+                    delete pair_node.second; 
+                }
+                allNodes.clear();
+                return {};
+            }
         }
         
         Node* currentNode = openSet.top();

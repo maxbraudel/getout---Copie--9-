@@ -85,13 +85,14 @@ static void initializeEntityTypes() {
         };
         
         // Entity collision configuration - Antagonist avoids player for pathfinding but can collide during movement
-        antagonist.avoidanceEntities = {
+        /* antagonist.avoidanceEntities = {
+            EntityName::ANTAGONIST
             // EntityName::ANTAGONIST,
-        };
+        }; */
         
         antagonist.collisionEntities = {
             EntityName::PLAYER,
-            EntityName::ANTAGONIST
+            EntityName::ANTAGONIST // Antagonist collides with itself
             // Empty - allow overlapping with player during movement/attacks
         };
           // Map boundary control settings
@@ -182,9 +183,9 @@ static void initializeEntityTypes() {
             EntityName::ANTAGONIST // Avoid antagonist during pathfinding
         }; */
         
-        player.collisionEntities = {
+        /* player.collisionEntities = {
             EntityName::ANTAGONIST // Collide with antagonist during movement (prevents overlap)
-        };
+        }; */
         
         // Map boundary control settings
         player.offMapAvoidance = true; // Player pathfinding avoids map borders
