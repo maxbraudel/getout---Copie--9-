@@ -28,9 +28,11 @@ private:
     void updatePassiveStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config);
       // Update alert state behavior (facing trigger entities)
     void updateAlertStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config);
-    
-    // Update flee state behavior (running away from trigger entities)
+      // Update flee state behavior (running away from trigger entities)
     void updateFleeStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config);
+    
+    // Update attack state behavior (charging at trigger entities)
+    void updateAttackStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config);
 };
 
 // Global behavior manager instance

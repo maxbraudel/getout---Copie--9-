@@ -72,15 +72,23 @@ struct EntityInfo {
     float alertStateStartRadius = 3.0f; // Inner radius where alert state begins
     float alertStateEndRadius = 8.0f; // Outer radius where alert state ends
     std::vector<EntityName> alertStateTriggerEntitiesList; // List of entity types that trigger alert state
-    
-    // Flee state behavior parameters
+      // Flee state behavior parameters
     bool fleeState = false; // Enable flee state behavior (running away from trigger entities)
     bool fleeStateRunning = true; // Whether to run (true) or walk (false) during flee
     float fleeStateStartRadius = 3.0f; // Inner radius where flee state begins
     float fleeStateEndRadius = 6.0f; // Outer radius where flee state ends
     float fleeStateMinDistance = 8.0f; // Minimum distance to maintain from trigger entities
     float fleeStateMaxDistance = 12.0f; // Maximum distance to flee to
-    std::vector<EntityName> fleeStateEntitiesList; // List of entity types that trigger flee state
+    std::vector<EntityName> fleeStateTriggerEntitiesList; // List of entity types that trigger flee state
+    
+    // Attack state behavior parameters
+    bool attackState = false; // Enable attack state behavior (charging at trigger entities)
+    bool attackStateRunning = true; // Whether to run (true) or walk (false) during attack
+    float attackStateStartRadius = 5.0f; // Inner radius where attack state begins
+    float attackStateEndRadius = 10.0f; // Outer radius where attack state ends
+    float attackStateWaitBeforeChargeMin = 1.0f; // Minimum wait time before charging again (seconds)
+    float attackStateWaitBeforeChargeMax = 3.0f; // Maximum wait time before charging again (seconds)
+    std::vector<EntityName> attackStateTriggerEntitiesList; // List of entity types that trigger attack state
 };
 
 // Struct to hold entity configuration
@@ -128,15 +136,23 @@ struct EntityConfiguration {
     float alertStateStartRadius = 3.0f; // Inner radius where alert state begins
     float alertStateEndRadius = 8.0f; // Outer radius where alert state ends
     std::vector<EntityName> alertStateTriggerEntitiesList; // List of entity types that trigger alert state
-    
-    // Flee state behavior parameters
+      // Flee state behavior parameters
     bool fleeState = false; // Enable flee state behavior (running away from trigger entities)
     bool fleeStateRunning = true; // Whether to run (true) or walk (false) during flee
     float fleeStateStartRadius = 3.0f; // Inner radius where flee state begins
     float fleeStateEndRadius = 6.0f; // Outer radius where flee state ends
     float fleeStateMinDistance = 8.0f; // Minimum distance to maintain from trigger entities
     float fleeStateMaxDistance = 12.0f; // Maximum distance to flee to
-    std::vector<EntityName> fleeStateEntitiesList; // List of entity types that trigger flee state
+    std::vector<EntityName> fleeStateTriggerEntitiesList; // List of entity types that trigger flee state
+    
+    // Attack state behavior parameters
+    bool attackState = false; // Enable attack state behavior (charging at trigger entities)
+    bool attackStateRunning = true; // Whether to run (true) or walk (false) during attack
+    float attackStateStartRadius = 5.0f; // Inner radius where attack state begins
+    float attackStateEndRadius = 10.0f; // Outer radius where attack state ends
+    float attackStateWaitBeforeChargeMin = 1.0f; // Minimum wait time before charging again (seconds)
+    float attackStateWaitBeforeChargeMax = 3.0f; // Maximum wait time before charging again (seconds)
+    std::vector<EntityName> attackStateTriggerEntitiesList; // List of entity types that trigger attack state
     
     // Constructor to create from EntityInfo
     EntityConfiguration() = default;
@@ -179,15 +195,23 @@ struct EntityConfiguration {
         alertStateStartRadius = info.alertStateStartRadius;
         alertStateEndRadius = info.alertStateEndRadius;
         alertStateTriggerEntitiesList = info.alertStateTriggerEntitiesList;
-        
-        // Copy flee state behavior settings
+          // Copy flee state behavior settings
         fleeState = info.fleeState;
         fleeStateRunning = info.fleeStateRunning;
         fleeStateStartRadius = info.fleeStateStartRadius;
         fleeStateEndRadius = info.fleeStateEndRadius;
         fleeStateMinDistance = info.fleeStateMinDistance;
         fleeStateMaxDistance = info.fleeStateMaxDistance;
-        fleeStateEntitiesList = info.fleeStateEntitiesList;
+        fleeStateTriggerEntitiesList = info.fleeStateTriggerEntitiesList;
+        
+        // Copy attack state behavior settings
+        attackState = info.attackState;
+        attackStateRunning = info.attackStateRunning;
+        attackStateStartRadius = info.attackStateStartRadius;
+        attackStateEndRadius = info.attackStateEndRadius;
+        attackStateWaitBeforeChargeMin = info.attackStateWaitBeforeChargeMin;
+        attackStateWaitBeforeChargeMax = info.attackStateWaitBeforeChargeMax;
+        attackStateTriggerEntitiesList = info.attackStateTriggerEntitiesList;
     }
 };
 
@@ -234,12 +258,20 @@ struct Entity {
     bool isInAlertState = false; // Current alert state status
     std::string alertTargetEntityName = ""; // Name of the entity that triggered alert state
     float alertTargetDistance = 0.0f; // Distance to the alert target entity
-    
-    // Flee state variables
+      // Flee state variables
     bool isInFleeState = false; // Current flee state status
     std::string fleeTargetEntityName = ""; // Name of the entity that triggered flee state
     float fleeTargetDistance = 0.0f; // Distance to the flee target entity
     double fleeStateTimer = 0.0; // Timer for flee state recalculation (every 0.5 seconds)
+    
+    // Attack state variables
+    bool isInAttackState = false; // Current attack state status
+    std::string attackTargetEntityName = ""; // Name of the entity that triggered attack state
+    float attackTargetDistance = 0.0f; // Distance to the attack target entity
+    double attackStateTimer = 0.0; // Timer for attack state recalculation
+    double attackStateWaitTimer = 0.0; // Timer for waiting before charging again
+    bool isWaitingBeforeCharge = false; // Whether the entity is currently waiting before charging
+    double nextChargeTime = 0.0; // When the next charge should happen
 };
 
 // EntitiesManager - Manages all entities in the game

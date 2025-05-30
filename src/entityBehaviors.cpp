@@ -219,19 +219,25 @@ void EntityBehaviorManager::updateEntityBehavior(Entity& entity, double deltaTim
         updateFleeStateBehavior(entity, deltaTime, entitiesManager, *config);
     }
 
-    // ALERT STATE - priority behavior that can interrupt passive state (but not flee state)
-    if (config->alertState && !entity.isInFleeState) {
+    // ATTACK STATE - high priority behavior that can interrupt alert and passive states (but not flee state)
+    if (config->attackState && !entity.isInFleeState) {
+        updateAttackStateBehavior(entity, deltaTime, entitiesManager, *config);
+    }
+
+    // ALERT STATE - priority behavior that can interrupt passive state (but not flee or attack state)
+    if (config->alertState && !entity.isInFleeState && !entity.isInAttackState) {
         updateAlertStateBehavior(entity, deltaTime, entitiesManager, *config);
     }
 
-    // PASSIVE STATE - only triggered when not in alert or flee state
-    if (config->passiveState && !entity.isInAlertState && !entity.isInFleeState) {
+    // PASSIVE STATE - only triggered when not in alert, flee, or attack state
+    if (config->passiveState && !entity.isInAlertState && !entity.isInFleeState && !entity.isInAttackState) {
         updatePassiveStateBehavior(entity, deltaTime, entitiesManager, *config);
-    } else if (config->passiveState && (entity.isInAlertState || entity.isInFleeState)) {
+    } else if (config->passiveState && (entity.isInAlertState || entity.isInFleeState || entity.isInAttackState)) {
         // Debug: Log when passive state is skipped due to higher priority states
         std::cout << "DEBUG: Skipping passive state for " << entity.instanceName 
                   << " because isInAlertState = " << entity.isInAlertState 
-                  << ", isInFleeState = " << entity.isInFleeState << std::endl;
+                  << ", isInFleeState = " << entity.isInFleeState 
+                  << ", isInAttackState = " << entity.isInAttackState << std::endl;
     }
 }
 
@@ -441,7 +447,7 @@ void EntityBehaviorManager::updateFleeStateBehavior(Entity& entity, double delta
         
         // Check if this entity type is in the flee trigger list
         bool isThreatEntity = false;
-        for (const EntityName& threatType : config.fleeStateEntitiesList) {
+        for (const EntityName& threatType : config.fleeStateTriggerEntitiesList) {
             if (otherEntity.type == threatType) {
                 isThreatEntity = true;
                 break;
@@ -567,6 +573,174 @@ void EntityBehaviorManager::updateFleeStateBehavior(Entity& entity, double delta
         entity.fleeStateTimer = 0.0;
         
         // Stop fleeing movement when exiting flee state
+        // entitiesManager.stopEntityMovement(entity.instanceName);
+    }
+}
+
+void EntityBehaviorManager::updateAttackStateBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager, const EntityConfiguration& config) {
+    // Get current entity position
+    std::string elementName = EntitiesManager::getElementName(entity.instanceName);
+    float currentX, currentY;
+    if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
+        return; // Can't get position, skip attack behavior
+    }
+    
+    // Update attack state timer
+    entity.attackStateTimer += deltaTime;
+    
+    // Update wait timer if waiting before charge
+    if (entity.isWaitingBeforeCharge) {
+        entity.attackStateWaitTimer += deltaTime;
+        
+        // Check if wait time is over
+        if (entity.attackStateWaitTimer >= entity.nextChargeTime) {
+            entity.isWaitingBeforeCharge = false;
+            entity.attackStateWaitTimer = 0.0;
+            std::cout << "Entity " << entity.instanceName << " finished waiting - ready to charge again" << std::endl;
+        }
+    }
+    
+    // Find the nearest target entity within the attack range
+    std::string nearestTargetEntity = "";
+    float nearestTargetDistance = std::numeric_limits<float>::max();
+    bool foundTargetEntity = false;
+    
+    // Check all entities to find target entities
+    const auto& allEntities = entitiesManager.getEntities();
+    for (const auto& pair : allEntities) {
+        const Entity& otherEntity = pair.second;
+        
+        // Skip self
+        if (otherEntity.instanceName == entity.instanceName) {
+            continue;
+        }
+        
+        // Check if this entity type is in the attack trigger list
+        bool isTargetEntity = false;
+        for (const EntityName& targetType : config.attackStateTriggerEntitiesList) {
+            if (otherEntity.type == targetType) {
+                isTargetEntity = true;
+                break;
+            }
+        }
+        
+        if (!isTargetEntity) {
+            continue;
+        }
+        
+        // Get other entity position
+        std::string otherElementName = EntitiesManager::getElementName(otherEntity.instanceName);
+        float otherX, otherY;
+        if (!elementsManager.getElementPosition(otherElementName, otherX, otherY)) {
+            continue; // Can't get position, skip this entity
+        }
+        
+        // Calculate distance
+        float dx = otherX - currentX;
+        float dy = otherY - currentY;
+        float distance = std::sqrt(dx * dx + dy * dy);
+        
+        // Check if within attack range
+        if (distance >= config.attackStateStartRadius && distance <= config.attackStateEndRadius) {
+            foundTargetEntity = true;
+            
+            // Check if this is the nearest target entity
+            if (distance < nearestTargetDistance) {
+                nearestTargetDistance = distance;
+                nearestTargetEntity = otherEntity.instanceName;
+            }
+        }
+    }
+    
+    // Update attack state
+    bool wasInAttackState = entity.isInAttackState;
+    entity.isInAttackState = foundTargetEntity;
+    
+    // Debug: Log attack state changes
+    if (wasInAttackState != entity.isInAttackState) {
+        std::cout << "DEBUG: Attack state changed for " << entity.instanceName 
+                  << " - was: " << wasInAttackState << ", now: " << entity.isInAttackState << std::endl;
+    }
+    
+    if (foundTargetEntity) {
+        // Enter or continue attack state
+        entity.attackTargetEntityName = nearestTargetEntity;
+        entity.attackTargetDistance = nearestTargetDistance;
+        
+        if (!wasInAttackState) {
+            std::cout << "Entity " << entity.instanceName << " entering attack state - targeting " 
+                      << nearestTargetEntity << " at distance " << nearestTargetDistance << std::endl;
+            
+            // Stop current movement when entering attack state
+            entitiesManager.stopEntityMovement(entity.instanceName);
+            
+            // Reset attack timer to force immediate pathfinding
+            entity.attackStateTimer = 0.5;
+        }
+        
+        // Only attack if not waiting before charge
+        if (!entity.isWaitingBeforeCharge) {
+            // Get target entity position for attack calculation
+            std::string targetElementName = EntitiesManager::getElementName(nearestTargetEntity);
+            float targetX, targetY;
+            if (elementsManager.getElementPosition(targetElementName, targetX, targetY)) {
+                // Check if entity is touching the target's collision area (very close)
+                const float touchingDistance = 1.0f; // Consider "touching" when within 1 unit
+                
+                if (nearestTargetDistance <= touchingDistance) {
+                    // Entity is touching the target - start waiting before next charge
+                    if (!entity.isWaitingBeforeCharge) {
+                        std::cout << "Entity " << entity.instanceName << " reached target " 
+                                  << nearestTargetEntity << " - starting wait period" << std::endl;
+                        
+                        // Generate random wait time between min and max
+                        static std::random_device rd;
+                        static std::mt19937 gen(rd());
+                        std::uniform_real_distribution<float> waitDist(
+                            config.attackStateWaitBeforeChargeMin, 
+                            config.attackStateWaitBeforeChargeMax
+                        );
+                        
+                        entity.isWaitingBeforeCharge = true;
+                        entity.attackStateWaitTimer = 0.0;
+                        entity.nextChargeTime = waitDist(gen);
+                        
+                        std::cout << "Entity " << entity.instanceName << " will wait " 
+                                  << entity.nextChargeTime << " seconds before charging again" << std::endl;
+                        
+                        // Stop movement during wait period
+                        entitiesManager.stopEntityMovement(entity.instanceName);
+                    }
+                } else {
+                    // Entity is not touching target - charge towards it
+                    // Recalculate attack path every 0.5 seconds or when first entering attack state
+                    if (entity.attackStateTimer >= 0.5) {
+                        entity.attackStateTimer = 0.0; // Reset timer
+                        
+                        // Determine walk type based on configuration
+                        WalkType walkType = config.attackStateRunning ? WalkType::SPRINT : WalkType::NORMAL;
+                        
+                        std::cout << "Entity " << entity.instanceName << " charging towards " 
+                                  << nearestTargetEntity << " at (" << targetX << ", " << targetY 
+                                  << ") - distance: " << nearestTargetDistance << std::endl;
+                        
+                        // Walk directly towards the target entity
+                        entitiesManager.walkEntityWithPathfinding(entity.instanceName, targetX, targetY, walkType);
+                    }
+                }
+            }
+        }
+    } else if (wasInAttackState) {
+        // Exit attack state
+        std::cout << "Entity " << entity.instanceName << " exiting attack state - no target entities in range" << std::endl;
+        entity.attackTargetEntityName = "";
+        entity.attackTargetDistance = 0.0f;
+        entity.attackStateTimer = 0.0;
+        entity.isWaitingBeforeCharge = false;
+        entity.attackStateWaitTimer = 0.0;
+        entity.nextChargeTime = 0.0;
+        
+        // Stop attacking movement when exiting attack state
         // entitiesManager.stopEntityMovement(entity.instanceName);
     }
 }

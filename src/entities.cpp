@@ -96,18 +96,26 @@ static void initializeEntityTypes() {
         antagonist.alertStateStartRadius = 9.0f; // Start becoming alert when player is 3 units away
         antagonist.alertStateEndRadius = 11.0f; // Stop being alert when player is 8+ units away
         antagonist.alertStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers alert state
-        
-        // Flee state configuration - antagonist flees when player gets too close
-        antagonist.fleeState = true; // Enable flee state behavior
+          // Flee state configuration - antagonist flees when player gets too close
+        antagonist.fleeState = false; // Enable flee state behavior
         antagonist.fleeStateRunning = true; // Run when fleeing
         antagonist.fleeStateStartRadius = 0.0f; // Start fleeing when player is 2 units away
         antagonist.fleeStateEndRadius = 8.0f; // Stop fleeing when player is 4+ units away
         antagonist.fleeStateMinDistance = 6.0f; // Maintain at least 6 units distance from player
         antagonist.fleeStateMaxDistance = 10.0f; // Flee up to 10 units away
-        antagonist.fleeStateEntitiesList = { EntityName::PLAYER }; // Player triggers flee state
+        antagonist.fleeStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers flee state
+        
+        // Attack state configuration - antagonist attacks when player is in range
+        antagonist.attackState = true; // Enable attack state behavior
+        antagonist.attackStateRunning = true; // Run when attacking
+        antagonist.attackStateStartRadius = 0.0f; // Start attacking when player is 5 units away
+        antagonist.attackStateEndRadius = 8.0f; // Stop attacking when player is 10+ units away
+        antagonist.attackStateWaitBeforeChargeMin = 1.0f; // Wait 1-3 seconds before charging again
+        antagonist.attackStateWaitBeforeChargeMax = 3.0f;
+        antagonist.attackStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers attack state
         
         // Add to the list
-        entityTypes.push_back(antagonist);        EntityInfo player;
+        entityTypes.push_back(antagonist);EntityInfo player;
         player.type = EntityName::PLAYER;
         player.elementName = ElementName::CHARACTER1;
         player.scale = 1.5f;
