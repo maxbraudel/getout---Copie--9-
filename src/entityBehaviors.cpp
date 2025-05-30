@@ -106,7 +106,7 @@ bool findAccessibleFleePoint(const std::string& entityInstanceName, EntitiesMana
     
     // Strategy 3: If no good direction away from threat, find ANY accessible position in flee zone
     // Use spiral search pattern around current position
-    const float searchStep = 0.5f;
+    const float searchStep = 1.0f;
     const float maxSearchRadius = maxDistance;
     
     for (float radius = 1.0f; radius <= maxSearchRadius; radius += searchStep) {
@@ -234,10 +234,10 @@ void EntityBehaviorManager::updateEntityBehavior(Entity& entity, double deltaTim
         updatePassiveStateBehavior(entity, deltaTime, entitiesManager, *config);
     } else if (config->passiveState && (entity.isInAlertState || entity.isInFleeState || entity.isInAttackState)) {
         // Debug: Log when passive state is skipped due to higher priority states
-        std::cout << "DEBUG: Skipping passive state for " << entity.instanceName 
+        /* std::cout << "DEBUG: Skipping passive state for " << entity.instanceName 
                   << " because isInAlertState = " << entity.isInAlertState 
                   << ", isInFleeState = " << entity.isInFleeState 
-                  << ", isInAttackState = " << entity.isInAttackState << std::endl;
+                  << ", isInAttackState = " << entity.isInAttackState << std::endl; */
     }
 }
 

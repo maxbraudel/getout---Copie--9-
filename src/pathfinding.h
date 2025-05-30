@@ -66,6 +66,16 @@ std::vector<std::pair<float, float>> findPath(
     const std::string& excludeInstanceName = ""
 );
 
+// Optimized pathfinding function with performance monitoring
+std::vector<std::pair<float, float>> findPathOptimized(
+    float startX, float startY,
+    float goalX, float goalY,
+    const EntityConfiguration& entityConfig,
+    const Map& gameMap,
+    float stepSize,
+    const std::string& excludeInstanceName = ""
+);
+
 // Check if a position is valid for pathfinding using entity collision shape
 bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, const Map& gameMap, const std::string& excludeInstanceName = "");
 
@@ -253,5 +263,116 @@ extern const float PATH_FINDING_COOLDOWN;
 bool canEntityRequestPathfinding(const std::string& entityInstanceName);
 void updateEntityPathfindingTime(const std::string& entityInstanceName);
 void clearEntityPathfindingCooldown(const std::string& entityInstanceName);
+
+// Hierarchical pathfinding for long-distance optimization
+const float HIERARCHICAL_PATHFINDING_THRESHOLD = 50.0f;  // Distance threshold to use hierarchical pathfinding
+const float CLUSTER_SIZE = 20.0f;                        // Size of each cluster in the hierarchical graph
+const float INTER_CLUSTER_CONNECTION_RADIUS = 30.0f;     // Radius for connecting clusters
+
+// Hierarchical pathfinding cluster representation
+struct PathfindingCluster {
+    int id;
+    float centerX, centerY;
+    float minX, minY, maxX, maxY;  // Bounding box
+    std::vector<std::pair<float, float>> entrancePoints;  // Points where entities can enter/exit cluster
+    std::vector<int> connectedClusters;                   // IDs of connected clusters
+    bool isObstacle = false;                              // True if cluster is mostly blocked
+    int obstaclePercentage = 0;                           // Percentage of cluster that's blocked
+    
+    PathfindingCluster(int _id, float _centerX, float _centerY) 
+        : id(_id), centerX(_centerX), centerY(_centerY) {
+        minX = _centerX - CLUSTER_SIZE / 2;
+        maxX = _centerX + CLUSTER_SIZE / 2;
+        minY = _centerY - CLUSTER_SIZE / 2;
+        maxY = _centerY + CLUSTER_SIZE / 2;
+    }
+};
+
+// Hierarchical pathfinding graph
+class HierarchicalPathfindingGraph {
+private:
+    std::vector<PathfindingCluster> clusters;
+    std::unordered_map<int, std::vector<int>> clusterConnections;
+    std::unordered_map<std::pair<int, int>, float, PairHash> interClusterDistances;
+    
+    bool isInitialized = false;
+    float lastUpdateTime = 0.0f;
+    const float UPDATE_INTERVAL = 5.0f;  // Update every 5 seconds
+    
+public:
+    void initialize(const Map& gameMap);
+    void updateGraph(const Map& gameMap, bool forceUpdate = false);
+    
+    // Find high-level path between clusters
+    std::vector<int> findClusterPath(int startClusterId, int goalClusterId);
+    
+    // Convert cluster path to world coordinates
+    std::vector<std::pair<float, float>> clusterPathToWorldPath(
+        const std::vector<int>& clusterPath,
+        float startX, float startY,
+        float goalX, float goalY
+    );
+    
+    // Get cluster ID for a world position
+    int getClusterIdForPosition(float x, float y) const;
+    
+    // Check if direct path is possible between two clusters
+    bool canConnectClusters(int clusterId1, int clusterId2, const Map& gameMap) const;
+    
+    // Get entrance points for a cluster
+    std::vector<std::pair<float, float>> getClusterEntrancePoints(int clusterId) const;
+    
+    // Utility functions
+    void clear();
+    bool isEmpty() const;
+    size_t getClusterCount() const;
+    const PathfindingCluster* getCluster(int clusterId) const;
+    bool isInitializedState() const { return isInitialized; }  // Public access to initialization state
+    
+private:
+    void generateClusters(const Map& gameMap);
+    void analyzeClusterObstacles(PathfindingCluster& cluster, const Map& gameMap);
+    void findClusterConnections(const Map& gameMap);
+    void generateEntrancePoints(PathfindingCluster& cluster, const Map& gameMap);
+    float calculateClusterDistance(int clusterId1, int clusterId2) const;
+};
+
+extern HierarchicalPathfindingGraph g_hierarchicalPathfindingGraph;
+
+// Enhanced pathfinding functions that use hierarchical approach for long distances
+std::vector<std::pair<float, float>> findPathHierarchical(
+    float startX, float startY,
+    float goalX, float goalY,
+    const EntityConfiguration& entityConfig,
+    const Map& gameMap,
+    float stepSize = 1.0f,
+    const std::string& excludeInstanceName = ""
+);
+
+// Hybrid pathfinding that chooses the best approach based on distance
+std::vector<std::pair<float, float>> findPathHybrid(
+    float startX, float startY,
+    float goalX, float goalY,
+    const EntityConfiguration& entityConfig,
+    const Map& gameMap,
+    float stepSize = 1.0f,
+    const std::string& excludeInstanceName = ""
+);
+
+// Performance monitoring for hierarchical pathfinding
+struct HierarchicalPathfindingStats {
+    std::atomic<int> hierarchicalPathsUsed{0};
+    std::atomic<int> directPathsUsed{0};
+    std::atomic<int> clusterPathsGenerated{0};
+    std::atomic<double> hierarchicalTimeMs{0.0};
+    std::atomic<double> directTimeMs{0.0};
+    std::atomic<double> avgHierarchicalSpeedup{0.0};
+    
+    void reset();
+    void printStats() const;
+    void updateSpeedup(double hierarchicalTime, double estimatedDirectTime);
+};
+
+extern HierarchicalPathfindingStats g_hierarchicalPathfindingStats;
 
 #endif // PATHFINDING_H

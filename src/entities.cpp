@@ -526,7 +526,7 @@ bool EntitiesManager::findNearestSafePlaceFromCoordinatesForEntity(const std::st
     std::cout << "Entity " << instanceName << " cannot reach target (" << x << ", " << y << ") - searching for nearest accessible coordinates..." << std::endl;
 
     // Target is not accessible, search for nearest accessible coordinates using spiral pattern
-    const float searchStep = 0.5f;
+    const float searchStep = 1.0f;
     const float maxSearchRadius = 50.0f;
 
     for (float radius = searchStep; radius <= maxSearchRadius; radius += searchStep) {

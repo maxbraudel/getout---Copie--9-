@@ -9,6 +9,9 @@
 #include <string>
 #include <set>
 #include <unordered_map>  // Added for spatial partitioning
+#include <unordered_set>  // Added for hierarchical grid
+#include <chrono>         // Added for performance monitoring
+#include <iomanip>        // Added for performance stats formatting
 #include <limits> // Added for std::numeric_limits
 #include "enumDefinitions.h"
 
@@ -32,6 +35,9 @@ const int SPATIAL_GRID_SIZE = 10; // Size of each spatial grid cell
 static std::unordered_map<int, std::vector<std::string>> spatialGrid;
 bool spatialGridInitialized = false;
 static float lastSpatialGridUpdateTime = 0.0f;
+
+// Safety distance for collision resolution - ensures entities aren't teleported too close to collision areas
+const float SAFETY_DISTANCE_FROM_COLLISION_AREA_AFTER_RESOLUTION = 1.0f;
 
 // Last time debug messages were printed to reduce spam
 static float lastCollisionDebugTime = 0.0f;
@@ -122,139 +128,15 @@ const float MAX_COLLISION_CHECK_RANGE = 3.0f; // Only check elements within this
 
 // Function to check if a position would collide with a collidable element
 bool wouldCollideWithElement(float x, float y, float playerRadius) {
-    // Make sure the spatial grid is up to date
-    if (!spatialGridInitialized) {
-        updateSpatialGrid();
-    }
-    
-    // Get only nearby elements instead of checking all elements
-    std::vector<std::string> nearbyElements = getNearbyElements(x, y, playerRadius + MAX_COLLISION_CHECK_RANGE);
-    
-    // Collision detection counters for performance monitoring
-    static int collisionCheckCount = 0;
-    static int collisionHitCount = 0;
-    
-    // Check distance to each nearby element
-    for (const auto& elementName : nearbyElements) {
-        float elementX, elementY;
-        // Also need element scale and rotation for transforming polygon points
-        float elementScale = 1.0f;
-        float elementRotation = 0.0f;
-        std::vector<std::pair<float, float>> elementCollisionShapePoints;
-        bool elementHasCollision = false;
-
-        // Find the element to get its actual collision properties
-        const auto& elements = elementsManager.getElements();
-        const PlacedElement* currentElement = nullptr;
-        for (const auto& el : elements) {
-            if (el.instanceName == elementName) {
-                currentElement = &el;
-                break;
-            }
-        }
-
-        if (!currentElement || !currentElement->hasCollision || currentElement->collisionShapePoints.empty()) {
-            continue; // Skip elements without collision enabled or without defined shape
-        }
-
-        elementX = currentElement->x;
-        elementY = currentElement->y;
-        elementScale = currentElement->scale; // Assuming uniform scaling for now
-        elementRotation = currentElement->rotation; // In degrees
-        elementCollisionShapePoints = currentElement->collisionShapePoints;
-        elementHasCollision = true;
-
-        collisionCheckCount++;
-
-        // Transform polygon points to world coordinates
-        std::vector<std::pair<float, float>> worldShapePoints;
-        float angleRad = elementRotation * M_PI / 180.0f; // Convert rotation to radians
-        float cosA = cos(angleRad);
-        float sinA = sin(angleRad);
-
-        for (const auto& localPoint : elementCollisionShapePoints) {
-            // Scale first, then rotate, then translate
-            float scaledX = localPoint.first * elementScale;
-            float scaledY = localPoint.second * elementScale;
-            
-            float rotatedX = scaledX * cosA - scaledY * sinA;
-            float rotatedY = scaledX * sinA + scaledY * cosA;
-            
-            worldShapePoints.push_back({elementX + rotatedX, elementY + rotatedY});
-        }
-
-        // Perform circle-polygon collision detection
-        // For simplicity, we can use a separating axis theorem (SAT) based approach or a point-in-polygon test for the circle's center
-        // followed by checking distance to polygon edges if the center is outside.
-        // A robust solution is complex. Here's a simplified version:
-        // 1. Check if player center is inside the polygon.
-        // 2. If not, find the closest point on polygon to player center and check distance.
-
-        bool collision = false;
-        // Step 1: Point-in-polygon test (Ray Casting)
-        int intersectCount = 0;
-        for (size_t i = 0; i < worldShapePoints.size(); ++i) {
-            std::pair<float, float> p1 = worldShapePoints[i];
-            std::pair<float, float> p2 = worldShapePoints[(i + 1) % worldShapePoints.size()];
-
-            // Check if player.y is between p1.y and p2.y
-            if (((p1.second <= y && y < p2.second) || (p2.second <= y && y < p1.second)) &&
-                // And player.x is to the left of the intersection point of the ray and the edge
-                (x < (p2.first - p1.first) * (y - p1.second) / (p2.second - p1.second) + p1.first)) {
-                intersectCount++;
-            }
-        }
-        if (intersectCount % 2 == 1) {
-            collision = true; // Player center is inside polygon
-        }
-
-        // Step 2: If center is not inside, check distance to polygon edges
-        if (!collision) {
-            float minDistSq = std::numeric_limits<float>::max();
-            for (size_t i = 0; i < worldShapePoints.size(); ++i) {
-                std::pair<float, float> p1 = worldShapePoints[i];
-                std::pair<float, float> p2 = worldShapePoints[(i + 1) % worldShapePoints.size()];
-
-                // Calculate closest point on segment (p1, p2) to player (x,y)
-                float lenSq = (p2.first - p1.first)*(p2.first - p1.first) + (p2.second - p1.second)*(p2.second - p1.second);
-                if (lenSq == 0.0) { // p1 and p2 are the same
-                    minDistSq = std::min(minDistSq, (x - p1.first)*(x - p1.first) + (y - p1.second)*(y - p1.second));
-                    continue;
-                }
-                float t = ((x - p1.first)*(p2.first - p1.first) + (y - p1.second)*(p2.second - p1.second)) / lenSq;
-                t = std::max(0.0f, std::min(1.0f, t)); // Clamp t to [0,1]
-                float closestX = p1.first + t * (p2.first - p1.first);
-                float closestY = p1.second + t * (p2.second - p1.second);
-                float distSq = (x - closestX)*(x - closestX) + (y - closestY)*(y - closestY);
-                minDistSq = std::min(minDistSq, distSq);
-            }
-            if (minDistSq < (playerRadius * playerRadius)) {
-                collision = true;
-            }
-        }
-
-        if (collision) {
-            collisionHitCount++;
-            float currentTime = static_cast<float>(glfwGetTime());
-            if (playerDebugMode && currentTime - lastCollisionDebugTime > 2.0f) {
-                lastCollisionDebugTime = currentTime;
-                std::cout << "Collision with " << elementName 
-                          << " (polygon) at player pos (" << x << ", " << y << ")" 
-                          << ", element center: (" << elementX << ", " << elementY << ")" << std::endl;
-                // Further debug info can be added here if needed
-            }
-            return true; // Collision detected
-        }
-    }
-    
-    // If we got here, no collision was detected
-    return false;
+    // Use hierarchical collision detection by default for better performance
+    return wouldCollideWithElementHierarchical(x, y, playerRadius);
 }
 
 // Reset the elements cache when new elements are added
 void resetCollisionCache() {
     collisionCacheInitialized = false;
     spatialGridInitialized = false;
+    g_hierarchicalGrid.clear();  // Also reset hierarchical grid
 }
 
 // Get spatial grid cell index from world coordinates
@@ -383,19 +265,69 @@ bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap, const std::s
         }
         return true; // Collision detected with non-traversable block
     }
+      return false; // No collision with non-traversable blocks
+}
+
+// Helper function to check if a position is safe with safety distance buffer
+bool isPositionSafeWithBuffer(float x, float y, float playerRadius, const Map& gameMap, float safetyBuffer = SAFETY_DISTANCE_FROM_COLLISION_AREA_AFTER_RESOLUTION) {
+    // Check the center position first
+    if (wouldCollideWithElement(x, y, playerRadius) || wouldCollideWithMapBlock(x, y, gameMap)) {
+        return false;
+    }
     
-    return false; // No collision with non-traversable blocks
+    // Now check positions around the center with the safety buffer to ensure adequate distance from collision areas
+    const int bufferCheckDirections = 8; // Check 8 directions around the position
+    for (int i = 0; i < bufferCheckDirections; i++) {
+        float angle = (i * 2.0f * M_PI) / bufferCheckDirections;
+        float bufferX = x + safetyBuffer * cos(angle);
+        float bufferY = y + safetyBuffer * sin(angle);
+        
+        // If any of the buffer positions would collide, this isn't a safe position
+        if (wouldCollideWithElement(bufferX, bufferY, playerRadius) || wouldCollideWithMapBlock(bufferX, bufferY, gameMap)) {
+            return false;
+        }
+    }
+    
+    return true; // Position is safe with adequate buffer distance
+}
+
+// Helper function to check if a position is safe with safety distance buffer for entities
+bool isEntityPositionSafeWithBuffer(float x, float y, const EntityConfiguration& config, const Map& gameMap, float safetyBuffer = SAFETY_DISTANCE_FROM_COLLISION_AREA_AFTER_RESOLUTION) {
+    // Check the center position first
+    if (wouldEntityCollideWithElementsGranular(config, x, y, false) || 
+        wouldEntityCollideWithBlocksGranular(config, x, y, false)) {
+        return false;
+    }
+    
+    // Now check positions around the center with the safety buffer
+    const int bufferCheckDirections = 8; // Check 8 directions around the position
+    for (int i = 0; i < bufferCheckDirections; i++) {
+        float angle = (i * 2.0f * M_PI) / bufferCheckDirections;
+        float bufferX = x + safetyBuffer * cos(angle);
+        float bufferY = y + safetyBuffer * sin(angle);
+        
+        // If any of the buffer positions would collide, this isn't a safe position
+        if (wouldEntityCollideWithElementsGranular(config, bufferX, bufferY, false) || 
+            wouldEntityCollideWithBlocksGranular(config, bufferX, bufferY, false)) {
+            return false;
+        }
+    }
+    
+    return true; // Position is safe with adequate buffer distance
 }
 
 // Function to find a safe position when a character is stuck inside a collision area
 bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap) {
-    // First check if current position is already safe
-    if (!wouldCollideWithElement(x, y, playerRadius) && !wouldCollideWithMapBlock(x, y, gameMap)) {
-        return true; // Already in a safe position
+    // First check if current position is already safe with safety buffer
+    if (isPositionSafeWithBuffer(x, y, playerRadius, gameMap)) {
+        return true; // Already in a safe position with adequate buffer
     }
     
-    std::cout << "Entity stuck at (" << x << ", " << y << ") - finding safe position..." << std::endl;    // Search in expanding concentric circles for a safe position
-    const float searchStep = 0.2f; // Slightly larger step size for better performance
+    std::cout << "Entity stuck at (" << x << ", " << y << ") - finding safe position with " 
+              << SAFETY_DISTANCE_FROM_COLLISION_AREA_AFTER_RESOLUTION << " unit safety buffer..." << std::endl;
+    
+    // Search in expanding concentric circles for a safe position
+    const float searchStep = 1.0f; // Slightly larger step size for better performance
     const float maxSearchRadius = 100.0f; // Much larger search radius for multi-layer scenarios
     
     std::cout << "Searching for safe position with radius up to " << maxSearchRadius << " units..." << std::endl;
@@ -411,22 +343,24 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
             float angle = (i * 2.0f * M_PI) / 24.0f;
             float testX = x + radius * cos(angle);
             float testY = y + radius * sin(angle);
-              // Make sure we stay within map bounds
-            if (testX < 0 || testX >= GRID_SIZE || testY < 0 || testY >= GRID_SIZE) {
+            
+            // Make sure we stay within map bounds (with safety buffer margin)
+            float margin = SAFETY_DISTANCE_FROM_COLLISION_AREA_AFTER_RESOLUTION + 0.5f;
+            if (testX < margin || testX >= (GRID_SIZE - margin) || 
+                testY < margin || testY >= (GRID_SIZE - margin)) {
                 // Debug: Log boundary rejections for initial attempts
                 if (radius <= 2.0f) {
-                    std::cout << "Position (" << testX << ", " << testY << ") rejected - outside map bounds" << std::endl;
+                    std::cout << "Position (" << testX << ", " << testY << ") rejected - outside map bounds (margin: " << margin << ")" << std::endl;
                 }
                 continue;
             }
-              // Check if this position is safe from both elements and blocks
-            bool elementCollision = wouldCollideWithElement(testX, testY, playerRadius);
-            bool blockCollision = wouldCollideWithMapBlock(testX, testY, gameMap);
             
-            if (!elementCollision && !blockCollision) {
-                // Found a safe position!
+            // Check if this position is safe with safety buffer
+            if (isPositionSafeWithBuffer(testX, testY, playerRadius, gameMap)) {
+                // Found a safe position with adequate buffer!
                 std::cout << "Found safe position at (" << testX << ", " << testY 
-                          << ") - distance: " << radius << std::endl;
+                          << ") - distance: " << radius << " with safety buffer: " 
+                          << SAFETY_DISTANCE_FROM_COLLISION_AREA_AFTER_RESOLUTION << std::endl;
                 x = testX;
                 y = testY;
                 return true;
@@ -434,13 +368,7 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
             
             // Debug: Log why this position failed (but only for first few attempts to avoid spam)
             if (radius <= 2.0f) {
-                if (elementCollision && blockCollision) {
-                    std::cout << "Position (" << testX << ", " << testY << ") blocked by both elements AND blocks" << std::endl;
-                } else if (elementCollision) {
-                    std::cout << "Position (" << testX << ", " << testY << ") blocked by elements" << std::endl;
-                } else if (blockCollision) {
-                    std::cout << "Position (" << testX << ", " << testY << ") blocked by blocks" << std::endl;
-                }
+                std::cout << "Position (" << testX << ", " << testY << ") rejected - insufficient safety buffer" << std::endl;
             }
         }
     }
@@ -451,13 +379,15 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
 
 // Enhanced function to find a safe position for entities using their collision shape
 bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& config, const Map& gameMap) {
-    // First check if current position is already safe
-    if (!wouldEntityCollideWithElementsGranular(config, x, y, false) && 
-        !wouldEntityCollideWithBlocksGranular(config, x, y, false)) {
-        return true; // Already in a safe position
-    }
+    // Store original position for comparison
+    float originalX = x;
+    float originalY = y;
     
-    std::cout << "Entity with collision shape stuck at (" << x << ", " << y << ") - finding safe position..." << std::endl;
+    // DO NOT immediately return if current position seems safe - this causes infinite loops
+    // When this function is called, it means the entity is definitively stuck, so we need to find a DIFFERENT position
+    
+    std::cout << "Entity with collision shape stuck at (" << x << ", " << y << ") - finding safe position with " 
+              << SAFETY_DISTANCE_FROM_COLLISION_AREA_AFTER_RESOLUTION << " unit safety buffer..." << std::endl;
     
     // Calculate entity's approximate radius for search optimization
     float entityRadius = 0.5f; // Default fallback
@@ -467,6 +397,7 @@ bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& co
             entityRadius = std::max(entityRadius, dist);
         }
     }
+    
     // Search in expanding concentric circles for a safe position
     const float searchStep = 0.2f; // Slightly larger step size for better performance
     const float maxSearchRadius = 100.0f; // Much larger search radius to match player search radius
@@ -482,9 +413,8 @@ bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& co
         for (int i = 0; i < 32; i++) {
             float angle = (i * 2.0f * M_PI) / 32.0f;
             float testX = x + radius * cos(angle);
-            float testY = y + radius * sin(angle);
-              // Make sure we stay within map bounds with some margin
-            float margin = entityRadius + 0.5f;
+            float testY = y + radius * sin(angle);            // Make sure we stay within map bounds with safety buffer margin
+            float margin = SAFETY_DISTANCE_FROM_COLLISION_AREA_AFTER_RESOLUTION + 0.5f;
             if (testX < margin || testX >= (GRID_SIZE - margin) || 
                 testY < margin || testY >= (GRID_SIZE - margin)) {
                 // Debug: Log boundary rejections for initial attempts
@@ -492,15 +422,12 @@ bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& co
                     std::cout << "Position (" << testX << ", " << testY << ") rejected - outside map bounds (margin: " << margin << ")" << std::endl;
                 }
                 continue;
-            }
-              // Check if this position is safe from both elements and blocks
-            bool elementCollision = wouldEntityCollideWithElementsGranular(config, testX, testY, false);
-            bool blockCollision = wouldEntityCollideWithBlocksGranular(config, testX, testY, false);
-            
-            if (!elementCollision && !blockCollision) {
-                // Found a safe position!
+            }// Check if this position is safe with safety buffer
+            if (isEntityPositionSafeWithBuffer(testX, testY, config, gameMap)) {
+                // Found a safe position with adequate buffer!
                 std::cout << "Found safe position at (" << testX << ", " << testY 
-                          << ") - distance: " << radius << std::endl;
+                          << ") - distance: " << radius << " with safety buffer: " 
+                          << SAFETY_DISTANCE_FROM_COLLISION_AREA_AFTER_RESOLUTION << std::endl;
                 x = testX;
                 y = testY;
                 return true;
@@ -508,13 +435,7 @@ bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& co
             
             // Debug: Log why this position failed (but only for first few attempts to avoid spam)
             if (radius <= 2.0f) {
-                if (elementCollision && blockCollision) {
-                    std::cout << "Position (" << testX << ", " << testY << ") blocked by both elements AND blocks" << std::endl;
-                } else if (elementCollision) {
-                    std::cout << "Position (" << testX << ", " << testY << ") blocked by elements" << std::endl;
-                } else if (blockCollision) {
-                    std::cout << "Position (" << testX << ", " << testY << ") blocked by blocks" << std::endl;
-                }
+                std::cout << "Position (" << testX << ", " << testY << ") rejected - insufficient safety buffer" << std::endl;
             }
         }
     }
@@ -542,96 +463,8 @@ bool resolveEntityCollisionStuck(const std::string& entityId, float& x, float& y
 
 // Function to check if an entity (using collision shape points) would collide with any element
 bool wouldEntityCollideWithElement(float x, float y, const std::vector<std::pair<float, float>>& entityCollisionShapePoints, float entityScale, float entityRotation) {
-    // Make sure the spatial grid is up to date
-    if (!spatialGridInitialized) {
-        updateSpatialGrid();
-    }
-    
-    // Calculate approximate radius for nearby element search
-    float maxRadius = 0.0f;
-    for (const auto& point : entityCollisionShapePoints) {
-        float dist = std::sqrt(point.first * point.first + point.second * point.second);
-        maxRadius = std::max(maxRadius, dist * entityScale);
-    }
-    
-    // Get only nearby elements instead of checking all elements
-    std::vector<std::string> nearbyElements = getNearbyElements(x, y, maxRadius + MAX_COLLISION_CHECK_RANGE);
-    
-    // Transform entity polygon points to world coordinates
-    std::vector<std::pair<float, float>> entityWorldShapePoints;
-    float angleRad = entityRotation * M_PI / 180.0f; // Convert rotation to radians
-    float cosA = cos(angleRad);
-    float sinA = sin(angleRad);
-
-    for (const auto& localPoint : entityCollisionShapePoints) {
-        // Scale first, then rotate, then translate
-        float scaledX = localPoint.first * entityScale;
-        float scaledY = localPoint.second * entityScale;
-        
-        float rotatedX = scaledX * cosA - scaledY * sinA;
-        float rotatedY = scaledX * sinA + scaledY * cosA;
-        
-        entityWorldShapePoints.push_back({x + rotatedX, y + rotatedY});
-    }
-    
-    // Check collision with each nearby element
-    for (const auto& elementName : nearbyElements) {
-        float elementX, elementY;
-        float elementScale = 1.0f;
-        float elementRotation = 0.0f;
-        std::vector<std::pair<float, float>> elementCollisionShapePoints;
-        bool elementHasCollision = false;
-
-        // Find the element to get its actual collision properties
-        const auto& elements = elementsManager.getElements();
-        const PlacedElement* currentElement = nullptr;
-        for (const auto& el : elements) {
-            if (el.instanceName == elementName) {
-                currentElement = &el;
-                break;
-            }
-        }
-
-        if (!currentElement || !currentElement->hasCollision || currentElement->collisionShapePoints.empty()) {
-            continue; // Skip elements without collision enabled or without defined shape
-        }
-
-        elementX = currentElement->x;
-        elementY = currentElement->y;
-        elementScale = currentElement->scale;
-        elementRotation = currentElement->rotation;
-        elementCollisionShapePoints = currentElement->collisionShapePoints;
-
-        // Transform element polygon points to world coordinates
-        std::vector<std::pair<float, float>> elementWorldShapePoints;
-        float elementAngleRad = elementRotation * M_PI / 180.0f;
-        float elementCosA = cos(elementAngleRad);
-        float elementSinA = sin(elementAngleRad);
-
-        for (const auto& localPoint : elementCollisionShapePoints) {
-            float scaledX = localPoint.first * elementScale;
-            float scaledY = localPoint.second * elementScale;
-            
-            float rotatedX = scaledX * elementCosA - scaledY * elementSinA;
-            float rotatedY = scaledX * elementSinA + scaledY * elementCosA;
-            
-            elementWorldShapePoints.push_back({elementX + rotatedX, elementY + rotatedY});
-        }
-
-        // Perform polygon-polygon collision detection using Separating Axis Theorem (SAT)
-        if (polygonPolygonCollision(entityWorldShapePoints, elementWorldShapePoints)) {
-            float currentTime = static_cast<float>(glfwGetTime());
-            if (playerDebugMode && currentTime - lastCollisionDebugTime > 2.0f) {
-                lastCollisionDebugTime = currentTime;
-                std::cout << "Entity polygon collision with " << elementName 
-                          << " at entity pos (" << x << ", " << y << ")" 
-                          << ", element center: (" << elementX << ", " << elementY << ")" << std::endl;
-            }
-            return true; // Collision detected
-        }
-    }
-    
-    return false; // No collision detected
+    // Use hierarchical collision detection by default for better performance
+    return wouldEntityCollideWithElementHierarchical(x, y, entityCollisionShapePoints, entityScale, entityRotation);
 }
 
 // Helper function to check collision between two polygons using Separating Axis Theorem (SAT)
@@ -747,4 +580,447 @@ bool wouldEntityCollideWithMapBounds(float x, float y, const std::vector<std::pa
 // Overloaded function that uses EntityConfiguration
 bool wouldEntityCollideWithMapBounds(const EntityConfiguration& config, float x, float y) {
     return wouldEntityCollideWithMapBounds(x, y, config.collisionShapePoints, 1.0f, 0.0f);
+}
+
+// ===== ENHANCED HIERARCHICAL SPATIAL PARTITIONING IMPLEMENTATION =====
+
+// Global instance of hierarchical spatial grid
+HierarchicalSpatialGrid g_hierarchicalGrid;
+
+// Performance monitoring for collision system
+CollisionPerformanceStats g_collisionStats;
+
+void CollisionPerformanceStats::reset() {
+    broadPhaseChecks.store(0);
+    narrowPhaseChecks.store(0);
+    hierarchicalHits.store(0);
+    totalCollisionQueries.store(0);
+    totalTimeMs.store(0.0);
+}
+
+void CollisionPerformanceStats::printStats() const {
+    if (totalCollisionQueries > 0) {
+        double avgTimePerQuery = totalTimeMs.load() / totalCollisionQueries.load();
+        double hitRatio = static_cast<double>(hierarchicalHits.load()) / totalCollisionQueries.load() * 100.0;
+        
+        std::cout << "=== Collision Performance Stats ===" << std::endl;
+        std::cout << "Total Queries: " << totalCollisionQueries.load() << std::endl;
+        std::cout << "Broad Phase Checks: " << broadPhaseChecks.load() << std::endl;
+        std::cout << "Narrow Phase Checks: " << narrowPhaseChecks.load() << std::endl;
+        std::cout << "Hierarchical Hits: " << hierarchicalHits.load() << " (" << std::fixed << std::setprecision(1) << hitRatio << "%)" << std::endl;
+        std::cout << "Avg Time Per Query: " << std::fixed << std::setprecision(3) << avgTimePerQuery << "ms" << std::endl;
+    }
+}
+
+// HierarchicalSpatialGrid Implementation
+void HierarchicalSpatialGrid::initialize() {
+    if (isInitialized) return;
+    
+    clear();
+    
+    // Categorize elements as static or dynamic based on their properties
+    const auto& elements = elementsManager.getElements();
+    for (const auto& element : elements) {
+        if (element.hasCollision) {
+            // Simple heuristic: elements with certain names or properties are considered dynamic
+            // You can enhance this based on your game's specific needs
+            bool isDynamic = (element.instanceName.find("player") != std::string::npos ||
+                            element.instanceName.find("enemy") != std::string::npos ||
+                            element.instanceName.find("npc") != std::string::npos ||
+                            element.instanceName.find("movable") != std::string::npos);
+            
+            if (isDynamic) {
+                dynamicElementNames.insert(element.instanceName);
+            } else {
+                staticElementNames.insert(element.instanceName);
+            }
+        }
+    }
+    
+    updateGrid(true); // Force initial update
+    isInitialized = true;
+    
+    if (DEBUG_LOGS) {
+        std::cout << "HierarchicalSpatialGrid initialized with " 
+                  << staticElementNames.size() << " static and " 
+                  << dynamicElementNames.size() << " dynamic elements" << std::endl;
+    }
+}
+
+void HierarchicalSpatialGrid::updateGrid(bool forceUpdate) {    float currentTime = static_cast<float>(glfwGetTime());
+    
+    bool shouldUpdateStatic = forceUpdate || (currentTime - lastCoarseUpdateTime > HierarchicalSpatialGrid::STATIC_UPDATE_INTERVAL);
+    bool shouldUpdateDynamic = forceUpdate || (currentTime - lastFineUpdateTime > HierarchicalSpatialGrid::DYNAMIC_UPDATE_INTERVAL);
+    
+    if (shouldUpdateStatic) {
+        updateStaticElements();
+        lastCoarseUpdateTime = currentTime;
+    }
+    
+    if (shouldUpdateDynamic) {
+        updateDynamicElements();
+        lastFineUpdateTime = currentTime;
+    }
+}
+
+void HierarchicalSpatialGrid::updateStaticElements() {
+    // Clear static elements from both grids
+    for (auto& [index, cell] : coarseGrid) {
+        cell.staticElements.clear();
+    }
+    for (auto& [index, cell] : fineGrid) {
+        cell.staticElements.clear();
+    }
+    
+    // Re-add static elements to both grids
+    for (const auto& elementName : staticElementNames) {
+        float x, y;
+        if (elementsManager.getElementPosition(elementName, x, y)) {
+            addElementToGrid(elementName, x, y, true);
+        }
+    }
+}
+
+void HierarchicalSpatialGrid::updateDynamicElements() {
+    // Clear dynamic elements from both grids
+    for (auto& [index, cell] : coarseGrid) {
+        cell.dynamicElements.clear();
+    }
+    for (auto& [index, cell] : fineGrid) {
+        cell.dynamicElements.clear();
+    }
+    
+    // Re-add dynamic elements to both grids
+    for (const auto& elementName : dynamicElementNames) {
+        float x, y;
+        if (elementsManager.getElementPosition(elementName, x, y)) {
+            addElementToGrid(elementName, x, y, false);
+        }
+    }
+}
+
+void HierarchicalSpatialGrid::markElementAsDynamic(const std::string& elementName) {
+    staticElementNames.erase(elementName);
+    dynamicElementNames.insert(elementName);
+}
+
+void HierarchicalSpatialGrid::markElementAsStatic(const std::string& elementName) {
+    dynamicElementNames.erase(elementName);
+    staticElementNames.insert(elementName);
+}
+
+std::vector<std::string> HierarchicalSpatialGrid::getBroadPhaseElements(float x, float y, float radius) {
+    std::vector<std::string> result;
+    g_collisionStats.broadPhaseChecks++;
+    
+    // Use coarse grid for broad phase
+    int cellRadius = static_cast<int>(radius / COARSE_GRID_SIZE) + 1;
+    int centerCellX = static_cast<int>(x) / COARSE_GRID_SIZE;
+    int centerCellY = static_cast<int>(y) / COARSE_GRID_SIZE;
+    
+    for (int cellX = centerCellX - cellRadius; cellX <= centerCellX + cellRadius; cellX++) {
+        for (int cellY = centerCellY - cellRadius; cellY <= centerCellY + cellRadius; cellY++) {
+            int index = getCoarseGridIndex(cellX * COARSE_GRID_SIZE, cellY * COARSE_GRID_SIZE);
+            
+            auto it = coarseGrid.find(index);
+            if (it != coarseGrid.end()) {
+                const auto& cell = it->second;
+                result.insert(result.end(), cell.staticElements.begin(), cell.staticElements.end());
+                result.insert(result.end(), cell.dynamicElements.begin(), cell.dynamicElements.end());
+            }
+        }
+    }
+    
+    return result;
+}
+
+std::vector<std::string> HierarchicalSpatialGrid::getNarrowPhaseElements(float x, float y, float radius) {
+    std::vector<std::string> result;
+    g_collisionStats.narrowPhaseChecks++;
+    
+    // Use fine grid for narrow phase
+    int cellRadius = static_cast<int>(radius / FINE_GRID_SIZE) + 1;
+    int centerCellX = static_cast<int>(x) / FINE_GRID_SIZE;
+    int centerCellY = static_cast<int>(y) / FINE_GRID_SIZE;
+    
+    for (int cellX = centerCellX - cellRadius; cellX <= centerCellX + cellRadius; cellX++) {
+        for (int cellY = centerCellY - cellRadius; cellY <= centerCellY + cellRadius; cellY++) {
+            int index = getFineGridIndex(cellX * FINE_GRID_SIZE, cellY * FINE_GRID_SIZE);
+            
+            auto it = fineGrid.find(index);
+            if (it != fineGrid.end()) {
+                const auto& cell = it->second;
+                result.insert(result.end(), cell.staticElements.begin(), cell.staticElements.end());
+                result.insert(result.end(), cell.dynamicElements.begin(), cell.dynamicElements.end());
+            }
+        }
+    }
+    
+    return result;
+}
+
+std::vector<std::string> HierarchicalSpatialGrid::getElementsHierarchical(float x, float y, float radius) {
+    auto startTime = std::chrono::high_resolution_clock::now();
+    g_collisionStats.totalCollisionQueries++;
+    
+    std::vector<std::string> result;
+    
+    // Use broad phase for large radius queries
+    if (radius > COARSE_GRID_SIZE * 0.5f) {
+        result = getBroadPhaseElements(x, y, radius);
+    } else {
+        // Use narrow phase for precise queries
+        result = getNarrowPhaseElements(x, y, radius);
+    }
+    
+    if (!result.empty()) {
+        g_collisionStats.hierarchicalHits++;
+    }
+    
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+    g_collisionStats.totalTimeMs.store(g_collisionStats.totalTimeMs.load() + duration.count() / 1000.0);
+    
+    return result;
+}
+
+void HierarchicalSpatialGrid::clear() {
+    coarseGrid.clear();
+    fineGrid.clear();
+    staticElementNames.clear();
+    dynamicElementNames.clear();
+    isInitialized = false;
+    lastCoarseUpdateTime = 0.0f;
+    lastFineUpdateTime = 0.0f;
+}
+
+bool HierarchicalSpatialGrid::isEmpty() const {
+    return staticElementNames.empty() && dynamicElementNames.empty();
+}
+
+bool HierarchicalSpatialGrid::isInitializedState() const {
+    return isInitialized;
+}
+
+size_t HierarchicalSpatialGrid::getStaticElementCount() const {
+    return staticElementNames.size();
+}
+
+size_t HierarchicalSpatialGrid::getDynamicElementCount() const {
+    return dynamicElementNames.size();
+}
+
+int HierarchicalSpatialGrid::getCoarseGridIndex(float x, float y) const {
+    int gridX = static_cast<int>(x) / COARSE_GRID_SIZE;
+    int gridY = static_cast<int>(y) / COARSE_GRID_SIZE;
+    return gridX * 10000 + gridY; // Use larger multiplier for coarse grid
+}
+
+int HierarchicalSpatialGrid::getFineGridIndex(float x, float y) const {
+    int gridX = static_cast<int>(x) / FINE_GRID_SIZE;
+    int gridY = static_cast<int>(y) / FINE_GRID_SIZE;
+    return gridX * 1000 + gridY; // Original multiplier for fine grid
+}
+
+void HierarchicalSpatialGrid::addElementToGrid(const std::string& elementName, float x, float y, bool isStatic) {
+    // Add to coarse grid
+    int coarseIndex = getCoarseGridIndex(x, y);
+    if (isStatic) {
+        coarseGrid[coarseIndex].staticElements.push_back(elementName);
+    } else {
+        coarseGrid[coarseIndex].dynamicElements.push_back(elementName);
+    }
+    
+    // Add to fine grid
+    int fineIndex = getFineGridIndex(x, y);
+    if (isStatic) {
+        fineGrid[fineIndex].staticElements.push_back(elementName);
+    } else {
+        fineGrid[fineIndex].dynamicElements.push_back(elementName);
+    }
+}
+
+void HierarchicalSpatialGrid::removeElementFromGrid(const std::string& elementName) {
+    // Remove from both grids - this is expensive so we avoid it in favor of clearing and rebuilding
+    // In a more sophisticated implementation, we could track element positions to remove more efficiently
+}
+
+// Enhanced collision detection functions using hierarchical grid
+bool wouldCollideWithElementHierarchical(float x, float y, float playerRadius) {
+    // Initialize hierarchical grid if needed
+    if (!g_hierarchicalGrid.isInitializedState()) {
+        g_hierarchicalGrid.initialize();
+    }
+    
+    // Update grid before collision check
+    g_hierarchicalGrid.updateGrid();
+    
+    // Get nearby elements using hierarchical lookup
+    std::vector<std::string> nearbyElements = g_hierarchicalGrid.getElementsHierarchical(x, y, playerRadius + MAX_COLLISION_CHECK_RANGE);
+    
+    // Perform collision detection on nearby elements
+    for (const auto& elementName : nearbyElements) {
+        float elementX, elementY;
+        float elementScale = 1.0f;
+        float elementRotation = 0.0f;
+        std::vector<std::pair<float, float>> elementCollisionShapePoints;
+        
+        // Find the element to get its actual collision properties
+        const auto& elements = elementsManager.getElements();
+        const PlacedElement* currentElement = nullptr;
+        for (const auto& el : elements) {
+            if (el.instanceName == elementName) {
+                currentElement = &el;
+                break;
+            }
+        }
+        
+        if (!currentElement || !currentElement->hasCollision || currentElement->collisionShapePoints.empty()) {
+            continue;
+        }
+        
+        elementX = currentElement->x;
+        elementY = currentElement->y;
+        elementScale = currentElement->scale;
+        elementRotation = currentElement->rotation;
+        elementCollisionShapePoints = currentElement->collisionShapePoints;
+        
+        // Transform polygon points to world coordinates
+        std::vector<std::pair<float, float>> worldShapePoints;
+        float angleRad = elementRotation * M_PI / 180.0f;
+        float cosA = cos(angleRad);
+        float sinA = sin(angleRad);
+        
+        for (const auto& localPoint : elementCollisionShapePoints) {
+            float scaledX = localPoint.first * elementScale;
+            float scaledY = localPoint.second * elementScale;
+            
+            float rotatedX = scaledX * cosA - scaledY * sinA;
+            float rotatedY = scaledX * sinA + scaledY * cosA;
+            
+            worldShapePoints.push_back({elementX + rotatedX, elementY + rotatedY});
+        }
+        
+        // Perform circle-polygon collision detection
+        bool collision = false;
+        int intersectCount = 0;
+        for (size_t i = 0; i < worldShapePoints.size(); ++i) {
+            std::pair<float, float> p1 = worldShapePoints[i];
+            std::pair<float, float> p2 = worldShapePoints[(i + 1) % worldShapePoints.size()];
+            
+            if (((p1.second > y) != (p2.second > y)) &&
+                (x < (p2.first - p1.first) * (y - p1.second) / (p2.second - p1.second) + p1.first)) {
+                intersectCount++;
+            }
+        }
+        
+        if (intersectCount % 2 == 1) {
+            collision = true;
+        } else {
+            // Check distance to polygon edges
+            for (size_t i = 0; i < worldShapePoints.size(); ++i) {
+                std::pair<float, float> p1 = worldShapePoints[i];
+                std::pair<float, float> p2 = worldShapePoints[(i + 1) % worldShapePoints.size()];
+                
+                float A = y - p1.second;
+                float B = p1.first - x;
+                float C = (x - p1.first) * (p2.second - p1.second) - (y - p1.second) * (p2.first - p1.first);
+                
+                float distance = std::abs(A * p2.first + B * p2.second + C) / std::sqrt(A * A + B * B);
+                
+                if (distance <= playerRadius) {
+                    float dotProduct = (x - p1.first) * (p2.first - p1.first) + (y - p1.second) * (p2.second - p1.second);
+                    float squaredLength = (p2.first - p1.first) * (p2.first - p1.first) + (p2.second - p1.second) * (p2.second - p1.second);
+                    
+                    if (dotProduct >= 0 && dotProduct <= squaredLength) {
+                        collision = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (collision) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+bool wouldEntityCollideWithElementHierarchical(float x, float y, const std::vector<std::pair<float, float>>& entityCollisionShapePoints, float entityScale, float entityRotation) {
+    // Initialize hierarchical grid if needed
+    if (!g_hierarchicalGrid.isInitializedState()) {
+        g_hierarchicalGrid.initialize();
+    }
+    
+    // Update grid before collision check
+    g_hierarchicalGrid.updateGrid();
+    
+    // Calculate approximate radius for nearby element search
+    float maxRadius = 0.0f;
+    for (const auto& point : entityCollisionShapePoints) {
+        float dist = std::sqrt(point.first * point.first + point.second * point.second);
+        maxRadius = std::max(maxRadius, dist * entityScale);
+    }
+    
+    // Get nearby elements using hierarchical lookup
+    std::vector<std::string> nearbyElements = g_hierarchicalGrid.getElementsHierarchical(x, y, maxRadius + MAX_COLLISION_CHECK_RANGE);
+    
+    // Transform entity polygon points to world coordinates
+    std::vector<std::pair<float, float>> entityWorldShapePoints;
+    float entityAngleRad = entityRotation * M_PI / 180.0f;
+    float entityCosA = cos(entityAngleRad);
+    float entitySinA = sin(entityAngleRad);
+    
+    for (const auto& localPoint : entityCollisionShapePoints) {
+        float scaledX = localPoint.first * entityScale;
+        float scaledY = localPoint.second * entityScale;
+        
+        float rotatedX = scaledX * entityCosA - scaledY * entitySinA;
+        float rotatedY = scaledX * entitySinA + scaledY * entityCosA;
+        
+        entityWorldShapePoints.push_back({x + rotatedX, y + rotatedY});
+    }
+    
+    // Check collision with each nearby element
+    for (const auto& elementName : nearbyElements) {
+        const auto& elements = elementsManager.getElements();
+        const PlacedElement* currentElement = nullptr;
+        for (const auto& el : elements) {
+            if (el.instanceName == elementName) {
+                currentElement = &el;
+                break;
+            }
+        }
+        
+        if (!currentElement || !currentElement->hasCollision || currentElement->collisionShapePoints.empty()) {
+            continue;
+        }
+        
+        // Transform element polygon points to world coordinates
+        std::vector<std::pair<float, float>> elementWorldShapePoints;
+        float elementAngleRad = currentElement->rotation * M_PI / 180.0f;
+        float elementCosA = cos(elementAngleRad);
+        float elementSinA = sin(elementAngleRad);
+        
+        for (const auto& localPoint : currentElement->collisionShapePoints) {
+            float scaledX = localPoint.first * currentElement->scale;
+            float scaledY = localPoint.second * currentElement->scale;
+            
+            float rotatedX = scaledX * elementCosA - scaledY * elementSinA;
+            float rotatedY = scaledX * elementSinA + scaledY * elementCosA;
+            
+            elementWorldShapePoints.push_back({currentElement->x + rotatedX, currentElement->y + rotatedY});
+        }
+        
+        // Perform polygon-polygon collision detection using SAT
+        if (!entityWorldShapePoints.empty() && !elementWorldShapePoints.empty()) {
+            if (polygonPolygonCollision(entityWorldShapePoints, elementWorldShapePoints)) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
 }

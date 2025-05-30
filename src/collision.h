@@ -6,6 +6,9 @@
 #include <vector>
 #include <string>
 #include <set>
+#include <unordered_set>
+#include <unordered_map>
+#include <atomic>
 #include "enumDefinitions.h"
 
 
@@ -72,5 +75,78 @@ std::ostream& operator<<(std::ostream& os, const BlockName& blockType);
 int getSpatialGridIndex(float x, float y);
 void updateSpatialGrid();
 std::vector<std::string> getNearbyElements(float x, float y, float radius);
+
+// Enhanced spatial partitioning for collision optimization
+struct SpatialCell {
+    std::vector<std::string> staticElements;  // Elements that rarely move
+    std::vector<std::string> dynamicElements; // Elements that move frequently
+    float lastUpdateTime = 0.0f;
+    bool isDirty = true;
+};
+
+// Hierarchical spatial grid for multi-level collision detection
+class HierarchicalSpatialGrid {
+private:    static const int COARSE_GRID_SIZE = 50;  // Large cells for broad-phase
+    static const int FINE_GRID_SIZE = 10;    // Small cells for narrow-phase
+    static constexpr float STATIC_UPDATE_INTERVAL = 2.0f;   // Static elements update less frequently
+    static constexpr float DYNAMIC_UPDATE_INTERVAL = 0.1f;  // Dynamic elements update more frequently
+    
+    std::unordered_map<int, SpatialCell> coarseGrid;
+    std::unordered_map<int, SpatialCell> fineGrid;
+    std::unordered_set<std::string> staticElementNames;
+    std::unordered_set<std::string> dynamicElementNames;
+    
+    bool isInitialized = false;
+    float lastCoarseUpdateTime = 0.0f;
+    float lastFineUpdateTime = 0.0f;
+    
+public:
+    void initialize();
+    void updateGrid(bool forceUpdate = false);
+    void updateStaticElements();
+    void updateDynamicElements();
+    void markElementAsDynamic(const std::string& elementName);
+    void markElementAsStatic(const std::string& elementName);
+    
+    // Fast broad-phase collision detection
+    std::vector<std::string> getBroadPhaseElements(float x, float y, float radius);
+    
+    // Precise narrow-phase collision detection
+    std::vector<std::string> getNarrowPhaseElements(float x, float y, float radius);
+    
+    // Combined hierarchical lookup
+    std::vector<std::string> getElementsHierarchical(float x, float y, float radius);
+      void clear();
+    bool isEmpty() const;
+    bool isInitializedState() const;
+    size_t getStaticElementCount() const;
+    size_t getDynamicElementCount() const;
+    
+private:
+    int getCoarseGridIndex(float x, float y) const;
+    int getFineGridIndex(float x, float y) const;
+    void addElementToGrid(const std::string& elementName, float x, float y, bool isStatic);
+    void removeElementFromGrid(const std::string& elementName);
+};
+
+extern HierarchicalSpatialGrid g_hierarchicalGrid;
+
+// Enhanced collision detection functions using hierarchical grid
+bool wouldCollideWithElementHierarchical(float x, float y, float playerRadius = 0.2f);
+bool wouldEntityCollideWithElementHierarchical(float x, float y, const std::vector<std::pair<float, float>>& entityCollisionShapePoints, float entityScale = 1.0f, float entityRotation = 0.0f);
+
+// Performance monitoring for collision system
+struct CollisionPerformanceStats {
+    std::atomic<int> broadPhaseChecks{0};
+    std::atomic<int> narrowPhaseChecks{0};
+    std::atomic<int> hierarchicalHits{0};
+    std::atomic<int> totalCollisionQueries{0};
+    std::atomic<double> totalTimeMs{0.0};
+    
+    void reset();
+    void printStats() const;
+};
+
+extern CollisionPerformanceStats g_collisionStats;
 
 #endif // COLLISION_H

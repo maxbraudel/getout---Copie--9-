@@ -9,6 +9,7 @@
 #include <cmath>
 #include <algorithm>
 #include <iostream>
+#include <iomanip>
 #include <limits>
 #include <chrono>
 #include <thread>
@@ -33,6 +34,515 @@ static std::mutex pathfindingCooldownMutex;
 PathfindingStats g_pathfindingStats;
 PreCalculatedCollisionShapes g_collisionCache;
 AsyncPathfinder g_asyncPathfinder;
+
+// ===== HIERARCHICAL PATHFINDING IMPLEMENTATION =====
+
+// Global instances for hierarchical pathfinding
+HierarchicalPathfindingGraph g_hierarchicalPathfindingGraph;
+HierarchicalPathfindingStats g_hierarchicalPathfindingStats;
+
+void HierarchicalPathfindingStats::reset() {
+    hierarchicalPathsUsed = 0;
+    directPathsUsed = 0;
+    clusterPathsGenerated = 0;
+    hierarchicalTimeMs = 0.0;
+    directTimeMs = 0.0;
+    avgHierarchicalSpeedup = 0.0;
+}
+
+void HierarchicalPathfindingStats::printStats() const {
+    int totalPaths = hierarchicalPathsUsed.load() + directPathsUsed.load();
+    if (totalPaths > 0) {
+        double hierarchicalPercentage = static_cast<double>(hierarchicalPathsUsed.load()) / totalPaths * 100.0;
+        double avgHierarchicalTime = hierarchicalPathsUsed.load() > 0 ? 
+            hierarchicalTimeMs.load() / hierarchicalPathsUsed.load() : 0.0;
+        double avgDirectTime = directPathsUsed.load() > 0 ? 
+            directTimeMs.load() / directPathsUsed.load() : 0.0;
+        
+        std::cout << "=== Hierarchical Pathfinding Stats ===" << std::endl;
+        std::cout << "Total Paths: " << totalPaths << std::endl;
+        std::cout << "Hierarchical Paths: " << hierarchicalPathsUsed.load() 
+                  << " (" << std::fixed << std::setprecision(1) << hierarchicalPercentage << "%)" << std::endl;
+        std::cout << "Direct Paths: " << directPathsUsed.load() << std::endl;
+        std::cout << "Cluster Paths Generated: " << clusterPathsGenerated.load() << std::endl;
+        std::cout << "Avg Hierarchical Time: " << std::fixed << std::setprecision(2) << avgHierarchicalTime << "ms" << std::endl;
+        std::cout << "Avg Direct Time: " << std::fixed << std::setprecision(2) << avgDirectTime << "ms" << std::endl;
+        std::cout << "Avg Speedup: " << std::fixed << std::setprecision(2) << avgHierarchicalSpeedup.load() << "x" << std::endl;
+    }
+}
+
+void HierarchicalPathfindingStats::updateSpeedup(double hierarchicalTime, double estimatedDirectTime) {
+    if (hierarchicalTime > 0 && estimatedDirectTime > 0) {
+        double speedup = estimatedDirectTime / hierarchicalTime;
+        double currentAvg = avgHierarchicalSpeedup.load();
+        int currentCount = hierarchicalPathsUsed.load();
+        
+        // Calculate running average
+        double newAvg = (currentAvg * (currentCount - 1) + speedup) / currentCount;
+        avgHierarchicalSpeedup.store(newAvg);
+    }
+}
+
+// HierarchicalPathfindingGraph Implementation
+void HierarchicalPathfindingGraph::initialize(const Map& gameMap) {
+    if (isInitialized) return;
+    
+    if (DEBUG_LOGS) {
+        std::cout << "Initializing hierarchical pathfinding graph..." << std::endl;
+    }
+    
+    clear();
+    generateClusters(gameMap);
+    findClusterConnections(gameMap);
+    
+    isInitialized = true;
+    lastUpdateTime = static_cast<float>(glfwGetTime());
+    
+    if (DEBUG_LOGS) {
+        std::cout << "Hierarchical pathfinding graph initialized with " 
+                  << clusters.size() << " clusters" << std::endl;
+    }
+}
+
+void HierarchicalPathfindingGraph::updateGraph(const Map& gameMap, bool forceUpdate) {
+    float currentTime = static_cast<float>(glfwGetTime());
+    
+    if (!forceUpdate && (currentTime - lastUpdateTime < UPDATE_INTERVAL)) {
+        return;
+    }
+    
+    // Re-analyze cluster obstacles (connections remain mostly static)
+    for (auto& cluster : clusters) {
+        analyzeClusterObstacles(cluster, gameMap);
+    }
+    
+    lastUpdateTime = currentTime;
+    
+    if (DEBUG_LOGS) {
+        std::cout << "Updated hierarchical pathfinding graph" << std::endl;
+    }
+}
+
+std::vector<int> HierarchicalPathfindingGraph::findClusterPath(int startClusterId, int goalClusterId) {
+    if (startClusterId == goalClusterId) {
+        return {startClusterId};
+    }
+    
+    // A* search on cluster graph
+    std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<std::pair<float, int>>> openSet;
+    std::unordered_map<int, float> gCost;
+    std::unordered_map<int, int> parent;
+    std::unordered_set<int> closedSet;
+    
+    openSet.push({0.0f, startClusterId});
+    gCost[startClusterId] = 0.0f;
+    
+    const PathfindingCluster* goalCluster = getCluster(goalClusterId);
+    if (!goalCluster) return {};
+    
+    while (!openSet.empty()) {
+        int currentClusterId = openSet.top().second;
+        openSet.pop();
+        
+        if (currentClusterId == goalClusterId) {
+            // Reconstruct path
+            std::vector<int> path;
+            int current = goalClusterId;
+            while (current != startClusterId) {
+                path.push_back(current);
+                current = parent[current];
+            }
+            path.push_back(startClusterId);
+            std::reverse(path.begin(), path.end());
+            return path;
+        }
+        
+        if (closedSet.count(currentClusterId)) continue;
+        closedSet.insert(currentClusterId);
+        
+        // Check connections
+        auto connectionIt = clusterConnections.find(currentClusterId);
+        if (connectionIt != clusterConnections.end()) {
+            for (int neighborId : connectionIt->second) {
+                if (closedSet.count(neighborId)) continue;
+                
+                const PathfindingCluster* neighbor = getCluster(neighborId);
+                if (!neighbor || neighbor->isObstacle) continue;
+                
+                float tentativeGCost = gCost[currentClusterId] + calculateClusterDistance(currentClusterId, neighborId);
+                
+                if (gCost.find(neighborId) == gCost.end() || tentativeGCost < gCost[neighborId]) {
+                    gCost[neighborId] = tentativeGCost;
+                    parent[neighborId] = currentClusterId;
+                    
+                    // Heuristic: distance to goal cluster
+                    float hCost = calculateClusterDistance(neighborId, goalClusterId);
+                    float fCost = tentativeGCost + hCost;
+                    
+                    openSet.push({fCost, neighborId});
+                }
+            }
+        }
+    }
+    
+    return {}; // No path found
+}
+
+std::vector<std::pair<float, float>> HierarchicalPathfindingGraph::clusterPathToWorldPath(
+    const std::vector<int>& clusterPath,
+    float startX, float startY,
+    float goalX, float goalY) {
+    
+    if (clusterPath.empty()) return {};
+    if (clusterPath.size() == 1) {
+        return {{startX, startY}, {goalX, goalY}};
+    }
+    
+    std::vector<std::pair<float, float>> worldPath;
+    worldPath.push_back({startX, startY});
+    
+    // Add waypoints at cluster boundaries
+    for (size_t i = 1; i < clusterPath.size(); ++i) {
+        const PathfindingCluster* cluster = getCluster(clusterPath[i]);
+        if (cluster && !cluster->entrancePoints.empty()) {
+            // Choose the entrance point closest to the previous position
+            float prevX = worldPath.back().first;
+            float prevY = worldPath.back().second;
+            
+            std::pair<float, float> bestEntrance = cluster->entrancePoints[0];
+            float bestDistance = std::numeric_limits<float>::max();
+            
+            for (const auto& entrance : cluster->entrancePoints) {
+                float dx = entrance.first - prevX;
+                float dy = entrance.second - prevY;
+                float distance = std::sqrt(dx * dx + dy * dy);
+                
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestEntrance = entrance;
+                }
+            }
+            
+            worldPath.push_back(bestEntrance);
+        } else {
+            // Fallback: use cluster center
+            const PathfindingCluster* cluster = getCluster(clusterPath[i]);
+            if (cluster) {
+                worldPath.push_back({cluster->centerX, cluster->centerY});
+            }
+        }
+    }
+    
+    worldPath.push_back({goalX, goalY});
+    return worldPath;
+}
+
+int HierarchicalPathfindingGraph::getClusterIdForPosition(float x, float y) const {
+    for (const auto& cluster : clusters) {
+        if (x >= cluster.minX && x <= cluster.maxX && 
+            y >= cluster.minY && y <= cluster.maxY) {
+            return cluster.id;
+        }
+    }
+    return -1; // No cluster found
+}
+
+bool HierarchicalPathfindingGraph::canConnectClusters(int clusterId1, int clusterId2, const Map& gameMap) const {
+    const PathfindingCluster* cluster1 = getCluster(clusterId1);
+    const PathfindingCluster* cluster2 = getCluster(clusterId2);
+    
+    if (!cluster1 || !cluster2) return false;
+    
+    // Check if clusters are within connection radius
+    float dx = cluster1->centerX - cluster2->centerX;
+    float dy = cluster1->centerY - cluster2->centerY;
+    float distance = std::sqrt(dx * dx + dy * dy);
+    
+    if (distance > INTER_CLUSTER_CONNECTION_RADIUS) return false;
+    
+    // Simple line-of-sight check between cluster centers
+    float stepSize = 2.0f;
+    int steps = static_cast<int>(distance / stepSize);
+    
+    for (int i = 0; i <= steps; ++i) {
+        float t = static_cast<float>(i) / steps;
+        float checkX = cluster1->centerX + t * (cluster2->centerX - cluster1->centerX);
+        float checkY = cluster1->centerY + t * (cluster2->centerY - cluster1->centerY);
+        
+        // Check if position is blocked
+        if (wouldCollideWithMapBlock(checkX, checkY, gameMap)) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+std::vector<std::pair<float, float>> HierarchicalPathfindingGraph::getClusterEntrancePoints(int clusterId) const {
+    const PathfindingCluster* cluster = getCluster(clusterId);
+    if (cluster) {
+        return cluster->entrancePoints;
+    }
+    return {};
+}
+
+void HierarchicalPathfindingGraph::clear() {
+    clusters.clear();
+    clusterConnections.clear();
+    interClusterDistances.clear();
+    isInitialized = false;
+    lastUpdateTime = 0.0f;
+}
+
+bool HierarchicalPathfindingGraph::isEmpty() const {
+    return clusters.empty();
+}
+
+size_t HierarchicalPathfindingGraph::getClusterCount() const {
+    return clusters.size();
+}
+
+const PathfindingCluster* HierarchicalPathfindingGraph::getCluster(int clusterId) const {
+    for (const auto& cluster : clusters) {
+        if (cluster.id == clusterId) {
+            return &cluster;
+        }
+    }
+    return nullptr;
+}
+
+void HierarchicalPathfindingGraph::generateClusters(const Map& gameMap) {
+    int clusterId = 0;
+    
+    // Generate clusters in a grid pattern
+    for (float y = CLUSTER_SIZE / 2; y < GRID_SIZE; y += CLUSTER_SIZE) {
+        for (float x = CLUSTER_SIZE / 2; x < GRID_SIZE; x += CLUSTER_SIZE) {
+            PathfindingCluster cluster(clusterId++, x, y);
+            analyzeClusterObstacles(cluster, gameMap);
+            generateEntrancePoints(cluster, gameMap);
+            clusters.push_back(cluster);
+        }
+    }
+}
+
+void HierarchicalPathfindingGraph::analyzeClusterObstacles(PathfindingCluster& cluster, const Map& gameMap) {
+    int totalCells = 0;
+    int blockedCells = 0;
+    
+    // Sample points within the cluster to determine obstacle percentage
+    float sampleStep = 2.0f;
+    for (float y = cluster.minY; y <= cluster.maxY; y += sampleStep) {
+        for (float x = cluster.minX; x <= cluster.maxX; x += sampleStep) {
+            totalCells++;
+            
+            if (x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE) {
+                if (wouldCollideWithMapBlock(x, y, gameMap)) {
+                    blockedCells++;
+                }
+            } else {
+                blockedCells++; // Out of bounds counts as blocked
+            }
+        }
+    }
+    
+    if (totalCells > 0) {
+        cluster.obstaclePercentage = (blockedCells * 100) / totalCells;
+        cluster.isObstacle = cluster.obstaclePercentage > 70; // Mark as obstacle if >70% blocked
+    }
+}
+
+void HierarchicalPathfindingGraph::findClusterConnections(const Map& gameMap) {
+    // Find connections between adjacent clusters
+    for (size_t i = 0; i < clusters.size(); ++i) {
+        for (size_t j = i + 1; j < clusters.size(); ++j) {
+            if (canConnectClusters(clusters[i].id, clusters[j].id, gameMap)) {
+                clusterConnections[clusters[i].id].push_back(clusters[j].id);
+                clusterConnections[clusters[j].id].push_back(clusters[i].id);
+                
+                // Cache distance
+                float distance = calculateClusterDistance(clusters[i].id, clusters[j].id);
+                interClusterDistances[{clusters[i].id, clusters[j].id}] = distance;
+                interClusterDistances[{clusters[j].id, clusters[i].id}] = distance;
+            }
+        }
+    }
+}
+
+void HierarchicalPathfindingGraph::generateEntrancePoints(PathfindingCluster& cluster, const Map& gameMap) {
+    // Generate entrance points at cluster boundaries
+    float step = CLUSTER_SIZE / 4.0f;
+    
+    // Top and bottom edges
+    for (float x = cluster.minX + step; x < cluster.maxX; x += step) {
+        // Top edge
+        if (!wouldCollideWithMapBlock(x, cluster.minY, gameMap)) {
+            cluster.entrancePoints.push_back({x, cluster.minY});
+        }
+        // Bottom edge
+        if (!wouldCollideWithMapBlock(x, cluster.maxY, gameMap)) {
+            cluster.entrancePoints.push_back({x, cluster.maxY});
+        }
+    }
+    
+    // Left and right edges
+    for (float y = cluster.minY + step; y < cluster.maxY; y += step) {
+        // Left edge
+        if (!wouldCollideWithMapBlock(cluster.minX, y, gameMap)) {
+            cluster.entrancePoints.push_back({cluster.minX, y});
+        }
+        // Right edge
+        if (!wouldCollideWithMapBlock(cluster.maxX, y, gameMap)) {
+            cluster.entrancePoints.push_back({cluster.maxX, y});
+        }
+    }
+    
+    // If no entrance points found, use center as fallback
+    if (cluster.entrancePoints.empty()) {
+        cluster.entrancePoints.push_back({cluster.centerX, cluster.centerY});
+    }
+}
+
+float HierarchicalPathfindingGraph::calculateClusterDistance(int clusterId1, int clusterId2) const {
+    const PathfindingCluster* cluster1 = getCluster(clusterId1);
+    const PathfindingCluster* cluster2 = getCluster(clusterId2);
+    
+    if (!cluster1 || !cluster2) return std::numeric_limits<float>::max();
+    
+    float dx = cluster1->centerX - cluster2->centerX;
+    float dy = cluster1->centerY - cluster2->centerY;
+    return std::sqrt(dx * dx + dy * dy);
+}
+
+// Enhanced pathfinding functions
+std::vector<std::pair<float, float>> findPathHierarchical(
+    float startX, float startY,
+    float goalX, float goalY,
+    const EntityConfiguration& entityConfig,
+    const Map& gameMap,
+    float stepSize,
+    const std::string& excludeInstanceName) {
+    
+    auto startTime = std::chrono::high_resolution_clock::now();
+      // Initialize hierarchical graph if needed
+    if (!g_hierarchicalPathfindingGraph.isInitializedState()) {
+        g_hierarchicalPathfindingGraph.initialize(gameMap);
+    } else {
+        g_hierarchicalPathfindingGraph.updateGraph(gameMap);
+    }
+    
+    // Find cluster path
+    int startClusterId = g_hierarchicalPathfindingGraph.getClusterIdForPosition(startX, startY);
+    int goalClusterId = g_hierarchicalPathfindingGraph.getClusterIdForPosition(goalX, goalY);
+    
+    if (startClusterId == -1 || goalClusterId == -1) {
+        // Fallback to direct pathfinding
+        if (DEBUG_LOGS) {
+            std::cout << "Hierarchical pathfinding failed - invalid cluster IDs. Using direct pathfinding." << std::endl;
+        }
+        return findPathOptimized(startX, startY, goalX, goalY, entityConfig, gameMap, stepSize, excludeInstanceName);
+    }
+    
+    std::vector<int> clusterPath = g_hierarchicalPathfindingGraph.findClusterPath(startClusterId, goalClusterId);
+    
+    if (clusterPath.empty()) {
+        // No high-level path found, fallback to direct pathfinding
+        if (DEBUG_LOGS) {
+            std::cout << "No cluster path found. Using direct pathfinding." << std::endl;
+        }
+        return findPathOptimized(startX, startY, goalX, goalY, entityConfig, gameMap, stepSize, excludeInstanceName);
+    }
+    
+    g_hierarchicalPathfindingStats.clusterPathsGenerated++;
+    
+    // Convert cluster path to world coordinates
+    std::vector<std::pair<float, float>> roughPath = g_hierarchicalPathfindingGraph.clusterPathToWorldPath(
+        clusterPath, startX, startY, goalX, goalY);
+    
+    // Refine the path with local pathfinding between waypoints
+    std::vector<std::pair<float, float>> refinedPath;
+    
+    for (size_t i = 0; i < roughPath.size() - 1; ++i) {
+        float segmentStartX = roughPath[i].first;
+        float segmentStartY = roughPath[i].second;
+        float segmentGoalX = roughPath[i + 1].first;
+        float segmentGoalY = roughPath[i + 1].second;
+        
+        // Use faster step size for intermediate segments
+        float localStepSize = std::max(stepSize, 2.0f);
+        
+        std::vector<std::pair<float, float>> segmentPath = findPathOptimized(
+            segmentStartX, segmentStartY,
+            segmentGoalX, segmentGoalY,
+            entityConfig, gameMap, localStepSize, excludeInstanceName);
+        
+        // Add segment path (excluding the last point to avoid duplicates)
+        for (size_t j = 0; j < segmentPath.size() - 1; ++j) {
+            refinedPath.push_back(segmentPath[j]);
+        }
+    }
+    
+    // Add the final goal point
+    if (!roughPath.empty()) {
+        refinedPath.push_back(roughPath.back());
+    }
+    
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+    
+    g_hierarchicalPathfindingStats.hierarchicalPathsUsed++;
+    g_hierarchicalPathfindingStats.hierarchicalTimeMs.store(
+        g_hierarchicalPathfindingStats.hierarchicalTimeMs.load() + duration.count());
+    
+    // Estimate what direct pathfinding would have taken (rough approximation)
+    float distance = std::sqrt((goalX - startX) * (goalX - startX) + (goalY - startY) * (goalY - startY));
+    double estimatedDirectTime = distance * 0.5; // Rough estimation: 0.5ms per unit distance
+    g_hierarchicalPathfindingStats.updateSpeedup(duration.count(), estimatedDirectTime);
+    
+    if (DEBUG_LOGS) {
+        std::cout << "Hierarchical pathfinding completed in " << duration.count() 
+                  << "ms, path size: " << refinedPath.size() << " points" << std::endl;
+    }
+    
+    return refinedPath;
+}
+
+std::vector<std::pair<float, float>> findPathHybrid(
+    float startX, float startY,
+    float goalX, float goalY,
+    const EntityConfiguration& entityConfig,
+    const Map& gameMap,
+    float stepSize,
+    const std::string& excludeInstanceName) {
+    
+    // Calculate distance to determine which approach to use
+    float distance = std::sqrt((goalX - startX) * (goalX - startX) + (goalY - startY) * (goalY - startY));
+    
+    if (distance >= HIERARCHICAL_PATHFINDING_THRESHOLD) {
+        // Use hierarchical pathfinding for long distances
+        if (DEBUG_LOGS) {
+            std::cout << "Using hierarchical pathfinding for distance: " << distance << std::endl;
+        }
+        return findPathHierarchical(startX, startY, goalX, goalY, entityConfig, gameMap, stepSize, excludeInstanceName);
+    } else {
+        // Use direct pathfinding for short distances
+        if (DEBUG_LOGS) {
+            std::cout << "Using direct pathfinding for distance: " << distance << std::endl;
+        }
+        auto startTime = std::chrono::high_resolution_clock::now();
+        
+        std::vector<std::pair<float, float>> path = findPathOptimized(
+            startX, startY, goalX, goalY, entityConfig, gameMap, stepSize, excludeInstanceName);
+        
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+        
+        g_hierarchicalPathfindingStats.directPathsUsed++;
+        g_hierarchicalPathfindingStats.directTimeMs.store(
+            g_hierarchicalPathfindingStats.directTimeMs.load() + duration.count());
+        
+        return path;
+    }
+}
 
 // Generate a unique key for entity collision shapes based on their properties
 std::string generateEntityKey(const EntityConfiguration& config) {
@@ -530,7 +1040,7 @@ std::vector<std::pair<float, float>> findPathOptimized(
     float goalX, float goalY,
     const EntityConfiguration& entityConfig,
     const Map& gameMap,
-    float stepSize, const std::string& excludeInstanceName = "") {
+    float stepSize, const std::string& excludeInstanceName) {
     
     // Performance monitoring - start timer
     auto pathfindingStart = std::chrono::high_resolution_clock::now();
@@ -1196,7 +1706,7 @@ std::vector<std::pair<float, float>> AsyncPathfinder::findPathWithCancellation(
                 path[0] = {startX, startY};
                 path.back() = {goalX, goalY};
                 
-                // Simplify path
+                // Simplify the path
                 simplifyPath(path, entityConfig, gameMap);
                 
                 // Re-ensure start/end points after simplification

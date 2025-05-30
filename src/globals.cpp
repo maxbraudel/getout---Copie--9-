@@ -39,7 +39,7 @@ bool showGridLines = false;
 bool hideOutsideGrid = false; // Controls whether to hide pixels outside the map grid
 
 // Debug flags
-bool DEBUG_MAP = false; // Set to true to use simplified debug map
+bool DEBUG_MAP = true; // Set to true to use simplified debug map
 bool DEBUG_SHOW_PATHS = false; // Set to true to display entity paths
 
 // Debug logging control
