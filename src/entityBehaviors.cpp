@@ -1,12 +1,164 @@
 #include "entityBehaviors.h"
 #include "entities.h"
 #include "elementsOnMap.h" // For global elementsManager
+#include "collision.h" // For collision functions
 #include <iostream>
 #include <random>
 #include <chrono>
 #include <limits> // For numeric_limits
 #include <cmath> // For sqrt, atan2
 #include "enumDefinitions.h"
+
+// Forward declaration
+bool findAccessibleFleePoint(const std::string& entityInstanceName, EntitiesManager& entitiesManager,
+                            float currentX, float currentY, float threatX, float threatY,
+                            float minDistance, float maxDistance,
+                            float idealX, float idealY, float& resultX, float& resultY);
+
+// Helper function to check if a position is accessible for an entity in flee state
+bool isFleePositionAccessible(const std::string& entityInstanceName, EntitiesManager& entitiesManager,
+                             float x, float y) {
+    // Get the entity and its configuration
+    Entity* entity = entitiesManager.getEntity(entityInstanceName);
+    if (!entity) {
+        return false;
+    }
+    
+    const EntityConfiguration* config = entitiesManager.getConfiguration(entity->type);
+    if (!config) {
+        return false;
+    }
+      // Check map boundaries
+    if (config->offMapCollision && wouldEntityCollideWithMapBounds(*config, x, y)) {
+        return false;
+    }
+    
+    // Check collision with elements and blocks
+    if (config->canCollide && 
+        (wouldEntityCollideWithElementsGranular(*config, x, y, true) || 
+         wouldEntityCollideWithBlocksGranular(*config, x, y, true))) {
+        return false;
+    }
+    
+    return true;
+}
+
+// Intelligent function to find an accessible flee point when facing dead ends
+bool findAccessibleFleePoint(const std::string& entityInstanceName, EntitiesManager& entitiesManager,
+                            float currentX, float currentY, float threatX, float threatY,
+                            float minDistance, float maxDistance,
+                            float idealX, float idealY, float& resultX, float& resultY) {
+    
+    // Strategy 1: Try the ideal position first (original behavior)
+    if (isFleePositionAccessible(entityInstanceName, entitiesManager, idealX, idealY)) {
+        // Check distance from threat to ensure it's safe
+        float distanceFromThreat = std::sqrt((idealX - threatX) * (idealX - threatX) + 
+                                           (idealY - threatY) * (idealY - threatY));
+        if (distanceFromThreat >= minDistance) {
+            resultX = idealX;
+            resultY = idealY;
+            return true;
+        }
+    }
+    
+    // Strategy 2: Try alternative directions if ideal point is blocked
+    // Calculate direction away from threat
+    float dx = currentX - threatX;
+    float dy = currentY - threatY;
+    float threatDistance = std::sqrt(dx * dx + dy * dy);
+    
+    if (threatDistance > 0.0f) {
+        dx /= threatDistance;
+        dy /= threatDistance;
+        
+        // Try different angles around the ideal direction
+        const float angleStep = 30.0f * M_PI / 180.0f; // 30 degrees in radians
+        const int maxAngles = 12; // Try up to 360 degrees
+        
+        for (int i = 1; i <= maxAngles; i++) {
+            // Alternate between positive and negative angles
+            float angle = (i % 2 == 1) ? (i / 2) * angleStep : -(i / 2) * angleStep;
+            
+            // Rotate the direction vector
+            float rotatedDx = dx * std::cos(angle) - dy * std::sin(angle);
+            float rotatedDy = dx * std::sin(angle) + dy * std::cos(angle);
+            
+            // Try different distances within the flee range
+            for (float testDistance = minDistance; testDistance <= maxDistance; testDistance += 1.0f) {
+                float testX = currentX + rotatedDx * testDistance;
+                float testY = currentY + rotatedDy * testDistance;
+                
+                if (isFleePositionAccessible(entityInstanceName, entitiesManager, testX, testY)) {
+                    // Verify this position maintains safe distance from threat
+                    float distanceFromThreat = std::sqrt((testX - threatX) * (testX - threatX) + 
+                                                       (testY - threatY) * (testY - threatY));
+                    if (distanceFromThreat >= minDistance) {
+                        resultX = testX;
+                        resultY = testY;
+                        std::cout << "Found alternative flee direction for " << entityInstanceName 
+                                  << " at angle " << (angle * 180.0f / M_PI) << " degrees" << std::endl;
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Strategy 3: If no good direction away from threat, find ANY accessible position in flee zone
+    // Use spiral search pattern around current position
+    const float searchStep = 0.5f;
+    const float maxSearchRadius = maxDistance;
+    
+    for (float radius = 1.0f; radius <= maxSearchRadius; radius += searchStep) {
+        const int numDirections = std::max(8, static_cast<int>(radius * 4));
+        
+        for (int i = 0; i < numDirections; i++) {
+            float angle = (i * 2.0f * M_PI) / numDirections;
+            float testX = currentX + radius * std::cos(angle);
+            float testY = currentY + radius * std::sin(angle);
+            
+            if (isFleePositionAccessible(entityInstanceName, entitiesManager, testX, testY)) {
+                // Check if this position is far enough from threat
+                float distanceFromThreat = std::sqrt((testX - threatX) * (testX - threatX) + 
+                                                   (testY - threatY) * (testY - threatY));
+                
+                // Accept any position that's accessible, even if not optimal distance from threat
+                // This handles cases where the entity is truly trapped
+                if (distanceFromThreat >= minDistance * 0.5f) { // Relaxed distance requirement
+                    resultX = testX;
+                    resultY = testY;
+                    std::cout << "Found emergency flee position for " << entityInstanceName 
+                              << " at distance " << radius << " from current position" << std::endl;
+                    return true;
+                }
+            }
+        }
+    }
+    
+    // Strategy 4: Last resort - try to move to any nearby accessible position
+    // This handles extreme cases where entity is completely trapped
+    for (float radius = 0.5f; radius <= 3.0f; radius += 0.5f) {
+        const int numDirections = 8;
+        
+        for (int i = 0; i < numDirections; i++) {
+            float angle = (i * 2.0f * M_PI) / numDirections;
+            float testX = currentX + radius * std::cos(angle);
+            float testY = currentY + radius * std::sin(angle);
+            
+            if (isFleePositionAccessible(entityInstanceName, entitiesManager, testX, testY)) {
+                resultX = testX;
+                resultY = testY;
+                std::cout << "Found last-resort position for trapped entity " << entityInstanceName 
+                          << " at distance " << radius << " from current position" << std::endl;
+                return true;
+            }
+        }
+    }
+    
+    // If we get here, the entity is completely trapped
+    std::cout << "WARNING: Entity " << entityInstanceName << " is completely trapped with no accessible flee positions!" << std::endl;
+    return false;
+}
 
 
 // Global behavior manager instance
@@ -377,22 +529,33 @@ void EntityBehaviorManager::updateFleeStateBehavior(Entity& entity, double delta
                         // If within acceptable range, flee to maximum distance
                         targetFleeDistance = config.fleeStateMaxDistance;
                     }
+                      // Calculate ideal safe point away from threat
+                    float idealSafeX = currentX + dx * targetFleeDistance;
+                    float idealSafeY = currentY + dy * targetFleeDistance;
                     
-                    // Calculate safe point
-                    float safeX = currentX + dx * targetFleeDistance;
-                    float safeY = currentY + dy * targetFleeDistance;
-                    
-                    std::cout << "Entity " << entity.instanceName << " fleeing from " << nearestThreatEntity 
-                              << " - moving to safe point (" << safeX << ", " << safeY << ") at distance " 
-                              << targetFleeDistance << std::endl;
-                      // Move to safe point using appropriate walk type
-                    WalkType walkType = config.fleeStateRunning ? WalkType::SPRINT : WalkType::NORMAL;
-                    entitiesManager.walkEntityWithPathfinding(
-                        entity.instanceName, 
-                        safeX, 
-                        safeY, 
-                        walkType
-                    );
+                    // Find the best accessible safe point using intelligent dead-end handling
+                    float finalSafeX, finalSafeY;
+                    if (findAccessibleFleePoint(entity.instanceName, entitiesManager, 
+                                               currentX, currentY, threatX, threatY,
+                                               config.fleeStateMinDistance, config.fleeStateMaxDistance,
+                                               idealSafeX, idealSafeY, finalSafeX, finalSafeY)) {
+                        
+                        std::cout << "Entity " << entity.instanceName << " fleeing from " << nearestThreatEntity 
+                                  << " - moving to accessible safe point (" << finalSafeX << ", " << finalSafeY 
+                                  << ") at distance " << std::sqrt((finalSafeX-currentX)*(finalSafeX-currentX) + (finalSafeY-currentY)*(finalSafeY-currentY)) << std::endl;
+                          // Move to safe point using appropriate walk type
+                        WalkType walkType = config.fleeStateRunning ? WalkType::SPRINT : WalkType::NORMAL;
+                        entitiesManager.walkEntityWithPathfinding(
+                            entity.instanceName, 
+                            finalSafeX, 
+                            finalSafeY, 
+                            walkType
+                        );
+                    } else {
+                        std::cout << "Entity " << entity.instanceName << " is trapped - no accessible flee destination found!" << std::endl;
+                        // Entity is truly trapped, just try to move to any nearby safe spot
+                        // This will be handled by the pathfinding system's fallback mechanisms
+                    }
                 }
             }
         }
