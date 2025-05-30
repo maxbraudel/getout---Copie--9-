@@ -21,8 +21,8 @@
 
 
 // Global variables for minimum distance from avoidance objects
-float MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS = 0.2f;  // Default: no buffer
-float MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS = 0.2f; // Default: no buffer
+float MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS = 0.0f;  // Default: no buffer
+float MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS = 0.0f; // Default: no buffer
 
 // Global instances for performance optimization
 PathfindingStats g_pathfindingStats;
@@ -221,7 +221,7 @@ PreCalculatedCollisionShapes::getEntityShapes(const EntityConfiguration& config)
 }
 
 // Check if a position is valid (within bounds and not colliding) - using entity collision shape
-bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, const Map& gameMap) {
+bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, const Map& gameMap, const std::string& excludeInstanceName) {
     // 1. Check map boundaries if offMapAvoidance is enabled
     if (entityConfig.offMapAvoidance) {
         if (wouldEntityCollideWithMapBounds(entityConfig, x, y)) {
@@ -262,6 +262,12 @@ bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, 
             return false; // Avoidance block detected - pathfinding should find alternate route
         }
     }
+      // 4. Check for collision with other entities using granular entity collision control
+    // For pathfinding, we only check avoidance entities as obstacles to route around
+    // Collision entities only prevent direct physical overlap during movement, not pathfinding
+    if (wouldEntityCollideWithEntitiesGranular(entityConfig, x, y, true, excludeInstanceName)) {
+        return false; // Avoidance entity detected - pathfinding should find alternate route
+    }
     
     return true;
 }
@@ -270,7 +276,7 @@ bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, 
 bool isPositionValidOptimized(float x, float y, const EntityConfiguration& entityConfig,
                              const EntityConfiguration& expandedConfigElements,
                              const EntityConfiguration& expandedConfigBlocks,
-                             const Map& gameMap) {
+                             const Map& gameMap, const std::string& excludeInstanceName) {
     // Increment collision check counter for performance monitoring
     g_pathfindingStats.collisionChecks++;
     
@@ -302,13 +308,19 @@ bool isPositionValidOptimized(float x, float y, const EntityConfiguration& entit
             return false;
         }
     }
+      // 4. Check for collision with other entities using granular entity collision control
+    // For pathfinding, we only check avoidance entities as obstacles to route around
+    // Collision entities only prevent direct physical overlap during movement, not pathfinding
+    if (wouldEntityCollideWithEntitiesGranular(entityConfig, x, y, true, excludeInstanceName)) {
+        return false;
+    }
     
     return true;
 }
 
 // Get neighboring positions using entity collision shape detection
 // Only allows movement in 8 cardinal and diagonal directions
-std::vector<std::pair<float, float>> getNeighbors(float x, float y, float stepSize, const EntityConfiguration& entityConfig, const Map& gameMap) {
+std::vector<std::pair<float, float>> getNeighbors(float x, float y, float stepSize, const EntityConfiguration& entityConfig, const Map& gameMap, const std::string& excludeInstanceName) {
     std::vector<std::pair<float, float>> neighbors;
     
     // Define possible movement directions (8 directions only - cardinal and diagonal)
@@ -321,13 +333,11 @@ std::vector<std::pair<float, float>> getNeighbors(float x, float y, float stepSi
         {stepSize, -stepSize},    // Southeast (45° diagonal)
         {-stepSize, -stepSize},   // Southwest (45° diagonal)
         {-stepSize, stepSize}     // Northwest (45° diagonal)
-    };
-
-    // Add all valid neighbors in the 8 allowed directions
+    };    // Add all valid neighbors in the 8 allowed directions
     for (const auto& dir : directions) {
         float newX = x + dir.first;
         float newY = y + dir.second;
-        if (isPositionValid(newX, newY, entityConfig, gameMap)) {
+        if (isPositionValid(newX, newY, entityConfig, gameMap, excludeInstanceName)) {
             neighbors.push_back({newX, newY});
         }
     }
@@ -340,7 +350,7 @@ std::vector<std::pair<float, float>> getNeighborsOptimized(
     const EntityConfiguration& entityConfig,
     const EntityConfiguration& expandedConfigElements,
     const EntityConfiguration& expandedConfigBlocks,
-    const Map& gameMap) {
+    const Map& gameMap, const std::string& excludeInstanceName = "") {
     
     std::vector<std::pair<float, float>> neighbors;
     
@@ -355,12 +365,11 @@ std::vector<std::pair<float, float>> getNeighborsOptimized(
         {-stepSize, -stepSize},   // Southwest
         {-stepSize, stepSize}     // Northwest
     };
-    
-    for (const auto& dir : directions) {
+      for (const auto& dir : directions) {
         float newX = x + dir.first;
         float newY = y + dir.second;
         
-        if (isPositionValidOptimized(newX, newY, entityConfig, expandedConfigElements, expandedConfigBlocks, gameMap)) {
+        if (isPositionValidOptimized(newX, newY, entityConfig, expandedConfigElements, expandedConfigBlocks, gameMap, excludeInstanceName)) {
             neighbors.push_back({newX, newY});
         }
     }
@@ -450,16 +459,15 @@ static void simplifyPath(std::vector<std::pair<float, float>>& path,
 }
 
 // Check if a segment between two points is valid (no collisions along the path)
-bool isSegmentValid(float x1, float y1, float x2, float y2, const EntityConfiguration& entityConfig, const Map& gameMap) {
+bool isSegmentValid(float x1, float y1, float x2, float y2, const EntityConfiguration& entityConfig, const Map& gameMap, const std::string& excludeInstanceName) {
     const int numSteps = 10; // Number of steps to check along the segment
     
     for (int i = 0; i <= numSteps; ++i) {
         float t = static_cast<float>(i) / static_cast<float>(numSteps);
         float x = x1 + t * (x2 - x1);
         float y = y1 + t * (y2 - y1);
-        
-        // Check if this point along the segment is valid
-        if (!isPositionValid(x, y, entityConfig, gameMap)) {
+          // Check if this point along the segment is valid
+        if (!isPositionValid(x, y, entityConfig, gameMap, excludeInstanceName)) {
             return false; // Found invalid position along the segment
         }
     }
@@ -473,7 +481,7 @@ std::vector<std::pair<float, float>> findPathOptimized(
     float goalX, float goalY,
     const EntityConfiguration& entityConfig,
     const Map& gameMap,
-    float stepSize) {
+    float stepSize, const std::string& excludeInstanceName = "") {
     
     // Performance monitoring - start timer
     auto pathfindingStart = std::chrono::high_resolution_clock::now();
@@ -518,11 +526,10 @@ std::vector<std::pair<float, float>> findPathOptimized(
     // Store original intended goal for messages
     float originalGoalX = goalX;
     float originalGoalY = goalY;
-    
-    // Check and adjust start position if needed
+      // Check and adjust start position if needed
     bool startValid = useOptimized ? 
-        isPositionValidOptimized(startX, startY, entityConfig, expandedConfigElements, expandedConfigBlocks, gameMap) :
-        isPositionValid(startX, startY, entityConfig, gameMap);
+        isPositionValidOptimized(startX, startY, entityConfig, expandedConfigElements, expandedConfigBlocks, gameMap, excludeInstanceName) :
+        isPositionValid(startX, startY, entityConfig, gameMap, excludeInstanceName);
         
     if (!startValid) {
         if (DEBUG_LOGS) {
@@ -535,13 +542,12 @@ std::vector<std::pair<float, float>> findPathOptimized(
                 for (float dy = -r; dy <= r; dy += stepSize) {
                     if (r > 0.0f && (std::abs(dx) < r && std::abs(dy) < r)) {
                         continue; // For r > 0, only check the perimeter
-                    }
-                    float testX = startX + dx;
+                    }                    float testX = startX + dx;
                     float testY = startY + dy;
                     
                     bool testValid = useOptimized ?
-                        isPositionValidOptimized(testX, testY, entityConfig, expandedConfigElements, expandedConfigBlocks, gameMap) :
-                        isPositionValid(testX, testY, entityConfig, gameMap);
+                        isPositionValidOptimized(testX, testY, entityConfig, expandedConfigElements, expandedConfigBlocks, gameMap, excludeInstanceName) :
+                        isPositionValid(testX, testY, entityConfig, gameMap, excludeInstanceName);
                         
                     if (testValid) {
                         startX = testX;
@@ -564,11 +570,10 @@ std::vector<std::pair<float, float>> findPathOptimized(
             return {};
         }
     }
-    
-    // Check and adjust goal position if needed
+      // Check and adjust goal position if needed
     bool goalValid = useOptimized ?
-        isPositionValidOptimized(goalX, goalY, entityConfig, expandedConfigElements, expandedConfigBlocks, gameMap) :
-        isPositionValid(goalX, goalY, entityConfig, gameMap);
+        isPositionValidOptimized(goalX, goalY, entityConfig, expandedConfigElements, expandedConfigBlocks, gameMap, excludeInstanceName) :
+        isPositionValid(goalX, goalY, entityConfig, gameMap, excludeInstanceName);
         
     if (!goalValid) {
         if (DEBUG_LOGS) {
@@ -586,10 +591,9 @@ std::vector<std::pair<float, float>> findPathOptimized(
                 float dy = radius * searchRadius * std::sin(angle);
                 float testX = goalX + dx;
                 float testY = goalY + dy;
-                
-                bool testValid = useOptimized ?
-                    isPositionValidOptimized(testX, testY, entityConfig, expandedConfigElements, expandedConfigBlocks, gameMap) :
-                    isPositionValid(testX, testY, entityConfig, gameMap);
+                  bool testValid = useOptimized ?
+                    isPositionValidOptimized(testX, testY, entityConfig, expandedConfigElements, expandedConfigBlocks, gameMap, excludeInstanceName) :
+                    isPositionValid(testX, testY, entityConfig, gameMap, excludeInstanceName);
                     
                 if (testValid) {
                     goalX = testX;
@@ -723,14 +727,13 @@ std::vector<std::pair<float, float>> findPathOptimized(
         }
         
         closedSet.insert({currentNode->x, currentNode->y});
-        
-        // Get neighbors using optimized method if available
+          // Get neighbors using optimized method if available
         std::vector<std::pair<float, float>> neighbors;
         if (useOptimized) {
             neighbors = getNeighborsOptimized(currentNode->x, currentNode->y, stepSize, 
-                                            entityConfig, expandedConfigElements, expandedConfigBlocks, gameMap);
+                                            entityConfig, expandedConfigElements, expandedConfigBlocks, gameMap, excludeInstanceName);
         } else {
-            neighbors = getNeighbors(currentNode->x, currentNode->y, stepSize, entityConfig, gameMap);
+            neighbors = getNeighbors(currentNode->x, currentNode->y, stepSize, entityConfig, gameMap, excludeInstanceName);
         }
         
         for (const auto& neighborPos : neighbors) {
@@ -790,7 +793,8 @@ std::vector<std::pair<float, float>> findPath(
     float startX, float startY,
     float goalX, float goalY,
     const Map& gameMap,
-    const EntityConfiguration& entityConfig
+    const EntityConfiguration& entityConfig,
+    const std::string& excludeInstanceName
 ) {
     // Use larger step size for much better performance (4x fewer nodes to explore)
     const float stepSize = 1.0f; // Increased from 0.5f to 1.0f
@@ -802,9 +806,8 @@ std::vector<std::pair<float, float>> findPath(
         }
         g_collisionCache.preCalculateEntityShape("runtime_entity", entityConfig);
     }
-    
-    // Delegate to the optimized version
-    return findPathOptimized(startX, startY, goalX, goalY, entityConfig, gameMap, stepSize);
+      // Delegate to the optimized version
+    return findPathOptimized(startX, startY, goalX, goalY, entityConfig, gameMap, stepSize, excludeInstanceName);
 }
 
 // ===== AsyncPathfinder Implementation =====
@@ -901,8 +904,7 @@ PathfindingResult AsyncPathfinder::findPathAsync(const PathfindingRequest& reque
             expandedConfigBlocks.collisionShapePoints = cachedShapes.second;
             useOptimized = true;
         }
-        
-        // Modified A* algorithm with cancellation support
+          // Modified A* algorithm with cancellation support
         std::vector<std::pair<float, float>> path = findPathWithCancellation(
             request.startX, request.startY,
             request.goalX, request.goalY,
@@ -910,7 +912,8 @@ PathfindingResult AsyncPathfinder::findPathAsync(const PathfindingRequest& reque
             request.gameMap,
             request.stepSize,
             useOptimized ? &expandedConfigElements : nullptr,
-            useOptimized ? &expandedConfigBlocks : nullptr
+            useOptimized ? &expandedConfigBlocks : nullptr,
+            request.instanceName
         );
         
         result.path = std::move(path);
@@ -950,23 +953,21 @@ std::vector<std::pair<float, float>> AsyncPathfinder::findPathWithCancellation(
     const Map& gameMap,
     float stepSize,
     const EntityConfiguration* expandedConfigElements,
-    const EntityConfiguration* expandedConfigBlocks) {
+    const EntityConfiguration* expandedConfigBlocks, const std::string& excludeInstanceName) {
     
     // Store original goal for debugging
     float originalGoalX = goalX;
     float originalGoalY = goalY;
-    
-    // Validate start position
+      // Validate start position
     bool useOptimized = (expandedConfigElements != nullptr && expandedConfigBlocks != nullptr);
     if (useOptimized) {
-        if (!isPositionValidOptimized(startX, startY, entityConfig, *expandedConfigElements, *expandedConfigBlocks, gameMap)) {
+        if (!isPositionValidOptimized(startX, startY, entityConfig, *expandedConfigElements, *expandedConfigBlocks, gameMap, excludeInstanceName)) {
             if (DEBUG_LOGS) {
                 std::cerr << "AsyncPathfinder: Invalid start position (" << startX << ", " << startY << ")" << std::endl;
             }
             return {};
         }
-    } else {
-        if (!isPositionValid(startX, startY, entityConfig, gameMap)) {
+    } else {        if (!isPositionValid(startX, startY, entityConfig, gameMap, excludeInstanceName)) {
             if (DEBUG_LOGS) {
                 std::cerr << "AsyncPathfinder: Invalid start position (" << startX << ", " << startY << ")" << std::endl;
             }
@@ -976,11 +977,10 @@ std::vector<std::pair<float, float>> AsyncPathfinder::findPathWithCancellation(
     
     // Check for cancellation
     if (shouldCancel_) return {};
-    
-    // Validate and potentially adjust goal position
+      // Validate and potentially adjust goal position
     bool goalValid = useOptimized ? 
-        isPositionValidOptimized(goalX, goalY, entityConfig, *expandedConfigElements, *expandedConfigBlocks, gameMap) :
-        isPositionValid(goalX, goalY, entityConfig, gameMap);
+        isPositionValidOptimized(goalX, goalY, entityConfig, *expandedConfigElements, *expandedConfigBlocks, gameMap, excludeInstanceName) :
+        isPositionValid(goalX, goalY, entityConfig, gameMap, excludeInstanceName);
         
     if (!goalValid) {
         if (DEBUG_LOGS) {
@@ -1000,10 +1000,9 @@ std::vector<std::pair<float, float>> AsyncPathfinder::findPathWithCancellation(
                 float dy = radius * searchRadius * std::sin(angle);
                 float testX = goalX + dx;
                 float testY = goalY + dy;
-                
-                bool testValid = useOptimized ?
-                    isPositionValidOptimized(testX, testY, entityConfig, *expandedConfigElements, *expandedConfigBlocks, gameMap) :
-                    isPositionValid(testX, testY, entityConfig, gameMap);
+                  bool testValid = useOptimized ?
+                    isPositionValidOptimized(testX, testY, entityConfig, *expandedConfigElements, *expandedConfigBlocks, gameMap, excludeInstanceName) :
+                    isPositionValid(testX, testY, entityConfig, gameMap, excludeInstanceName);
                     
                 if (testValid) {
                     goalX = testX;
@@ -1110,14 +1109,13 @@ std::vector<std::pair<float, float>> AsyncPathfinder::findPathWithCancellation(
         }
         
         closedSet.insert({currentNode->x, currentNode->y});
-        
-        // Get neighbors using optimized validation if available
+          // Get neighbors using optimized validation if available
         std::vector<std::pair<float, float>> neighbors;
         if (useOptimized) {
             neighbors = getNeighborsOptimized(currentNode->x, currentNode->y, stepSize, 
-                                            entityConfig, *expandedConfigElements, *expandedConfigBlocks, gameMap);
+                                            entityConfig, *expandedConfigElements, *expandedConfigBlocks, gameMap, excludeInstanceName);
         } else {
-            neighbors = getNeighbors(currentNode->x, currentNode->y, stepSize, entityConfig, gameMap);
+            neighbors = getNeighbors(currentNode->x, currentNode->y, stepSize, entityConfig, gameMap, excludeInstanceName);
         }
         
         for (const auto& neighborPos : neighbors) {
@@ -1173,15 +1171,15 @@ std::future<PathfindingResult> findPathAsync(const PathfindingRequest& request) 
         result.requestId = request.requestId;
         result.success = false;
         
-        try {
-            // Use the regular synchronous pathfinding for now
+        try {            // Use the regular synchronous pathfinding for now
             // In a more advanced implementation, this could use a separate async pathfinder
             std::vector<std::pair<float, float>> path = findPathOptimized(
                 request.startX, request.startY,
                 request.goalX, request.goalY,
                 request.entityConfig,
                 request.gameMap,
-                request.stepSize
+                request.stepSize,
+                request.instanceName
             );
             
             result.path = std::move(path);

@@ -62,21 +62,22 @@ std::vector<std::pair<float, float>> findPath(
     float startX, float startY,
     float goalX, float goalY,
     const Map& gameMap,
-    const EntityConfiguration& entityConfig
+    const EntityConfiguration& entityConfig,
+    const std::string& excludeInstanceName = ""
 );
 
 // Check if a position is valid for pathfinding using entity collision shape
-bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, const Map& gameMap);
+bool isPositionValid(float x, float y, const EntityConfiguration& entityConfig, const Map& gameMap, const std::string& excludeInstanceName = "");
 
 // Calculate the heuristic value (estimated cost to goal)
 // Using Euclidean distance for floating-point pathfinding
 float calculateHeuristic(float x1, float y1, float x2, float y2);
 
 // Get all valid neighbors for a position with collision checking using entity shape
-std::vector<std::pair<float, float>> getNeighbors(float x, float y, float stepSize, const EntityConfiguration& entityConfig, const Map& gameMap);
+std::vector<std::pair<float, float>> getNeighbors(float x, float y, float stepSize, const EntityConfiguration& entityConfig, const Map& gameMap, const std::string& excludeInstanceName = "");
 
 // Check if a segment between two points is valid (no collisions along the path)
-bool isSegmentValid(float x1, float y1, float x2, float y2, const EntityConfiguration& entityConfig, const Map& gameMap);
+bool isSegmentValid(float x1, float y1, float x2, float y2, const EntityConfiguration& entityConfig, const Map& gameMap, const std::string& excludeInstanceName = "");
 
 // Generate a unique key for an entity configuration for caching purposes
 std::string generateEntityKey(const EntityConfiguration& config);
@@ -191,6 +192,7 @@ struct PathfindingRequest {
     float startX, startY;
     float goalX, goalY;
     std::string entityId;
+    std::string instanceName;  // Instance name of the entity
     int requestId = 0;
     EntityConfiguration entityConfig;
     Map gameMap; // Copy of the map state
@@ -223,8 +225,7 @@ public:
     
     // Internal async pathfinding method
     PathfindingResult findPathAsync(const PathfindingRequest& request);
-    
-    // Internal pathfinding with cancellation support
+      // Internal pathfinding with cancellation support
     std::vector<std::pair<float, float>> findPathWithCancellation(
         float startX, float startY,
         float goalX, float goalY,
@@ -232,7 +233,8 @@ public:
         const Map& gameMap,
         float stepSize,
         const EntityConfiguration* expandedConfigElements = nullptr,
-        const EntityConfiguration* expandedConfigBlocks = nullptr);
+        const EntityConfiguration* expandedConfigBlocks = nullptr,
+        const std::string& excludeInstanceName = "");
 };
 
 extern AsyncPathfinder g_asyncPathfinder;
@@ -241,7 +243,7 @@ extern AsyncPathfinder g_asyncPathfinder;
 bool isPositionValidOptimized(float x, float y, const EntityConfiguration& entityConfig,
                              const EntityConfiguration& expandedConfigElements,
                              const EntityConfiguration& expandedConfigBlocks,
-                             const Map& gameMap);
+                             const Map& gameMap, const std::string& excludeInstanceName = "");
 
 // Async pathfinding function
 std::future<PathfindingResult> findPathAsync(const PathfindingRequest& request);

@@ -20,7 +20,8 @@ extern std::vector<std::pair<float, float>> findPath(
     float startX, float startY,
     float goalX, float goalY,
     const Map& gameMap,
-    const EntityConfiguration& entityConfig
+    const EntityConfiguration& entityConfig,
+    const std::string& excludeInstanceName = ""
 );
 
 AsyncEntityPathfinder::AsyncEntityPathfinder(size_t numThreads) 
@@ -331,13 +332,13 @@ void AsyncEntityPathfinder::processPathfindingTask(AsyncPathfindingRequest reque
         if (!currentGameMap) {
             throw std::runtime_error("Game map not available for pathfinding");
         }
-        
-        // Call the pathfinding algorithm
+          // Call the pathfinding algorithm
         std::vector<std::pair<float, float>> path = findPath(
             request.startX, request.startY,
             request.endX, request.endY,
             *currentGameMap,  // Thread-safe map reference
-            request.config
+            request.config,
+            request.instanceName  // Pass instance name to exclude self from collision checks
         );
         
         // Check again if request was cancelled after computation (pathfinding can take time)

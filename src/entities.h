@@ -49,20 +49,23 @@ struct EntityInfo {
     float normalWalkingAnimationSpeed;
     float sprintWalkingSpeed;
     float sprintWalkingAnimationSpeed;      // Collision settings
-    bool canCollide;
-    std::vector<std::pair<float, float>> collisionShapePoints;      // Granular collision control - specify which element types to avoid or collide with
+    bool canCollide;    std::vector<std::pair<float, float>> collisionShapePoints;      // Granular collision control - specify which element types to avoid or collide with
     std::vector<ElementName> avoidanceElements; // Elements this entity will pathfind around (but can overlap if forced)
     std::vector<ElementName> collisionElements; // Elements this entity cannot overlap with at all
     
     // Granular block collision control - specify which block types to avoid or collide with
     std::vector<BlockName> avoidanceBlocks; // Blocks this entity will pathfind around (but can overlap if forced)
     std::vector<BlockName> collisionBlocks; // Blocks this entity cannot overlap with at all
+    
+    // Granular entity collision control - specify which entity types to avoid or collide with
+    std::vector<EntityName> avoidanceEntities; // Entity types this entity will pathfind around (but can overlap if forced)
+    std::vector<EntityName> collisionEntities; // Entity types this entity cannot overlap with at all
       // Map boundary control
     bool offMapAvoidance = true; // Entity pathfinding will avoid going outside the map grid
     bool offMapCollision = true; // Entity will collide with map borders during movement
     
     // Automatic behavior system
-    bool automaticBehaviors = false; // Enable/disable automatic behaviors for this entity    // Passive state behavior parameters
+    bool automaticBehaviors = false; // Enable/disable automatic behaviors for this entity// Passive state behavior parameters
     bool passiveState = false; // Enable passive state random walking behavior
     float passiveStateWalkingRadius = 10.0f; // Radius around entity for random walks
     float passiveStateRandomWalkTriggerTimeIntervalMin = 2.0f; // Minimum time between random walks (seconds)
@@ -114,19 +117,22 @@ struct EntityConfiguration {
     float sprintWalkingSpeed = 4.0f;
     float sprintWalkingAnimationSpeed = 12.0f;    // Collision settings
     bool canCollide = true;
-    std::vector<std::pair<float, float>> collisionShapePoints;
-      // Granular collision control - specify which element types to avoid or collide with
+    std::vector<std::pair<float, float>> collisionShapePoints;      // Granular collision control - specify which element types to avoid or collide with
     std::vector<ElementName> avoidanceElements; // Elements this entity will pathfind around (but can overlap if forced)
     std::vector<ElementName> collisionElements; // Elements this entity cannot overlap with at all
     
     // Granular block collision control - specify which block types to avoid or collide with
     std::vector<BlockName> avoidanceBlocks; // Blocks this entity will pathfind around (but can overlap if forced)
     std::vector<BlockName> collisionBlocks; // Blocks this entity cannot overlap with at all
+    
+    // Granular entity collision control - specify which entity types to avoid or collide with
+    std::vector<EntityName> avoidanceEntities; // Entity types this entity will pathfind around (but can overlap if forced)
+    std::vector<EntityName> collisionEntities; // Entity types this entity cannot overlap with at all
       // Map boundary control
     bool offMapAvoidance = true; // Entity pathfinding will avoid going outside the map grid
     bool offMapCollision = true; // Entity will collide with map borders during movement
       // Automatic behavior system
-    bool automaticBehaviors = false; // Enable/disable automatic behaviors for this entity    // Passive state behavior parameters
+    bool automaticBehaviors = false; // Enable/disable automatic behaviors for this entity// Passive state behavior parameters
     bool passiveState = false; // Enable passive state random walking behavior
     float passiveStateWalkingRadius = 10.0f; // Radius around entity for random walks
     float passiveStateRandomWalkTriggerTimeIntervalMin = 2.0f; // Minimum time between random walks (seconds)
@@ -178,13 +184,16 @@ struct EntityConfiguration {
         collisionShapePoints = info.collisionShapePoints;        // Copy granular collision settings
         avoidanceElements = info.avoidanceElements;
         collisionElements = info.collisionElements;
-        
-        // Copy granular block collision settings
+          // Copy granular block collision settings
         avoidanceBlocks = info.avoidanceBlocks;
         collisionBlocks = info.collisionBlocks;
+        
+        // Copy granular entity collision settings
+        avoidanceEntities = info.avoidanceEntities;
+        collisionEntities = info.collisionEntities;
           // Copy map boundary control settings
         offMapAvoidance = info.offMapAvoidance;
-        offMapCollision = info.offMapCollision;        // Copy automatic behavior settings
+        offMapCollision = info.offMapCollision;// Copy automatic behavior settings
         automaticBehaviors = info.automaticBehaviors;
         passiveState = info.passiveState;
         passiveStateWalkingRadius = info.passiveStateWalkingRadius;
@@ -366,6 +375,10 @@ bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, f
 // Enhanced block collision function that respects granular block collision settings
 // useAvoidanceList: true = check avoidanceBlocks, false = check collisionBlocks
 bool wouldEntityCollideWithBlocksGranular(const EntityConfiguration& config, float x, float y, bool useAvoidanceList = false);
+
+// Enhanced entity collision function that respects granular entity collision settings
+// useAvoidanceList: true = check avoidanceEntities, false = check collisionEntities
+bool wouldEntityCollideWithEntitiesGranular(const EntityConfiguration& config, float x, float y, bool useAvoidanceList = false, const std::string& excludeInstanceName = "");
 
 // Global instance
 extern EntitiesManager entitiesManager;

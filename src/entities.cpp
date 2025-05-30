@@ -81,11 +81,22 @@ static void initializeEntityTypes() {
             BlockName::WATER_1,
             BlockName::WATER_2,
             BlockName::WATER_3,
-            BlockName::WATER_4
+            BlockName::WATER_4        
+        };
+        
+        // Entity collision configuration - Antagonist avoids player for pathfinding but can collide during movement
+        antagonist.avoidanceEntities = {
+            EntityName::ANTAGONIST // Avoid player during pathfinding
+        };
+        
+        antagonist.collisionEntities = {
+            EntityName::PLAYER,
+            EntityName::ANTAGONIST
+            // Empty - allow overlapping with player during movement/attacks
         };
           // Map boundary control settings
         antagonist.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
-        antagonist.offMapCollision = true; // Antagonist collides with map borders        // Automatic behavior configuration
+        antagonist.offMapCollision = true; // Antagonist collides with map borders// Automatic behavior configuration
         antagonist.automaticBehaviors = true; // Enable automatic behaviors for antagonist
         antagonist.passiveState = true; // Enable passive state random walking
         antagonist.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
@@ -165,8 +176,17 @@ static void initializeEntityTypes() {
             BlockName::WATER_1,
             BlockName::WATER_2,
             BlockName::WATER_3,
-            BlockName::WATER_4 // Only deep water blocks movement
-        };  */         // Map boundary control settings
+            BlockName::WATER_4 // Only deep water blocks movement        };  */         
+        // Entity collision configuration - Player avoids antagonist for pathfinding and can collide during movement
+        /* player.avoidanceEntities = {
+            EntityName::ANTAGONIST // Avoid antagonist during pathfinding
+        }; */
+        
+        player.collisionEntities = {
+            EntityName::ANTAGONIST // Collide with antagonist during movement (prevents overlap)
+        };
+        
+        // Map boundary control settings
         player.offMapAvoidance = true; // Player pathfinding avoids map borders
         player.offMapCollision = true; // Player collides with map borders
         
@@ -1005,8 +1025,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
     if (config.canCollide) {
         // Calculate the new position after movement
         float newX = currentActualX + moveDx;
-        float newY = currentActualY + moveDy;
-          // Check if the combined movement would collide with collision elements (hard collision only)
+        float newY = currentActualY + moveDy;        // Check if the combined movement would collide with collision elements (hard collision only)
         // Note: We only check collision elements here, not avoidance elements
         // This allows entities to move through avoidance elements during direct movement
         bool collisionWithElement = wouldEntityCollideWithElementsGranular(config, newX, newY, false);
@@ -1014,7 +1033,12 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         // Also check for collision with blocks using granular block collision control
         bool collisionWithBlock = wouldEntityCollideWithBlocksGranular(config, newX, newY, false);
         
-        if ((collisionWithElement || collisionWithBlock) && (moveDx != 0 || moveDy != 0)) {
+        // Check for collision with other entities using granular entity collision control
+        // For movement, we check collision entities (not avoidance entities)
+        // This prevents entities from overlapping during movement
+        bool collisionWithEntity = wouldEntityCollideWithEntitiesGranular(config, newX, newY, false, entity.instanceName);
+        
+        if ((collisionWithElement || collisionWithBlock || collisionWithEntity) && (moveDx != 0 || moveDy != 0)) {
             // If diagonal movement fails, try axis-separated movement (like player system)
             actualMoveDx = 0;
             actualMoveDy = 0;
@@ -1025,13 +1049,15 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                 float testX = currentActualX + moveDx;
                 float testY = currentActualY; // Keep Y the same
                 bool horizontalCollision = wouldEntityCollideWithElementsGranular(config, testX, testY, false) || 
-                                           wouldEntityCollideWithBlocksGranular(config, testX, testY, false);
+                                           wouldEntityCollideWithBlocksGranular(config, testX, testY, false) ||
+                                           wouldEntityCollideWithEntitiesGranular(config, testX, testY, false, entity.instanceName);
                 
                 // Try moving only vertically
                 float testX2 = currentActualX; // Keep X the same
                 float testY2 = currentActualY + moveDy;
                 bool verticalCollision = wouldEntityCollideWithElementsGranular(config, testX2, testY2, false) || 
-                                        wouldEntityCollideWithBlocksGranular(config, testX2, testY2, false);
+                                        wouldEntityCollideWithBlocksGranular(config, testX2, testY2, false) ||
+                                        wouldEntityCollideWithEntitiesGranular(config, testX2, testY2, false, entity.instanceName);
                 
                 // If horizontal movement is possible
                 if (!horizontalCollision) {
@@ -1051,7 +1077,7 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
               // Update movement deltas based on what's actually possible
             moveDx = actualMoveDx;
             moveDy = actualMoveDy;
-        } else if (!collisionWithElement && !collisionWithBlock) {
+        } else if (!collisionWithElement && !collisionWithBlock && !collisionWithEntity) {
             // No collision, can move normally
             canMove = true;
         } else {
@@ -1918,4 +1944,180 @@ bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& e
     elementsManager.changeElementSpritePhase(elementName, spritePhase);
     
     return true;
+}
+
+// Enhanced entity collision function that respects granular entity collision settings
+bool wouldEntityCollideWithEntitiesGranular(const EntityConfiguration& config, float x, float y, bool useAvoidanceList, const std::string& excludeInstanceName) {
+    if (!config.canCollide) {
+        return false; // Entity doesn't have collision enabled
+    }
+    
+    // Check map boundary collision if offMapCollision is enabled
+    if (config.offMapCollision) {
+        if (wouldEntityCollideWithMapBounds(config, x, y)) {
+            return true; // Entity collision shape would collide with map boundary
+        }
+    }
+    
+    // Determine which entity list to check based on collision type
+    const std::vector<EntityName>& entitiesToCheck = useAvoidanceList ? config.avoidanceEntities : config.collisionEntities;
+    
+    // If the list is empty, don't check any entities (granular collision control)
+    // This allows entities to have fine-grained control over what they collide with
+    if (entitiesToCheck.empty()) {
+        return false; // No entities to check = no collision
+    }
+    
+    // Convert to std::set for faster lookup
+    std::set<EntityName> entitySet(entitiesToCheck.begin(), entitiesToCheck.end());
+    
+    // If entity has no collision shape, use center point collision
+    if (config.collisionShapePoints.empty()) {
+        // Point-based collision check - iterate through all entities
+        const auto& allEntities = entitiesManager.getEntities();
+        for (const auto& pair : allEntities) {
+            const Entity& otherEntity = pair.second;
+            
+            // Skip self and excluded entity
+            if (otherEntity.instanceName == excludeInstanceName) {
+                continue;
+            }
+            
+            // Check if this entity type is in our collision list
+            if (entitySet.find(otherEntity.type) == entitySet.end()) {
+                continue; // Skip entities not in our collision/avoidance list
+            }
+            
+            // Get other entity position and configuration
+            std::string otherElementName = EntitiesManager::getElementName(otherEntity.instanceName);
+            float otherX, otherY;
+            if (!elementsManager.getElementPosition(otherElementName, otherX, otherY)) {
+                continue; // Can't get position, skip this entity
+            }
+            
+            const EntityConfiguration* otherConfig = entitiesManager.getConfiguration(otherEntity.type);
+            if (!otherConfig || !otherConfig->canCollide) {
+                continue; // Other entity doesn't have collision enabled
+            }
+            
+            // Simple distance check for point-based collision
+            float dx = x - otherX;
+            float dy = y - otherY;
+            float distance = std::sqrt(dx * dx + dy * dy);
+            
+            // Use a small collision radius for point-based collision
+            if (distance < 0.5f) {
+                return true; // Collision detected
+            }
+        }
+        return false;
+    }
+    
+    // Use collision shape for precise entity collision detection
+    // Transform entity collision shape points to world coordinates
+    std::vector<std::pair<float, float>> entityWorldShapePoints;
+    float entityAngleRad = 0.0f; // Entities don't rotate currently
+    float entityCosA = cos(entityAngleRad);
+    float entitySinA = sin(entityAngleRad);
+    
+    for (const auto& localPoint : config.collisionShapePoints) {
+        float scaledX = localPoint.first;
+        float scaledY = localPoint.second;
+        
+        float rotatedX = scaledX * entityCosA - scaledY * entitySinA;
+        float rotatedY = scaledX * entitySinA + scaledY * entityCosA;
+        
+        entityWorldShapePoints.push_back({x + rotatedX, y + rotatedY});
+    }
+    
+    // CRASH FIX: Check if transformation actually produced any points
+    if (entityWorldShapePoints.empty()) {
+        std::cerr << "CRITICAL: entityWorldShapePoints is empty after transformation - using fallback collision detection" << std::endl;
+        // Fallback to point-based collision
+        const auto& allEntities = entitiesManager.getEntities();
+        for (const auto& pair : allEntities) {
+            const Entity& otherEntity = pair.second;
+            
+            // Skip self and excluded entity
+            if (otherEntity.instanceName == excludeInstanceName) {
+                continue;
+            }
+            
+            // Check if this entity type is in our collision list
+            if (entitySet.find(otherEntity.type) == entitySet.end()) {
+                continue;
+            }
+            
+            // Get other entity position
+            std::string otherElementName = EntitiesManager::getElementName(otherEntity.instanceName);
+            float otherX, otherY;
+            if (!elementsManager.getElementPosition(otherElementName, otherX, otherY)) {
+                continue;
+            }
+            
+            // Simple distance check
+            float dx = x - otherX;
+            float dy = y - otherY;
+            float distance = std::sqrt(dx * dx + dy * dy);
+            
+            if (distance < 0.5f) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    // Check collision with all entities of the specified types
+    const auto& allEntities = entitiesManager.getEntities();
+    for (const auto& pair : allEntities) {
+        const Entity& otherEntity = pair.second;
+        
+        // Skip self and excluded entity
+        if (otherEntity.instanceName == excludeInstanceName) {
+            continue;
+        }
+        
+        // Check if this entity type is in our collision list
+        if (entitySet.find(otherEntity.type) == entitySet.end()) {
+            continue; // Skip entities not in our collision/avoidance list
+        }
+        
+        // Get other entity position and configuration
+        std::string otherElementName = EntitiesManager::getElementName(otherEntity.instanceName);
+        float otherX, otherY;
+        if (!elementsManager.getElementPosition(otherElementName, otherX, otherY)) {
+            continue; // Can't get position, skip this entity
+        }
+        
+        const EntityConfiguration* otherConfig = entitiesManager.getConfiguration(otherEntity.type);
+        if (!otherConfig || !otherConfig->canCollide || otherConfig->collisionShapePoints.empty()) {
+            continue; // Other entity doesn't have collision enabled or collision shape
+        }
+        
+        // Transform other entity collision shape points to world coordinates
+        std::vector<std::pair<float, float>> otherEntityWorldShapePoints;
+        float otherEntityAngleRad = 0.0f; // Entities don't rotate currently
+        float otherEntityCosA = cos(otherEntityAngleRad);
+        float otherEntitySinA = sin(otherEntityAngleRad);
+        
+        for (const auto& localPoint : otherConfig->collisionShapePoints) {
+            float scaledX = localPoint.first;
+            float scaledY = localPoint.second;
+            
+            float rotatedX = scaledX * otherEntityCosA - scaledY * otherEntitySinA;
+            float rotatedY = scaledX * otherEntitySinA + scaledY * otherEntityCosA;
+            
+            otherEntityWorldShapePoints.push_back({otherX + rotatedX, otherY + rotatedY});
+        }
+        
+        // Perform polygon-polygon collision detection using Separating Axis Theorem (SAT)
+        // Check if both polygons have valid points before collision detection
+        if (!entityWorldShapePoints.empty() && !otherEntityWorldShapePoints.empty()) {
+            if (polygonPolygonCollision(entityWorldShapePoints, otherEntityWorldShapePoints)) {
+                return true; // Collision detected
+            }
+        }
+    }
+    
+    return false; // No collision detected with specified entity types
 }
