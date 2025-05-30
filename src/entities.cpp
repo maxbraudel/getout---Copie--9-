@@ -718,6 +718,84 @@ void EntitiesManager::update(double deltaTime) {
     }
 }
 
+void EntitiesManager::update(double deltaTime, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop) {
+    // CRASH FIX: Add comprehensive protection for entity updates with view frustum culling
+    try {
+        // Process async pathfinding results first
+        processAsyncPathfindingResults();
+        
+        // CRASH FIX: Collect entity names first to avoid iterator invalidation
+        std::vector<std::string> walkingEntityNames;
+        walkingEntityNames.reserve(entities.size());
+        
+        for (const auto& pair : entities) {
+            if (pair.second.isWalking) {
+                walkingEntityNames.push_back(pair.first);
+            }
+        }
+        
+        // Update all walking entities using safe name-based iteration with view frustum culling
+        for (const std::string& instanceName : walkingEntityNames) {
+            // CRASH FIX: Verify entity still exists
+            auto entityIt = entities.find(instanceName);
+            if (entityIt == entities.end()) {
+                std::cout << "WARNING: Walking entity " << instanceName << " no longer exists during update" << std::endl;
+                continue;
+            }
+            
+            Entity& entity = entityIt->second;
+            
+            // Skip if entity is no longer walking (state might have changed)
+            if (!entity.isWalking) {
+                continue;
+            }
+            
+            // View frustum culling: Check if entity is within camera bounds
+            std::string elementName = getElementName(entity.instanceName);
+            float entityX, entityY;
+            if (elementsManager.getElementPosition(elementName, entityX, entityY)) {
+                // Get entity configuration to access scale for culling bounds
+                const EntityConfiguration* config = getConfiguration(entity.type);
+                if (config) {
+                    float entityScale = config->scale;
+                    
+                    // Check if entity is outside camera view (with buffer for scale)
+                    if (entityX < cameraLeft - entityScale || entityX > cameraRight + entityScale || 
+                        entityY < cameraBottom - entityScale || entityY > cameraTop + entityScale) {
+                        // Entity is outside camera view, skip update to improve performance
+                        continue;
+                    }
+                }
+            }
+            
+            // Get the configuration for this entity
+            const EntityConfiguration* config = getConfiguration(entity.type);
+            if (!config) {
+                std::cerr << "Error: Cannot find configuration for entity: " << entity.instanceName << std::endl;
+                stopEntityMovement(entity.instanceName); // Stop walking due to error
+                continue;
+            }
+            
+            // Update the entity's walking animation with additional safety
+            try {
+                updateEntityWalking(entity, *config, deltaTime);
+            } catch (const std::exception& e) {
+                std::cerr << "CRITICAL: Exception updating entity " << instanceName << ": " << e.what() << std::endl;
+                // Stop entity to prevent further crashes
+                stopEntityMovement(instanceName);
+            } catch (...) {
+                std::cerr << "CRITICAL: Unknown exception updating entity " << instanceName << std::endl;
+                // Stop entity to prevent further crashes
+                stopEntityMovement(instanceName);
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "CRITICAL: Exception in EntitiesManager::update: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "CRITICAL: Unknown exception in EntitiesManager::update!" << std::endl;
+    }
+}
+
 void EntitiesManager::drawDebugPaths(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop) {
     if (!DEBUG_SHOW_PATHS) {
         return;

@@ -209,6 +209,61 @@ void EntityBehaviorManager::update(double deltaTime, EntitiesManager& entitiesMa
     }
 }
 
+void EntityBehaviorManager::update(double deltaTime, EntitiesManager& entitiesManager, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop) {
+    // CRASH FIX: Safe entity iteration with proper reference handling and view frustum culling
+    try {
+        // Get reference to entities map and collect instance names first
+        const auto& entitiesMap = entitiesManager.getEntities();
+        std::vector<std::string> entityNames;
+        entityNames.reserve(entitiesMap.size());
+        
+        for (const auto& pair : entitiesMap) {
+            entityNames.push_back(pair.first);
+        }
+        
+        // Process each entity by name to avoid iterator invalidation with view frustum culling
+        for (const std::string& instanceName : entityNames) {
+            // CRASH FIX: Verify entity still exists before processing
+            if (!entitiesManager.entityExists(instanceName)) {
+                std::cout << "WARNING: Entity " << instanceName << " no longer exists during behavior update" << std::endl;
+                continue;
+            }
+            
+            // Get fresh reference to the actual entity (not a copy)
+            Entity* entity = entitiesManager.getEntity(instanceName);
+            if (!entity) {
+                std::cout << "WARNING: Could not get entity reference for " << instanceName << std::endl;
+                continue;
+            }
+            
+            // View frustum culling: Check if entity is within camera bounds
+            std::string elementName = EntitiesManager::getElementName(entity->instanceName);
+            float entityX, entityY;
+            if (elementsManager.getElementPosition(elementName, entityX, entityY)) {
+                // Get entity configuration to access scale for culling bounds
+                const EntityConfiguration* config = entitiesManager.getConfiguration(entity->type);
+                if (config) {
+                    float entityScale = config->scale;
+                    
+                    // Check if entity is outside camera view (with buffer for scale)
+                    if (entityX < cameraLeft - entityScale || entityX > cameraRight + entityScale || 
+                        entityY < cameraBottom - entityScale || entityY > cameraTop + entityScale) {
+                        // Entity is outside camera view, skip behavior update to improve performance
+                        continue;
+                    }
+                }
+            }
+            
+            // Update behavior using reference to actual entity
+            updateEntityBehavior(*entity, deltaTime, entitiesManager);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "CRITICAL: Exception in entity behavior update: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "CRITICAL: Unknown exception in entity behavior update!" << std::endl;
+    }
+}
+
 void EntityBehaviorManager::updateEntityBehavior(Entity& entity, double deltaTime, EntitiesManager& entitiesManager) {
     // Get entity configuration
     const EntityConfiguration* config = entitiesManager.getConfiguration(entity.type);

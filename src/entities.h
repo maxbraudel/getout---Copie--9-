@@ -338,8 +338,11 @@ public:
     
     // Shutdown async pathfinding system
     void shutdownAsyncPathfinding();
-              // Update all entities (called once per frame)
+          // Update all entities (called once per frame)
     void update(double deltaTime);
+    
+    // Update all entities with view frustum culling (called once per frame)
+    void update(double deltaTime, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop);
       // Collision resolution functions removed - entities will no longer be automatically moved    // Public access for entity iteration (for behavior manager)
     std::map<std::string, Entity>& getEntities() { return entities; }
     const std::map<std::string, Entity>& getEntities() const { return entities; }

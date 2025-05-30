@@ -265,14 +265,20 @@ void GameThreadManager::updateGameLogic(double deltaTime)
     if (g_playerMovementManager != nullptr) {
         g_playerMovementManager->syncWithGameState();
     }
-    
-    // Update entities (handle movement and animations) - this is now the main focus of the game logic thread
+      // Update entities (handle movement and animations) - this is now the main focus of the game logic thread
     // CRASH FIX: Add try-catch around entities update to prevent crashes
     try {
-        m_entitiesManager->update(deltaTime);
+        // Get camera bounds for view frustum culling
+        float cameraLeft = gameCamera.getLeft();
+        float cameraRight = gameCamera.getRight();
+        float cameraBottom = gameCamera.getBottom();
+        float cameraTop = gameCamera.getTop();
         
-        // Update entity behaviors (automatic behaviors like passive random walking)
-        entityBehaviorManager.update(deltaTime, *m_entitiesManager);
+        // Update entities with view frustum culling
+        m_entitiesManager->update(deltaTime, cameraLeft, cameraRight, cameraBottom, cameraTop);
+        
+        // Update entity behaviors with view frustum culling (automatic behaviors like passive random walking)
+        entityBehaviorManager.update(deltaTime, *m_entitiesManager, cameraLeft, cameraRight, cameraBottom, cameraTop);
         
         // Update player slip functionality
     } catch (const std::exception& e) {

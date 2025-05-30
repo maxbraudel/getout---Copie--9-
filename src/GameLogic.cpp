@@ -123,11 +123,17 @@ void GameLogic::updateEntities(double deltaTime) {
     if (!m_entitiesManager) return;
     
     try {
-        // Update entity movement and animations
-        m_entitiesManager->update(deltaTime);
+        // Get camera bounds for view frustum culling
+        float cameraLeft = m_camera->getLeft();
+        float cameraRight = m_camera->getRight();
+        float cameraBottom = m_camera->getBottom();
+        float cameraTop = m_camera->getTop();
         
-        // Update entity behaviors (automatic behaviors like passive random walking)
-        entityBehaviorManager.update(deltaTime, *m_entitiesManager);
+        // Update entity movement and animations with view frustum culling
+        m_entitiesManager->update(deltaTime, cameraLeft, cameraRight, cameraBottom, cameraTop);
+        
+        // Update entity behaviors with view frustum culling (automatic behaviors like passive random walking)
+        entityBehaviorManager.update(deltaTime, *m_entitiesManager, cameraLeft, cameraRight, cameraBottom, cameraTop);
         
         // Update player slip functionality
     } catch (const std::exception& e) {

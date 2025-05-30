@@ -15,9 +15,11 @@ class EntityBehaviorManager {
 public:
     EntityBehaviorManager();
     ~EntityBehaviorManager();
-    
-    // Main update function - called each frame to update all entity behaviors
+      // Main update function - called each frame to update all entity behaviors
     void update(double deltaTime, EntitiesManager& entitiesManager);
+    
+    // Main update function with view frustum culling - called each frame to update all entity behaviors
+    void update(double deltaTime, EntitiesManager& entitiesManager, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop);
     
     // Initialize behavior for a newly created entity
     void initializeEntityBehavior(Entity& entity, const EntityConfiguration& config);
