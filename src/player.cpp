@@ -343,9 +343,9 @@ bool resolvePlayerCollisionStuck(float& x, float& y) {
     if (playerDebugMode) {
         std::cout << "Collision resolution requested for player at position (" << x << ", " << y << ")" << std::endl;
     }
-    
-    // Use the enhanced entity collision resolution function with player's entity configuration
-    bool success = findSafePositionForEntity(x, y, *config, gameMap);
+      // Use the enhanced entity collision resolution function with player's entity configuration
+    // Pass "player1" as the exclude instance name to avoid self-collision during resolution
+    bool success = findSafePositionForEntity(x, y, *config, gameMap, "player1");
     
     if (success) {
         if (playerDebugMode) {

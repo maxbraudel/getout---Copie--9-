@@ -56,7 +56,7 @@ extern std::set<BlockName> nonTraversableBlocks;
 
 // Collision resolution functions
 bool findSafePosition(float& x, float& y, float entityRadius, const Map& gameMap);
-bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& config, const Map& gameMap);
+bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& config, const Map& gameMap, const std::string& excludeInstanceName = "");
 bool resolveEntityCollisionStuck(const std::string& entityId, float& x, float& y, const EntityConfiguration& config, const Map& gameMap);
 
 // Functions to manage non-traversable blocks

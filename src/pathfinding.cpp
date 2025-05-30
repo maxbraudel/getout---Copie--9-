@@ -26,7 +26,7 @@ float MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS = 0.0f;  // Default: no buffer
 float MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS = 0.0f; // Default: no buffer
 
 // Pathfinding cooldown system
-const float PATH_FINDING_COOLDOWN = 0.7f; // seconds - Minimum time between pathfinding calculations per entity (increased for performance)
+const float PATH_FINDING_COOLDOWN = 0.5f; // seconds - Minimum time between pathfinding calculations per entity (increased for performance)
 static std::unordered_map<std::string, std::chrono::steady_clock::time_point> entityLastPathfindingTime;
 static std::mutex pathfindingCooldownMutex;
 

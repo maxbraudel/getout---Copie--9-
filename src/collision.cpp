@@ -292,10 +292,11 @@ bool isPositionSafeWithBuffer(float x, float y, float playerRadius, const Map& g
 }
 
 // Helper function to check if a position is safe with safety distance buffer for entities
-bool isEntityPositionSafeWithBuffer(float x, float y, const EntityConfiguration& config, const Map& gameMap, float safetyBuffer = SAFETY_DISTANCE_FROM_COLLISION_AREA_AFTER_RESOLUTION) {
+bool isEntityPositionSafeWithBuffer(float x, float y, const EntityConfiguration& config, const Map& gameMap, float safetyBuffer = SAFETY_DISTANCE_FROM_COLLISION_AREA_AFTER_RESOLUTION, const std::string& excludeInstanceName = "") {
     // Check the center position first
     if (wouldEntityCollideWithElementsGranular(config, x, y, false) || 
-        wouldEntityCollideWithBlocksGranular(config, x, y, false)) {
+        wouldEntityCollideWithBlocksGranular(config, x, y, false) ||
+        wouldEntityCollideWithEntitiesGranular(config, x, y, false, excludeInstanceName)) {
         return false;
     }
     
@@ -308,7 +309,8 @@ bool isEntityPositionSafeWithBuffer(float x, float y, const EntityConfiguration&
         
         // If any of the buffer positions would collide, this isn't a safe position
         if (wouldEntityCollideWithElementsGranular(config, bufferX, bufferY, false) || 
-            wouldEntityCollideWithBlocksGranular(config, bufferX, bufferY, false)) {
+            wouldEntityCollideWithBlocksGranular(config, bufferX, bufferY, false) ||
+            wouldEntityCollideWithEntitiesGranular(config, bufferX, bufferY, false, excludeInstanceName)) {
             return false;
         }
     }
@@ -378,7 +380,7 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
 }
 
 // Enhanced function to find a safe position for entities using their collision shape
-bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& config, const Map& gameMap) {
+bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& config, const Map& gameMap, const std::string& excludeInstanceName) {
     // Store original position for comparison
     float originalX = x;
     float originalY = y;
@@ -422,8 +424,8 @@ bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& co
                     std::cout << "Position (" << testX << ", " << testY << ") rejected - outside map bounds (margin: " << margin << ")" << std::endl;
                 }
                 continue;
-            }// Check if this position is safe with safety buffer
-            if (isEntityPositionSafeWithBuffer(testX, testY, config, gameMap)) {
+            }            // Check if this position is safe with safety buffer
+            if (isEntityPositionSafeWithBuffer(testX, testY, config, gameMap, SAFETY_DISTANCE_FROM_COLLISION_AREA_AFTER_RESOLUTION, excludeInstanceName)) {
                 // Found a safe position with adequate buffer!
                 std::cout << "Found safe position at (" << testX << ", " << testY 
                           << ") - distance: " << radius << " with safety buffer: " 
@@ -447,9 +449,8 @@ bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& co
 // Function to resolve collision when an entity is stuck (to be called from entities system)
 bool resolveEntityCollisionStuck(const std::string& entityId, float& x, float& y, const EntityConfiguration& config, const Map& gameMap) {
     std::cout << "Collision resolution requested for entity: " << entityId << " at position (" << x << ", " << y << ")" << std::endl;
-    
-    // Use the enhanced entity collision resolution function
-    bool success = findSafePositionForEntity(x, y, config, gameMap);
+      // Use the enhanced entity collision resolution function with entity exclusion
+    bool success = findSafePositionForEntity(x, y, config, gameMap, entityId);
     
     if (success) {
         std::cout << "Successfully resolved collision for entity " << entityId << " - moved to (" << x << ", " << y << ")" << std::endl;
