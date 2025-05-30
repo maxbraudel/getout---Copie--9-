@@ -848,13 +848,41 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
         stopEntityMovement(entity.instanceName);
         return;
     }
-    
-    // Get current position
+      // Get current position
     float currentActualX, currentActualY;    if (!elementsManager.getElementPosition(elementName, currentActualX, currentActualY)) {
         std::cerr << "Error getting position for entity: " << entity.instanceName << std::endl;
         stopEntityMovement(entity.instanceName); // Stop walking due to error
         return;
-    }auto updateDirectionAndSprite = [&](Entity& ent, const std::string& elName, const EntityConfiguration& cfg, float dirX, float dirY) {
+    }
+
+    // Stuck detection logic - check if entity has been in same position for too long
+    const float MOVEMENT_THRESHOLD = 0.1f; // Minimum movement to consider "not stuck"
+    
+    // Calculate distance moved since last position check
+    float distanceMoved = std::sqrt(std::pow(currentActualX - entity.lastPositionX, 2) + 
+                                   std::pow(currentActualY - entity.lastPositionY, 2));
+    
+    // If entity hasn't moved significantly, accumulate stuck time
+    if (distanceMoved < MOVEMENT_THRESHOLD) {
+        entity.stuckCheckTime += static_cast<float>(deltaTime);
+        
+        // If stuck for too long, stop movement
+        if (entity.stuckCheckTime >= ENTITY_STUCK_TIMEOUT_FOR_STOPPING_MOVEMENT) {
+            std::cout << "Entity " << entity.instanceName << " appears to be stuck at (" 
+                      << currentActualX << ", " << currentActualY << ") for " 
+                      << entity.stuckCheckTime << " seconds. Stopping movement." << std::endl;
+            stopEntityMovement(entity.instanceName);
+            return;
+        }
+    } else {
+        // Entity moved, reset stuck timer and update last position
+        entity.stuckCheckTime = 0.0f;
+        entity.lastPositionX = currentActualX;
+        entity.lastPositionY = currentActualY;
+        entity.lastPositionChangeTime = static_cast<float>(deltaTime);
+    }
+
+    auto updateDirectionAndSprite = [&](Entity& ent, const std::string& elName, const EntityConfiguration& cfg, float dirX, float dirY) {
         // Only process if there's actual movement
         if (dirX == 0 && dirY == 0) {
             return; // No movement, keep current direction
@@ -1093,16 +1121,43 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                 (currentActualX - entity.lastPositionX) * (currentActualX - entity.lastPositionX) +
                 (currentActualY - entity.lastPositionY) * (currentActualY - entity.lastPositionY)
             );
-            
-            // Update stuck detection timing
+              // Update stuck detection timing
             entity.stuckCheckTime += static_cast<float>(deltaTime);
+            
+            // Update pathfinding timeout timer when entity uses pathfinding
+            if (entity.usePathfinding) {
+                entity.pathfindingTimeoutTimer += static_cast<float>(deltaTime);
+            }
             
             if (positionChangeDistance > positionChangeThreshold) {
                 // Entity has moved significantly, reset stuck detection
                 entity.lastPositionX = currentActualX;
                 entity.lastPositionY = currentActualY;
                 entity.lastPositionChangeTime = entity.stuckCheckTime;
-                entity.stuckCount = 0;            } else if (entity.stuckCheckTime - entity.lastPositionChangeTime >= stuckThreshold) {
+                entity.stuckCount = 0;
+                  // Also reset pathfinding timeout
+                entity.pathfindingTimeoutTimer = 0.0f;
+                entity.pathfindingTimeoutActive = false;
+            } 
+            // Check for pathfinding timeout condition first (shorter threshold)
+            else if (entity.usePathfinding && entity.pathfindingTimeoutTimer >= ENTITY_STUCK_TIMEOUT_FOR_STOPPING_MOVEMENT) {
+                // Entity has been stuck for the pathfinding timeout duration, stop it
+                std::cout << "Entity " << entity.instanceName << " has not moved for " 
+                          << ENTITY_STUCK_TIMEOUT_FOR_STOPPING_MOVEMENT << " seconds during pathfinding - stopping movement" << std::endl;
+                
+                // Stop the entity movement
+                stopEntityMovement(entity.instanceName);
+                
+                // Reset both pathfinding timeout and stuck detection
+                entity.pathfindingTimeoutTimer = 0.0f;
+                entity.pathfindingTimeoutActive = false;
+                entity.lastPositionChangeTime = entity.stuckCheckTime;
+                entity.stuckCount = 0;
+                
+                // We're done with this entity for this frame
+                return;
+            } 
+            else if (entity.stuckCheckTime - entity.lastPositionChangeTime >= stuckThreshold) {
                 // Entity has been stuck for too long, try collision resolution
                 entity.stuckCount++;
                 
@@ -1527,13 +1582,21 @@ void EntitiesManager::stopEntityMovement(const std::string& instanceName) {
     
     // Reset to default sprite
     elementsManager.changeElementSpriteFrame(elementName, 0);
-    
-     // Cancel any pending pathfinding requests
+      // Cancel any pending pathfinding requests
     if (entity->pathfindingRequestId > 0 && g_entityAsyncPathfinder) {
         g_entityAsyncPathfinder->cancelPathfindingRequest(instanceName);
         entity->pathfindingRequestId = 0;
     }
     entity->isWaitingForPath = false;
+    
+    // CRITICAL FIX: Clear stuck detection fields to prevent false stuck detection on future movements
+    entity->pathfindingTimeoutTimer = 0.0f;
+    entity->pathfindingTimeoutActive = false;
+    entity->lastPositionX = 0.0f;
+    entity->lastPositionY = 0.0f;
+    entity->stuckCheckTime = 0.0f;
+    entity->lastPositionChangeTime = 0.0f;
+    entity->stuckCount = 0;
 }
 
 // Async pathfinding management methods

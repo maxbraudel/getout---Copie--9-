@@ -11,6 +11,9 @@
 #include <chrono> // For async pathfinding timing
 #include "enumDefinitions.h"
 
+// Constants for entity movement and stuck detection
+const float ENTITY_STUCK_TIMEOUT_FOR_STOPPING_MOVEMENT = 0.5f; // seconds
+
 
 // Enum for entity directions (corresponds to sprite sheet rows/phases)
 enum EntityDirection {
@@ -252,13 +255,17 @@ struct Entity {
     // Path following state
     float pathfindingCooldown = 0.5f; // Minimum time between requests
     bool isWaitingForPath = false;
-    
-    // Movement tracking for stuck detection
+      // Movement tracking for stuck detection
     float lastPositionX = 0.0f;
     float lastPositionY = 0.0f;
     float lastPositionChangeTime = 0.0f;
     float stuckCheckTime = 0.0f;
-    int stuckCount = 0;    float interactionRadius;
+    int stuckCount = 0;
+      // Pathfinding timeout system
+    float pathfindingTimeoutTimer = 0.0f;
+    bool pathfindingTimeoutActive = false;
+    
+    float interactionRadius;
     EntityDirection currentSegmentSpriteDirection = DIRECTION_DOWN; // Initialize to a default
     std::string currentBehavior;    // Automatic behavior state variables
     double behaviorTimer = 0.0; // Time accumulator for behavior timing
