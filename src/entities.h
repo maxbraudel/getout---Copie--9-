@@ -251,9 +251,7 @@ struct Entity {
     bool hasValidPath = false;
     int pathfindingRequestId = -1;
     std::chrono::steady_clock::time_point lastPathRequest;
-    
-    // Path following state
-    float pathfindingCooldown = 0.5f; // Minimum time between requests
+      // Path following state
     bool isWaitingForPath = false;
       // Movement tracking for stuck detection
     float lastPositionX = 0.0f;

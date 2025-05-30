@@ -248,4 +248,10 @@ bool isPositionValidOptimized(float x, float y, const EntityConfiguration& entit
 // Async pathfinding function
 std::future<PathfindingResult> findPathAsync(const PathfindingRequest& request);
 
+// Pathfinding cooldown system
+extern const float PATH_FINDING_COOLDOWN;
+bool canEntityRequestPathfinding(const std::string& entityInstanceName);
+void updateEntityPathfindingTime(const std::string& entityInstanceName);
+void clearEntityPathfindingCooldown(const std::string& entityInstanceName);
+
 #endif // PATHFINDING_H

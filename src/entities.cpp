@@ -2,7 +2,7 @@
 #include "entityBehaviors.h"
 #include "collision.h"
 #include "map.h" // Adding for gameMap access
-// #include "pathfinding.h" // Commented out to avoid conflicts with new async pathfinding system
+#include "pathfinding.h" // Include for pathfinding cooldown functions
 #include "globals.h" // For GRID_SIZE
 #include "debug.h" // For isShowingCollisionBoxes function
 #include "asyncPathfinding.h"
@@ -86,7 +86,7 @@ static void initializeEntityTypes() {
         
         // Entity collision configuration - Antagonist avoids player for pathfinding but can collide during movement
         antagonist.avoidanceEntities = {
-            EntityName::ANTAGONIST,
+            // EntityName::ANTAGONIST,
         };
         
         antagonist.collisionEntities = {
@@ -121,8 +121,8 @@ static void initializeEntityTypes() {
         antagonist.attackStateRunning = true; // Run when attacking
         antagonist.attackStateStartRadius = 0.0f; // Start attacking when player is 5 units away
         antagonist.attackStateEndRadius = 8.0f; // Stop attacking when player is 10+ units away
-        antagonist.attackStateWaitBeforeChargeMin = 1.0f; // Wait 1-3 seconds before charging again
-        antagonist.attackStateWaitBeforeChargeMax = 3.0f;
+        antagonist.attackStateWaitBeforeChargeMin = 0.5f; // Wait 1-3 seconds before charging again
+        antagonist.attackStateWaitBeforeChargeMax = 1.0f;
         antagonist.attackStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers attack state
         
         // Add to the list
@@ -220,6 +220,11 @@ EntitiesManager::EntitiesManager() {
 }
 
 EntitiesManager::~EntitiesManager() {
+    // Clear all pathfinding cooldowns for entities
+    for (const auto& entityPair : entities) {
+        clearEntityPathfindingCooldown(entityPair.first);
+    }
+    
     // Destructor
     shutdownAsyncPathfinding();
 }
@@ -423,10 +428,17 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
     if (distance < 0.1f) {
         std::cout << "Entity " << instanceName << " is already at destination" << std::endl;
         return true;
-    }
-      // Check async pathfinding availability
+    }    // Check async pathfinding availability
     if (!g_entityAsyncPathfinder) {
         std::cerr << "Async pathfinder not initialized" << std::endl;
+        return false;
+    }
+    
+    // Check pathfinding cooldown to prevent too frequent requests
+    if (!canEntityRequestPathfinding(instanceName)) {
+        if (DEBUG_LOGS) {
+            std::cout << "Pathfinding request for entity " << instanceName << " denied due to cooldown" << std::endl;
+        }
         return false;
     }
       // Cancel any existing pathfinding request for this entity
@@ -446,14 +458,16 @@ bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName,
     }
       // Submit async pathfinding request
     int requestId = g_entityAsyncPathfinder->requestPathfinding(instanceName, startPathX, startPathY, x, y, *config, walkType);
-    
-    if (requestId > 0) {
+      if (requestId > 0) {
         entity->pathfindingRequestId = requestId;
         entity->isWaitingForPath = true;
         entity->targetX = x;
         entity->targetY = y;
         entity->walkType = walkType;
         entity->lastPathRequest = std::chrono::steady_clock::now();
+        
+        // Update pathfinding cooldown time for this entity
+        updateEntityPathfindingTime(instanceName);
         
         std::cout << "Entity " << instanceName << " submitted async pathfinding request (ID: " << requestId 
                   << ") to (" << x << ", " << y << ") with "
@@ -1213,19 +1227,28 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                                 
                                 std::cout << "Recalculating pathfinding for unstuck entity " << entity.instanceName 
                                           << " from new position (" << safeX << ", " << safeY << ")" << std::endl;
-                                
-                                // Cancel existing pathfinding request if any
+                                  // Cancel existing pathfinding request if any
                                 if (entity.pathfindingRequestId > 0) {
                                     g_entityAsyncPathfinder->cancelPathfindingRequest(entity.instanceName);
                                 }
-                                  // Request new pathfinding from safe position to original target
-                                int newRequestId = g_entityAsyncPathfinder->requestPathfinding(
-                                    entity.instanceName, safeX, safeY, entity.targetX, entity.targetY, config, entity.walkType
-                                );
-                                  if (newRequestId > 0) {
-                                    entity.pathfindingRequestId = newRequestId;
-                                    entity.isWaitingForPath = true;
-                                    entity.lastPathRequest = std::chrono::steady_clock::now();
+                                
+                                // Check pathfinding cooldown before requesting
+                                if (canEntityRequestPathfinding(entity.instanceName)) {
+                                    // Request new pathfinding from safe position to original target
+                                    int newRequestId = g_entityAsyncPathfinder->requestPathfinding(
+                                        entity.instanceName, safeX, safeY, entity.targetX, entity.targetY, config, entity.walkType
+                                    );
+                                      if (newRequestId > 0) {
+                                        entity.pathfindingRequestId = newRequestId;
+                                        entity.isWaitingForPath = true;
+                                        entity.lastPathRequest = std::chrono::steady_clock::now();
+                                        
+                                        // Update pathfinding cooldown time for this entity
+                                        updateEntityPathfindingTime(entity.instanceName);
+                                    }
+                                } else {
+                                    std::cout << "Pathfinding request for unstuck entity " << entity.instanceName 
+                                              << " denied due to cooldown" << std::endl;
                                 }
                             }
                         } else {

@@ -292,6 +292,45 @@ int main() {
     entitiesManager.placeEntityByType("antagonist13", EntityName::ANTAGONIST, 17.0f, 30.0f);
     entitiesManager.placeEntityByType("antagonist14", EntityName::ANTAGONIST, 18.0f, 30.0f);
     entitiesManager.placeEntityByType("antagonist15", EntityName::ANTAGONIST, 19.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist16", EntityName::ANTAGONIST, 20.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist17", EntityName::ANTAGONIST, 21.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist18", EntityName::ANTAGONIST, 22.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist19", EntityName::ANTAGONIST, 23.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist20", EntityName::ANTAGONIST, 24.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist21", EntityName::ANTAGONIST, 25.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist22", EntityName::ANTAGONIST, 26.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist23", EntityName::ANTAGONIST, 27.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist24", EntityName::ANTAGONIST, 28.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist25", EntityName::ANTAGONIST, 29.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist26", EntityName::ANTAGONIST, 30.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist27", EntityName::ANTAGONIST, 31.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist28", EntityName::ANTAGONIST, 32.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist29", EntityName::ANTAGONIST, 33.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist30", EntityName::ANTAGONIST, 34.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist31", EntityName::ANTAGONIST, 35.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist32", EntityName::ANTAGONIST, 36.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist33", EntityName::ANTAGONIST, 37.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist34", EntityName::ANTAGONIST, 38.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist35", EntityName::ANTAGONIST, 39.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist36", EntityName::ANTAGONIST, 40.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist37", EntityName::ANTAGONIST, 41.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist38", EntityName::ANTAGONIST, 42.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist39", EntityName::ANTAGONIST, 43.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist40", EntityName::ANTAGONIST, 44.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist41", EntityName::ANTAGONIST, 45.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist42", EntityName::ANTAGONIST, 46.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist43", EntityName::ANTAGONIST, 47.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist44", EntityName::ANTAGONIST, 48.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist45", EntityName::ANTAGONIST, 49.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist46", EntityName::ANTAGONIST, 50.0f, 30.0f);
+    entitiesManager.placeEntityByType("antagonist47", EntityName::ANTAGONIST, 49.0f, 31.0f);
+    entitiesManager.placeEntityByType("antagonist48", EntityName::ANTAGONIST, 48.0f, 31.0f);
+    entitiesManager.placeEntityByType("antagonist49", EntityName::ANTAGONIST, 47.0f, 31.0f);
+    entitiesManager.placeEntityByType("antagonist50", EntityName::ANTAGONIST, 46.0f, 31.0f);
+    entitiesManager.placeEntityByType("antagonist51", EntityName::ANTAGONIST, 45.0f, 31.0f);
+    entitiesManager.placeEntityByType("antagonist52", EntityName::ANTAGONIST, 44.0f, 31.0f);
+    entitiesManager.placeEntityByType("antagonist53", EntityName::ANTAGONIST, 43.0f, 31.0f);
+
 
 
     entitiesManager.placeEntityByType("player1", EntityName::PLAYER, 5.0f, 45.0f);

@@ -24,6 +24,11 @@
 float MIN_DISTANCE_FROM_AVOIDANCE_BLOCKS = 0.0f;  // Default: no buffer
 float MIN_DISTANCE_FROM_AVOIDANCE_ELEMENTS = 0.0f; // Default: no buffer
 
+// Pathfinding cooldown system
+const float PATH_FINDING_COOLDOWN = 1.0f; // seconds - Minimum time between pathfinding calculations per entity
+static std::unordered_map<std::string, std::chrono::steady_clock::time_point> entityLastPathfindingTime;
+static std::mutex pathfindingCooldownMutex;
+
 // Global instances for performance optimization
 PathfindingStats g_pathfindingStats;
 PreCalculatedCollisionShapes g_collisionCache;
@@ -44,6 +49,50 @@ std::string generateEntityKey(const EntityConfiguration& config) {
                std::to_string(config.collisionShapePoints.size());
     }
     return key;
+}
+
+// Pathfinding cooldown system functions
+bool canEntityRequestPathfinding(const std::string& entityInstanceName) {
+    std::lock_guard<std::mutex> lock(pathfindingCooldownMutex);
+    
+    auto it = entityLastPathfindingTime.find(entityInstanceName);
+    if (it == entityLastPathfindingTime.end()) {
+        // Entity has never requested pathfinding before, allow it
+        return true;
+    }
+    
+    auto now = std::chrono::steady_clock::now();
+    auto timeSinceLastRequest = std::chrono::duration_cast<std::chrono::milliseconds>(now - it->second).count() / 1000.0f;
+    
+    if (timeSinceLastRequest >= PATH_FINDING_COOLDOWN) {
+        return true;
+    }
+    
+    if (DEBUG_LOGS) {
+        std::cout << "Pathfinding request denied for entity " << entityInstanceName 
+                  << " - cooldown active (time since last: " << timeSinceLastRequest << "s, required: " 
+                  << PATH_FINDING_COOLDOWN << "s)" << std::endl;
+    }
+    
+    return false;
+}
+
+void updateEntityPathfindingTime(const std::string& entityInstanceName) {
+    std::lock_guard<std::mutex> lock(pathfindingCooldownMutex);
+    entityLastPathfindingTime[entityInstanceName] = std::chrono::steady_clock::now();
+    
+    if (DEBUG_LOGS) {
+        std::cout << "Updated pathfinding time for entity " << entityInstanceName << std::endl;
+    }
+}
+
+void clearEntityPathfindingCooldown(const std::string& entityInstanceName) {
+    std::lock_guard<std::mutex> lock(pathfindingCooldownMutex);
+    entityLastPathfindingTime.erase(entityInstanceName);
+    
+    if (DEBUG_LOGS) {
+        std::cout << "Cleared pathfinding cooldown for entity " << entityInstanceName << std::endl;
+    }
 }
 
 // Initialize pathfinding cache for optimal performance
