@@ -65,9 +65,8 @@ bool GameThreadManager::initialize(Map* gameMap, ElementsOnMap* elementsManager,
     // Initialize timing
     m_lastGameUpdate = std::chrono::high_resolution_clock::now();
     m_lastRenderUpdate = m_lastGameUpdate;
-    
-    // Initialize player movement manager
-    if (!initializePlayerMovement(gameMap, elementsManager, entitiesManager)) {
+      // Initialize player movement manager with camera
+    if (!initializePlayerMovement(gameMap, elementsManager, entitiesManager, camera)) {
         std::cerr << "Failed to initialize player movement manager" << std::endl;
         DEBUG_LOG_MEMORY("player_movement_init_failed");
         return false;
@@ -307,17 +306,11 @@ void GameThreadManager::updateGameLogic(double deltaTime)
             getPlayerPosition(m_currentGameState.playerX, m_currentGameState.playerY);
             m_currentGameState.playerMoving = false;
         }
-        
-        m_currentGameState.currentTime = gameTime;
+          m_currentGameState.currentTime = gameTime;
         m_currentGameState.deltaTime = deltaTime;
-          // Update camera position based on player position
-        extern int windowWidth, windowHeight; // From globals.h
         
-        // Update smooth camera transitions first
-        m_camera->updateSmoothTransitions(static_cast<float>(deltaTime));
-        
-        // Then update camera position
-        m_camera->updateCameraPosition(m_currentGameState.playerX, m_currentGameState.playerY, windowWidth, windowHeight);
+        // Camera updates are now handled in the player movement thread at 120Hz
+        // for smoother camera following synchronized with player movement
     }
     
     // Notify render thread that game state has been updated

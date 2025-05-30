@@ -7,6 +7,8 @@
 #include "inputs.h"
 #include "debug.h"
 #include "crashDebug.h"
+#include "camera.h"
+#include "globals.h"
 #include <iostream>
 #include <algorithm>
 
@@ -19,6 +21,7 @@ PlayerMovementManager::PlayerMovementManager()
     , m_gameMap(nullptr)
     , m_elementsManager(nullptr)
     , m_entitiesManager(nullptr)
+    , m_camera(nullptr)
 {
     // Initialize player state
     m_playerState = {};
@@ -33,13 +36,14 @@ PlayerMovementManager::~PlayerMovementManager()
     stopThread();
 }
 
-bool PlayerMovementManager::initialize(Map* gameMap, ElementsOnMap* elementsManager, EntitiesManager* entitiesManager)
+bool PlayerMovementManager::initialize(Map* gameMap, ElementsOnMap* elementsManager, EntitiesManager* entitiesManager, Camera* camera)
 {
     DEBUG_VALIDATE_PTR(gameMap);
     DEBUG_VALIDATE_PTR(elementsManager);
     DEBUG_VALIDATE_PTR(entitiesManager);
+    DEBUG_VALIDATE_PTR(camera);
     
-    if (!gameMap || !elementsManager || !entitiesManager) {
+    if (!gameMap || !elementsManager || !entitiesManager || !camera) {
         std::cerr << "CRASH FIX: PlayerMovementManager::initialize - Invalid parameters" << std::endl;
         DEBUG_LOG_MEMORY("player_movement_init_failed");
         return false;
@@ -48,6 +52,7 @@ bool PlayerMovementManager::initialize(Map* gameMap, ElementsOnMap* elementsMana
     m_gameMap = gameMap;
     m_elementsManager = elementsManager;
     m_entitiesManager = entitiesManager;
+    m_camera = camera;
     
     // Get initial player position
     if (!getPlayerPosition(m_playerState.x, m_playerState.y)) {
@@ -188,11 +193,13 @@ void PlayerMovementManager::playerMovementThread()
                     currentInput = m_currentInput;
                 }
             }
-            
-            // Process player movement if input is valid
+              // Process player movement if input is valid
             if (currentInput.valid) {
                 processPlayerMovement(currentInput, PLAYER_UPDATE_TIMESTEP);
             }
+            
+            // Update camera at high frequency (120Hz) synchronized with player movement
+            updateCamera(PLAYER_UPDATE_TIMESTEP);
             
             accumulatedTime -= PLAYER_UPDATE_TIMESTEP;
             m_movementUpdatesProcessed++;
@@ -373,12 +380,33 @@ bool PlayerMovementManager::checkPlayerCollision(float newX, float newY, float& 
     
     // Single-axis movement that's blocked
     actualDeltaX = 0.0f;
-    actualDeltaY = 0.0f;
-    return false;
+    actualDeltaY = 0.0f;    return false;
+}
+
+void PlayerMovementManager::updateCamera(double deltaTime)
+{
+    if (!m_camera) {
+        return;
+    }
+    
+    // Get current player position (thread-safe)
+    float playerX, playerY;
+    {
+        std::lock_guard<std::mutex> lock(m_stateMutex);
+        playerX = m_playerState.x;
+        playerY = m_playerState.y;
+    }
+    
+    // Update camera smooth transitions at 120Hz for ultra-smooth zoom animations
+    m_camera->updateSmoothTransitions(static_cast<float>(deltaTime));
+    
+    // Update camera position based on current player position at 120Hz for smooth following
+    extern int windowWidth, windowHeight; // From globals.h
+    m_camera->updateCameraPosition(playerX, playerY, windowWidth, windowHeight);
 }
 
 // Convenience functions implementation
-bool initializePlayerMovement(Map* gameMap, ElementsOnMap* elementsManager, EntitiesManager* entitiesManager)
+bool initializePlayerMovement(Map* gameMap, ElementsOnMap* elementsManager, EntitiesManager* entitiesManager, Camera* camera)
 {
     if (g_playerMovementManager != nullptr) {
         std::cout << "Player movement manager already initialized" << std::endl;
@@ -386,7 +414,7 @@ bool initializePlayerMovement(Map* gameMap, ElementsOnMap* elementsManager, Enti
     }
     
     g_playerMovementManager = new PlayerMovementManager();
-    return g_playerMovementManager->initialize(gameMap, elementsManager, entitiesManager);
+    return g_playerMovementManager->initialize(gameMap, elementsManager, entitiesManager, camera);
 }
 
 void startPlayerMovementThread()

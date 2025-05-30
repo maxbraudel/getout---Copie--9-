@@ -13,6 +13,7 @@
 class Map;
 class ElementsOnMap;
 class EntitiesManager;
+class Camera;
 
 /**
  * PlayerMovementManager handles player movement in a separate thread
@@ -39,10 +40,8 @@ public:
     };
 
     PlayerMovementManager();
-    ~PlayerMovementManager();
-
-    // Initialize the player movement system
-    bool initialize(Map* gameMap, ElementsOnMap* elementsManager, EntitiesManager* entitiesManager);
+    ~PlayerMovementManager();    // Initialize the player movement system
+    bool initialize(Map* gameMap, ElementsOnMap* elementsManager, EntitiesManager* entitiesManager, Camera* camera);
 
     // Start the player movement thread
     void startThread();
@@ -64,10 +63,11 @@ public:
 
 private:
     // Player movement thread function
-    void playerMovementThread();
-
-    // Process player movement with collision detection
+    void playerMovementThread();    // Process player movement with collision detection
     void processPlayerMovement(const PlayerInput& input, double deltaTime);
+
+    // Update camera based on player position
+    void updateCamera(double deltaTime);
 
     // Update player position and animations
     void updatePlayerPosition(float deltaX, float deltaY);
@@ -83,12 +83,11 @@ private:
     // Synchronization
     mutable std::mutex m_inputMutex;
     mutable std::mutex m_stateMutex;
-    std::condition_variable m_inputAvailable;
-
-    // Game objects (not owned)
+    std::condition_variable m_inputAvailable;    // Game objects (not owned)
     Map* m_gameMap;
     ElementsOnMap* m_elementsManager;
     EntitiesManager* m_entitiesManager;
+    Camera* m_camera;
 
     // Player state
     PlayerInput m_currentInput;
@@ -110,7 +109,7 @@ private:
 extern PlayerMovementManager* g_playerMovementManager;
 
 // Convenience functions
-bool initializePlayerMovement(Map* gameMap, ElementsOnMap* elementsManager, EntitiesManager* entitiesManager);
+bool initializePlayerMovement(Map* gameMap, ElementsOnMap* elementsManager, EntitiesManager* entitiesManager, Camera* camera);
 void startPlayerMovementThread();
 void stopPlayerMovementThread();
 void cleanupPlayerMovement();
