@@ -301,6 +301,90 @@ bool EntitiesManager::placeEntityByType(const std::string& instanceName, const s
     return false;
 }
 
+// Place entity by type safely - finds safe position first using findNearestSafePlaceFromCoordinatesForEntity
+bool EntitiesManager::placeEntityByTypeSafely(const std::string& instanceName, EntityName entityType, float x, float y) {
+    // First, create a temporary entity instance to get its configuration for safe position finding
+    // We need the configuration to check collision properties
+    const EntityConfiguration* tempConfig = nullptr;
+    
+    // Find the entity type in our predefined list to get its configuration
+    for (const auto& entityInfo : entityTypes) {
+        if (entityInfo.type == entityType) {
+            // Create configuration from the entity info
+            EntityConfiguration config(entityInfo);
+            // Add the configuration if it doesn't exist yet
+            if (!getConfiguration(entityType)) {
+                addConfiguration(config);
+            }
+            tempConfig = getConfiguration(entityType);
+            break;
+        }
+    }
+    
+    if (!tempConfig) {
+        std::cerr << "Entity type not found for safe placement: " << entityNameToString(entityType) << std::endl;
+        return false;
+    }
+    
+    // Create a temporary entity to use findNearestSafePlaceFromCoordinatesForEntity
+    // We need an existing entity instance for the function to work
+    std::string tempElementName = getElementName(instanceName);
+    
+    // Place a temporary element at the requested coordinates to create the entity context
+    elementsManager.placeElement(
+        tempElementName,
+        tempConfig->elementName,
+        tempConfig->scale,
+        x, y,  // Place at requested position temporarily
+        0.0f,  // rotation
+        tempConfig->defaultSpriteSheetPhase,
+        tempConfig->defaultSpriteSheetFrame,
+        false,  // not animated initially
+        tempConfig->defaultAnimationSpeed,
+        AnchorPoint::USE_TEXTURE_DEFAULT
+    );
+    
+    // Create temporary entity entry
+    Entity tempEntity;
+    tempEntity.instanceName = instanceName;
+    tempEntity.type = entityType;
+    entities[instanceName] = tempEntity;
+    
+    // Now find the safe position using the existing function
+    float safeX, safeY;
+    bool foundSafePosition = findNearestSafePlaceFromCoordinatesForEntity(instanceName, x, y, safeX, safeY);
+    
+    // Clean up the temporary entity and element
+    entities.erase(instanceName);
+    elementsManager.removeElement(tempElementName);
+    
+    if (!foundSafePosition) {
+        std::cout << "Warning: Could not find safe position for entity " << instanceName 
+                  << " - placing at requested coordinates (" << x << ", " << y << ")" << std::endl;
+        safeX = x;
+        safeY = y;
+    } else if (safeX != x || safeY != y) {
+        std::cout << "Found safe position for entity " << instanceName 
+                  << " - adjusted from (" << x << ", " << y << ") to (" << safeX << ", " << safeY << ")" << std::endl;
+    }
+    
+    // Now place the entity at the safe coordinates using the normal method
+    return placeEntityByType(instanceName, entityType, safeX, safeY);
+}
+
+// String-based placeEntityByTypeSafely method for backwards compatibility
+bool EntitiesManager::placeEntityByTypeSafely(const std::string& instanceName, const std::string& typeName, float x, float y) {
+    // Convert string to enum and call the enum-based method
+    if (typeName == "player") {
+        return placeEntityByTypeSafely(instanceName, EntityName::PLAYER, x, y);
+    } else if (typeName == "antagonist") {
+        return placeEntityByTypeSafely(instanceName, EntityName::ANTAGONIST, x, y);
+    }
+    
+    std::cerr << "Unknown entity type string for safe placement: " << typeName << std::endl;
+    return false;
+}
+
 bool EntitiesManager::placeEntity(const std::string& instanceName, EntityName entityType, float x, float y) {
     // Check if the configuration exists
     const EntityConfiguration* config = getConfiguration(entityType);

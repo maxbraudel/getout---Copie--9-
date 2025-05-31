@@ -310,6 +310,10 @@ public:
     bool placeEntityByType(const std::string& instanceName, const std::string& typeName, float x, float y);
     bool placeEntityByType(const std::string& instanceName, EntityName entityType, float x, float y);
     
+    // Place a predefined entity by type safely (finds safe position first)
+    bool placeEntityByTypeSafely(const std::string& instanceName, const std::string& typeName, float x, float y);
+    bool placeEntityByTypeSafely(const std::string& instanceName, EntityName entityType, float x, float y);
+    
     // Get entity type name from instance name
     std::string getEntityType(const std::string& instanceName) const;
     
@@ -370,7 +374,6 @@ private:
     
     // COLLISION RESOLUTION FUNCTIONS (DISABLED)
     // These functions are disabled but declarations kept for compatibility
-    bool ensureEntityNotStuck(const std::string& instanceName);
 };
 
 // Function to check entity collision with elements (uses collision shape points if available, otherwise fallback to radius)

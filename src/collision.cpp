@@ -330,7 +330,7 @@ bool findSafePosition(float& x, float& y, float playerRadius, const Map& gameMap
     
     // Search in expanding concentric circles for a safe position
     const float searchStep = 1.0f; // Slightly larger step size for better performance
-    const float maxSearchRadius = 100.0f; // Much larger search radius for multi-layer scenarios
+    const float maxSearchRadius = 5.0f; // Much larger search radius for multi-layer scenarios
     
     std::cout << "Searching for safe position with radius up to " << maxSearchRadius << " units..." << std::endl;
     
@@ -402,7 +402,7 @@ bool findSafePositionForEntity(float& x, float& y, const EntityConfiguration& co
     
     // Search in expanding concentric circles for a safe position
     const float searchStep = 0.2f; // Slightly larger step size for better performance
-    const float maxSearchRadius = 100.0f; // Much larger search radius to match player search radius
+    const float maxSearchRadius = 5.0f; // Much larger search radius to match player search radius
       std::cout << "Searching for safe entity position with radius up to " << maxSearchRadius << " units..." << std::endl;
     
     for (float radius = searchStep; radius <= maxSearchRadius; radius += searchStep) {
