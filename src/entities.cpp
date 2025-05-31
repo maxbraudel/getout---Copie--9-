@@ -10,6 +10,9 @@
 #include <cmath>
 #include <limits>
 #include <random>
+#include <unordered_map>
+#include <unordered_set>
+#include <mutex>
 #include "enumDefinitions.h"
 
 
@@ -1494,41 +1497,81 @@ bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, f
             searchRadius = std::max(searchRadius, dist);
         }
     }
-    
-    // Get only nearby elements instead of checking all elements
+      // Get only nearby elements instead of checking all elements
     std::vector<std::string> nearbyElements = getNearbyElements(x, y, searchRadius + MAX_COLLISION_CHECK_RANGE);
+      // PERFORMANCE OPTIMIZATION: Cache element data to avoid linear searches
+    // Thread-safe cache implementation
+    static std::mutex cacheMutex;
+    static std::unordered_map<std::string, PlacedElement> elementDataCache;
+    static float lastCacheUpdateTime = 0.0f;
+    static std::unordered_set<ElementName> elementsToCheckSet;
+    static bool elementSetCached = false;
+    static bool collisionCacheInitialized = false;
+    
+    // Refresh cache periodically or when elements list changes (thread-safe)
+    std::lock_guard<std::mutex> lock(cacheMutex);
+    float currentTime = static_cast<float>(glfwGetTime());
+    if (!collisionCacheInitialized || currentTime - lastCacheUpdateTime > 1.0f) {
+        elementDataCache.clear();
+        const auto& elements = elementsManager.getElements();
+        for (const auto& el : elements) {
+            elementDataCache[el.instanceName] = el; // Store copy of element data
+        }
+        lastCacheUpdateTime = currentTime;
+        collisionCacheInitialized = true;
+        elementSetCached = false;
+    }
+    
+    // Cache the set conversion for faster lookups
+    if (!elementSetCached) {
+        elementsToCheckSet.clear();
+        elementsToCheckSet.insert(elementsToCheck.begin(), elementsToCheck.end());
+        elementSetCached = true;
+    }
     
     // Check collision only with elements that match the specified texture types
     for (const auto& elementName : nearbyElements) {
-        // Find the element to get its texture type
-        const auto& elements = elementsManager.getElements();
-        const PlacedElement* currentElement = nullptr;
-        for (const auto& el : elements) {
-            if (el.instanceName == elementName) {
-                currentElement = &el;
-                break;
-            }
+        // PERFORMANCE FIX: Use cached lookup instead of linear search
+        auto cacheIt = elementDataCache.find(elementName);
+        if (cacheIt == elementDataCache.end()) {
+            continue; // Element not found in cache
         }
         
-        if (!currentElement || !currentElement->hasCollision) {
+        const PlacedElement& currentElement = cacheIt->second; // Get reference to cached data
+        if (!currentElement.hasCollision) {
             continue; // Skip elements without collision enabled
         }
         
-        // Check if this element's texture type is in our list to check
-        bool shouldCheckThisElement = false;
-        for (const auto& textureType : elementsToCheck) {
-            if (currentElement->elementName == textureType) {
-                shouldCheckThisElement = true;
-                break;
-            }
-        }
-        
-        if (!shouldCheckThisElement) {
+        // PERFORMANCE FIX: Use set lookup instead of linear search
+        if (elementsToCheckSet.find(currentElement.elementName) == elementsToCheckSet.end()) {
             continue; // Skip elements not in our collision/avoidance list
-        }
-        
-        // Perform the actual collision check for this specific element
-        if (!config.collisionShapePoints.empty() && !currentElement->collisionShapePoints.empty()) {
+        }        // Perform the actual collision check for this specific element
+        if (!config.collisionShapePoints.empty() && !currentElement.collisionShapePoints.empty()) {
+            // PERFORMANCE OPTIMIZATION: Simple distance-based early rejection
+            // Calculate bounding box distance before expensive polygon collision
+            float dx = x - currentElement.x;
+            float dy = y - currentElement.y;
+            float distance = std::sqrt(dx * dx + dy * dy);
+            
+            // Calculate approximate collision radii for early rejection
+            float entityRadius = 0.0f;
+            float elementRadius = 0.0f;
+            
+            for (const auto& point : config.collisionShapePoints) {
+                float dist = std::sqrt(point.first * point.first + point.second * point.second);
+                entityRadius = std::max(entityRadius, dist);
+            }
+            
+            for (const auto& point : currentElement.collisionShapePoints) {
+                float dist = std::sqrt(point.first * point.first + point.second * point.second);
+                elementRadius = std::max(elementRadius, dist * currentElement.scale);
+            }
+            
+            // Early rejection if entities are too far apart to possibly collide
+            if (distance > (entityRadius + elementRadius + 1.0f)) {
+                continue; // Skip expensive polygon collision check
+            }
+            
             // Use polygon-polygon collision detection
             std::vector<std::pair<float, float>> entityWorldShapePoints;
             std::vector<std::pair<float, float>> elementWorldShapePoints;
@@ -1538,6 +1581,7 @@ bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, f
             float entityCosA = cos(entityAngleRad);
             float entitySinA = sin(entityAngleRad);
             
+            entityWorldShapePoints.reserve(config.collisionShapePoints.size());
             for (const auto& localPoint : config.collisionShapePoints) {
                 float scaledX = localPoint.first;
                 float scaledY = localPoint.second;
@@ -1546,21 +1590,20 @@ bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, f
                 float rotatedY = scaledX * entitySinA + scaledY * entityCosA;
                 
                 entityWorldShapePoints.push_back({x + rotatedX, y + rotatedY});
-            }
-            
-            // Transform element polygon points to world coordinates
-            float elementAngleRad = currentElement->rotation * M_PI / 180.0f;
+            }            // Transform element polygon points to world coordinates
+            float elementAngleRad = currentElement.rotation * M_PI / 180.0f;
             float elementCosA = cos(elementAngleRad);
             float elementSinA = sin(elementAngleRad);
             
-            for (const auto& localPoint : currentElement->collisionShapePoints) {
-                float scaledX = localPoint.first * currentElement->scale;
-                float scaledY = localPoint.second * currentElement->scale;
+            elementWorldShapePoints.reserve(currentElement.collisionShapePoints.size());
+            for (const auto& localPoint : currentElement.collisionShapePoints) {
+                float scaledX = localPoint.first * currentElement.scale;
+                float scaledY = localPoint.second * currentElement.scale;
                 
                 float rotatedX = scaledX * elementCosA - scaledY * elementSinA;
                 float rotatedY = scaledX * elementSinA + scaledY * elementCosA;
                 
-                elementWorldShapePoints.push_back({currentElement->x + rotatedX, currentElement->y + rotatedY});
+                elementWorldShapePoints.push_back({currentElement.x + rotatedX, currentElement.y + rotatedY});
             }
               // Perform polygon-polygon collision detection using Separating Axis Theorem (SAT)
             // Check if both polygons have valid points before collision detection

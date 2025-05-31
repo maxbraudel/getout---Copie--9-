@@ -97,10 +97,10 @@ std::map<std::pair<int, int>, BlockName> generateTerrain(
             for (int x_coord = 0; x_coord < gridWidth; ++x_coord) {
                 if (y_coord >= midPoint) {
                     // Top half - GRASS_2
-                    debugMap[{x_coord, y_coord}] = BlockName::GRASS_2;
+                    debugMap[{x_coord, y_coord}] = BlockName::WATER_4;
                 } else {
                     // Bottom half - WATER_4
-                    debugMap[{x_coord, y_coord}] = BlockName::WATER_4;
+                    debugMap[{x_coord, y_coord}] = BlockName::GRASS_2;
                 }
             }
         }
