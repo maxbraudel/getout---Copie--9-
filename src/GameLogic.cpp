@@ -3,6 +3,7 @@
 #include "elementsOnMap.h"
 #include "entities.h"
 #include "entityBehaviors.h"
+#include "entitiesStatus.h"
 #include "camera.h"
 #include "player.h"
 #include "inputs.h"
@@ -131,9 +132,11 @@ void GameLogic::updateEntities(double deltaTime) {
         
         // Update entity movement and animations with view frustum culling
         m_entitiesManager->update(deltaTime, cameraLeft, cameraRight, cameraBottom, cameraTop);
-        
-        // Update entity behaviors with view frustum culling (automatic behaviors like passive random walking)
+          // Update entity behaviors with view frustum culling (automatic behaviors like passive random walking)
         entityBehaviorManager.update(deltaTime, *m_entitiesManager, cameraLeft, cameraRight, cameraBottom, cameraTop);
+        
+        // Process entity destructions (remove entities with 0 or negative life points)
+        processEntityDestructions(*m_entitiesManager);
         
         // Update player slip functionality
     } catch (const std::exception& e) {

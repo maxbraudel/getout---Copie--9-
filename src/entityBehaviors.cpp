@@ -2,6 +2,7 @@
 #include "entities.h"
 #include "elementsOnMap.h" // For global elementsManager
 #include "collision.h" // For collision functions
+#include "entitiesStatus.h" // For damage system
 #include <iostream>
 #include <random>
 #include <chrono>
@@ -741,12 +742,14 @@ void EntityBehaviorManager::updateAttackStateBehavior(Entity& entity, double del
             float targetX, targetY;
             if (elementsManager.getElementPosition(targetElementName, targetX, targetY)) {                // Check if entity is touching the target's collision boundary
                 const float touchingDistance = 0.1f; // Consider "touching" when collision boundaries are within 0.1 unit
-                
-                if (nearestTargetDistance <= touchingDistance) {
+                  if (nearestTargetDistance <= touchingDistance) {
                     // Entity is touching the target - start waiting before next charge
                     if (!entity.isWaitingBeforeCharge) {
                         std::cout << "Entity " << entity.instanceName << " reached target " 
                                   << nearestTargetEntity << " - starting wait period" << std::endl;
+                        
+                        // Apply damage to the target
+                        handleAttackDamage(entity.instanceName, nearestTargetEntity, entitiesManager);
                         
                         // Generate random wait time between min and max
                         static std::random_device rd;

@@ -111,11 +111,11 @@ static void initializeEntityTypes() {
             // EntityName::ANTAGONIST,
         }; */
         
-        antagonist.collisionEntities = {
+        /* antagonist.collisionEntities = {
             EntityName::PLAYER,
             EntityName::ANTAGONIST // Antagonist collides with itself
             // Empty - allow overlapping with player during movement/attacks
-        };
+        }; */
           // Map boundary control settings
         antagonist.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
         antagonist.offMapCollision = true; // Antagonist collides with map borders// Automatic behavior configuration
@@ -142,10 +142,12 @@ static void initializeEntityTypes() {
         antagonist.attackState = true; // Enable attack state behavior
         antagonist.attackStateRunning = true; // Run when attacking
         antagonist.attackStateStartRadius = 0.0f; // Start attacking when player is 5 units away
-        antagonist.attackStateEndRadius = 8.0f; // Stop attacking when player is 10+ units away
-        antagonist.attackStateWaitBeforeChargeMin = 0.5f; // Wait 1-3 seconds before charging again
+        antagonist.attackStateEndRadius = 8.0f; // Stop attacking when player is 10+ units away        antagonist.attackStateWaitBeforeChargeMin = 0.5f; // Wait 1-3 seconds before charging again
         antagonist.attackStateWaitBeforeChargeMax = 1.0f;
         antagonist.attackStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers attack state
+          // Health settings
+        antagonist.lifePoints = 20; // Antagonist has 20 life points
+        antagonist.damagePoints = 5; // Antagonist deals 5 damage points
         
         // Add to the list
         entityTypes.push_back(antagonist);EntityInfo player;
@@ -207,11 +209,12 @@ static void initializeEntityTypes() {
         /* player.collisionEntities = {
             EntityName::ANTAGONIST // Collide with antagonist during movement (prevents overlap)
         }; */
-        
-        // Map boundary control settings
+          // Map boundary control settings
         player.offMapAvoidance = true; // Player pathfinding avoids map borders
         player.offMapCollision = true; // Player collides with map borders
         
+        // Health settings
+        player.lifePoints = 100; // Player has 100 life points
 
         // Add to the list
         entityTypes.push_back(player);
@@ -437,13 +440,15 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, EntityName en
             safeX = x;
             safeY = y;
         }
-    }
-      // Generate the element name
+    }    // Generate the element name
     std::string elementName = getElementName(instanceName);
-      // Create an Entity object
+    
+    // Create an Entity object
     Entity entity;
     entity.instanceName = instanceName;
     entity.type = entityType;
+    entity.lifePoints = config->lifePoints;  // Initialize entity's life points from config
+    entity.damagePoints = config->damagePoints;  // Initialize entity's damage points from config
     
     // Place the element on the map using ElementsOnMap
     elementsManager.placeElement(

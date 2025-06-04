@@ -32,10 +32,13 @@ enum class WalkType {
 };
 
 // Struct to hold predefined entity types information
-struct EntityInfo {
-    EntityName type;
+struct EntityInfo {    EntityName type;
     ElementName elementName;
     float scale;
+    
+    // Health/damage system
+    int lifePoints = 100; // Default life points
+    int damagePoints = 0; // Default damage points
     
     // Sprite configuration
     int defaultSpriteSheetPhase;
@@ -99,10 +102,13 @@ struct EntityInfo {
 };
 
 // Struct to hold entity configuration
-struct EntityConfiguration {
-    EntityName type;
+struct EntityConfiguration {    EntityName type;
     ElementName elementName;
     float scale = 1.0f;
+    
+    // Health/damage system
+    int lifePoints = 100; // Default life points
+    int damagePoints = 0; // Default damage points
     
     // Default sprite configuration
     int defaultSpriteSheetPhase = 0;
@@ -165,11 +171,13 @@ struct EntityConfiguration {
     std::vector<EntityName> attackStateTriggerEntitiesList; // List of entity types that trigger attack state
     
     // Constructor to create from EntityInfo
-    EntityConfiguration() = default;
-      EntityConfiguration(const EntityInfo& info) {
+    EntityConfiguration() = default;    EntityConfiguration(const EntityInfo& info) {
         type = info.type;
         elementName = info.elementName;
         scale = info.scale;
+          // Copy health/damage settings
+        lifePoints = info.lifePoints;
+        damagePoints = info.damagePoints;
         
         defaultSpriteSheetPhase = info.defaultSpriteSheetPhase;
         defaultSpriteSheetFrame = info.defaultSpriteSheetFrame;
@@ -229,9 +237,12 @@ struct EntityConfiguration {
 };
 
 // Struct to hold entity instance data
-struct Entity {
-    std::string instanceName;
+struct Entity {    std::string instanceName;
     EntityName type;
+    
+    // Health/damage system
+    int lifePoints = 100; // Current life points for this entity instance
+    int damagePoints = 0; // Current damage points for this entity instance
     
     // Movement target - only used when walking to a location
     bool isWalking = false;
