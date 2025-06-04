@@ -1,8 +1,10 @@
 #include "entities.h"
 #include "elementsOnMap.h"
+#include "collision.h"
 #include <iostream>
 #include <vector>
 #include <string>
+#include <mutex>
 
 // Function to apply damage from attacker to target entity
 bool applyDamage(const std::string& attackerInstanceName, const std::string& targetInstanceName, 
@@ -52,10 +54,26 @@ void destroyEntity(const std::string& instanceName, EntitiesManager& entitiesMan
     
     std::cout << "Destroying entity " << instanceName << " and its element " << elementName << std::endl;
     
-    // Remove the element from the map
+    // 1. Stop entity movement first to clean up pathfinding
+    entitiesManager.stopEntityMovement(instanceName);
+    
+    // 2. Remove from HierarchicalEntityGrid (collision/spatial systems)
+    extern HierarchicalEntityGrid g_hierarchicalEntityGrid;
+    extern std::mutex g_hierarchicalEntityGridMutex;
+    {
+        std::lock_guard<std::mutex> lock(g_hierarchicalEntityGridMutex);
+        g_hierarchicalEntityGrid.removeEntity(instanceName);
+    }
+    
+    // 3. Reset entity spatial grid to remove references
+    extern void resetEntitySpatialGrid();
+    resetEntitySpatialGrid();
+    
+    // 4. Remove the element from the map
     extern ElementsOnMap elementsManager;
     elementsManager.removeElement(elementName);
-      // Remove the entity from the entities manager
+    
+    // 5. Finally, remove the entity from the entities manager
     entitiesManager.getEntities().erase(instanceName);
 }
 

@@ -215,22 +215,22 @@ void ElementsOnMap::placeElement(const std::string& instanceName, ElementName el
                                AnchorPoint anchorPoint, float anchorOffsetX, float anchorOffsetY) {
     std::lock_guard<std::mutex> lock(elementsMutex);
     
-    // Check if an element with this name already exists
-    auto mapIt = elementIndexMap.find(instanceName);
-    if (mapIt != elementIndexMap.end()) {
-if (DEBUG_LOGS) { std::cerr << "WARNING: Element with name '" << instanceName << "' already exists at index " << mapIt->second << std::endl; }
+    // Check if an element with this name already exists by searching directly
+    // This is more reliable than using elementIndexMap which becomes stale after sorting
+    auto existingIt = std::find_if(elements.begin(), elements.end(),
+        [&instanceName](const PlacedElement& element) {
+            return element.instanceName == instanceName;
+        });
         
-        // Print detailed information about the existing element
-        size_t existingIndex = mapIt->second;
-        if (existingIndex < elements.size()) {
-            const auto& existingElement = elements[existingIndex];
-            std::cerr << "  Details: position=(" << existingElement.x << "," << existingElement.y 
-                      << "), texture=" << static_cast<int>(existingElement.elementName) << std::endl;
+    if (existingIt != elements.end()) {
+        if (DEBUG_LOGS) {
+            std::cerr << "WARNING: Element with name '" << instanceName << "' already exists" << std::endl;
+            std::cerr << "  Details: position=(" << existingIt->x << "," << existingIt->y 
+                      << "), texture=" << static_cast<int>(existingIt->elementName) << std::endl;
+            std::cerr << "To modify the existing element, use functions like changeElementCoordinates() instead." << std::endl;
         }
-        
-if (DEBUG_LOGS) { std::cerr << "To modify the existing element, use functions like changeElementCoordinates() instead." << std::endl; }
         return;
-    }    // Create a PlacedElement explicitly instead of using initializer list (C++11 compatibility)
+    }// Create a PlacedElement explicitly instead of using initializer list (C++11 compatibility)
     PlacedElement element;
     element.instanceName = instanceName;
     element.elementName = elementName;
@@ -992,28 +992,29 @@ if (DEBUG_LOGS) { std::cout << "================================================
 bool ElementsOnMap::removeElement(const std::string& instanceName) {
     std::lock_guard<std::mutex> lock(elementsMutex);
     
-    // Find the element in the index map
-    auto it = elementIndexMap.find(instanceName);
-    if (it == elementIndexMap.end()) {
+    // Find the element by name directly in the elements vector
+    // This approach is immune to sorting operations in drawElements()
+    auto it = std::find_if(elements.begin(), elements.end(),
+        [&instanceName](const PlacedElement& element) {
+            return element.instanceName == instanceName;
+        });
+    
+    if (it == elements.end()) {
         // Element not found, return false
+        if (DEBUG_LOGS) {
+            std::cerr << "Element not found for removal: " << instanceName << std::endl;
+        }
         return false;
     }
     
-    // Get the index of the element to remove
-    size_t indexToRemove = it->second;
-    
-    // Remove the element from the index map
-    elementIndexMap.erase(it);
-    
     // Remove the element from the elements vector
-    elements.erase(elements.begin() + indexToRemove);
+    elements.erase(it);
     
-    // Update the indices in the elementIndexMap for all elements after the removed one
-    for (auto& pair : elementIndexMap) {
-        if (pair.second > indexToRemove) {
-            // Decrement the index for elements that were after the removed element
-            pair.second--;
-        }
+    // Remove from the index map if it exists (cleanup)
+    elementIndexMap.erase(instanceName);
+    
+    if (DEBUG_LOGS) {
+        std::cout << "Successfully removed element: " << instanceName << std::endl;
     }
     
     return true;

@@ -5,6 +5,7 @@
 
 // Forward declaration from entities.h
 enum class EntityName {
+    ANTAGONIST2,
     ANTAGONIST,
     PLAYER // Add more entity types as needed
 };

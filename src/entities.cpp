@@ -148,6 +148,110 @@ static void initializeEntityTypes() {
           // Health settings
         antagonist.lifePoints = 20; // Antagonist has 20 life points
         antagonist.damagePoints = 5; // Antagonist deals 5 damage points
+
+
+
+
+        EntityInfo antagonist2;
+        antagonist2.type = EntityName::ANTAGONIST2;
+        antagonist2.elementName = ElementName::ANTAGONIST1;
+        antagonist2.scale = 1.5f;
+        
+        // Default sprite configuration
+        antagonist2.defaultSpriteSheetPhase = 2;
+        antagonist2.defaultSpriteSheetFrame = 0;
+        antagonist2.defaultAnimationSpeed = 11.0f;
+        
+        // Walking animation phases
+        antagonist2.spritePhaseWalkUp = 3;
+        antagonist2.spritePhaseWalkDown = 0;
+        antagonist2.spritePhaseWalkLeft = 2;
+        antagonist2.spritePhaseWalkRight = 1;
+        
+        // Movement speeds
+        antagonist2.normalWalkingSpeed = 1.5f;
+        antagonist2.normalWalkingAnimationSpeed = 4.0f;
+        antagonist2.sprintWalkingSpeed = 4.0f;
+        antagonist2.sprintWalkingAnimationSpeed = 8.0f;    // Collision settings
+        antagonist2.canCollide = true;
+        antagonist2.collisionShapePoints = {
+            {-0.2f, -0.1f}, {0.2f, -0.1f}, {0.2f, 0.1f}, {-0.2f, 0.1f}
+        };    // Granular collision control - antagonist2 avoids trees but can move through player
+        // For testing: Leave lists empty to allow movement through all elements
+        antagonist2.avoidanceElements = {
+            // Empty - no elements to avoid for pathfinding
+            ElementName::COCONUT_TREE_1,
+            ElementName::COCONUT_TREE_2,
+            ElementName::COCONUT_TREE_3,
+        };    
+        antagonist2.collisionElements = {
+            // Empty - no elements to collide with during movement
+            ElementName::COCONUT_TREE_1,
+            ElementName::COCONUT_TREE_2,
+            ElementName::COCONUT_TREE_3,
+        };
+          // Block collision configuration - Antagonist avoids water during pathfinding and movement
+        antagonist2.avoidanceBlocks = {
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4
+        };
+        
+        antagonist2.collisionBlocks = {
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4        
+        };
+        
+        // Entity collision configuration - Antagonist avoids player for pathfinding but can collide during movement
+        /* antagonist2.avoidanceEntities = {
+            EntityName::ANTAGONIST
+            // EntityName::ANTAGONIST,
+        }; */
+        
+        /* antagonist2.collisionEntities = {
+            EntityName::PLAYER,
+            EntityName::ANTAGONIST // Antagonist collides with itself
+            // Empty - allow overlapping with player during movement/attacks
+        }; */
+          // Map boundary control settings
+        antagonist2.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
+        antagonist2.offMapCollision = true; // Antagonist collides with map borders// Automatic behavior configuration
+        antagonist2.automaticBehaviors = true; // Enable automatic behaviors for antagonist2
+        antagonist2.passiveState = true; // Enable passive state random walking
+        antagonist2.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
+        antagonist2.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
+        antagonist2.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)
+          // Alert state configuration - antagonist2 becomes alert when player is nearby
+        antagonist2.alertState = true; // Enable alert state behavior
+        antagonist2.alertStateStartRadius = 9.0f; // Start becoming alert when player is 3 units away
+        antagonist2.alertStateEndRadius = 11.0f; // Stop being alert when player is 8+ units away
+        antagonist2.alertStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers alert state
+          // Flee state configuration - antagonist2 flees when player gets too close
+        antagonist2.fleeState = false; // Enable flee state behavior
+        antagonist2.fleeStateRunning = true; // Run when fleeing
+        antagonist2.fleeStateStartRadius = 0.0f; // Start fleeing when player is 2 units away
+        antagonist2.fleeStateEndRadius = 8.0f; // Stop fleeing when player is 4+ units away
+        antagonist2.fleeStateMinDistance = 6.0f; // Maintain at least 6 units distance from player
+        antagonist2.fleeStateMaxDistance = 10.0f; // Flee up to 10 units away
+        antagonist2.fleeStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers flee state
+        
+        // Attack state configuration - antagonist2 attacks when player is in range
+        antagonist2.attackState = true; // Enable attack state behavior
+        antagonist2.attackStateRunning = true; // Run when attacking
+        antagonist2.attackStateStartRadius = 0.0f; // Start attacking when player is 5 units away
+        antagonist2.attackStateEndRadius = 8.0f; // Stop attacking when player is 10+ units away        antagonist2.attackStateWaitBeforeChargeMin = 0.5f; // Wait 1-3 seconds before charging again
+        antagonist2.attackStateWaitBeforeChargeMax = 1.0f;
+        antagonist2.attackStateTriggerEntitiesList = { EntityName::ANTAGONIST }; // Player triggers attack state
+          // Health settings
+        antagonist2.lifePoints = 20; // Antagonist has 20 life points
+        antagonist2.damagePoints = 5; // Antagonist deals 5 damage points
+
+        entityTypes.push_back(antagonist2); // Add antagonist to the list
         
         // Add to the list
         entityTypes.push_back(antagonist);EntityInfo player;
