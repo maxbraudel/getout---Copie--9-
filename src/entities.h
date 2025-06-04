@@ -10,6 +10,7 @@
 #include <utility> // For std::pair
 #include <chrono> // For async pathfinding timing
 #include "enumDefinitions.h"
+#include "collisionCache.h"
 
 // Constants for entity movement and stuck detection
 const float ENTITY_STUCK_TIMEOUT_FOR_STOPPING_MOVEMENT = 0.5f; // seconds
@@ -286,6 +287,9 @@ struct Entity {
     double attackStateWaitTimer = 0.0; // Timer for waiting before charging again
     bool isWaitingBeforeCharge = false; // Whether the entity is currently waiting before charging
     double nextChargeTime = 0.0; // When the next charge should happen
+    
+    // Pre-calculated collision box for performance optimization
+    mutable PreCalculatedCollisionBox cachedCollisionBox;
 };
 
 // EntitiesManager - Manages all entities in the game
@@ -390,6 +394,12 @@ bool wouldEntityCollideWithBlocksGranular(const EntityConfiguration& config, flo
 // Enhanced entity collision function that respects granular entity collision settings
 // useAvoidanceList: true = check avoidanceEntities, false = check collisionEntities
 bool wouldEntityCollideWithEntitiesGranular(const EntityConfiguration& config, float x, float y, bool useAvoidanceList = false, const std::string& excludeInstanceName = "");
+
+// Spatial grid functions for entity collision optimization
+int getEntitySpatialGridIndex(float x, float y);
+void updateEntitySpatialGrid();
+void resetEntitySpatialGrid();
+std::vector<std::string> getNearbyEntities(float x, float y, float radius);
 
 // Global instance
 extern EntitiesManager entitiesManager;

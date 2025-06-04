@@ -13,6 +13,7 @@
 #include <chrono>         // Added for performance monitoring
 #include <iomanip>        // Added for performance stats formatting
 #include <limits> // Added for std::numeric_limits
+#include <mutex>          // Added for thread safety
 #include "enumDefinitions.h"
 
 
@@ -25,22 +26,22 @@ extern EntitiesManager entitiesManager;
 #endif
 
 // Cache for collidable element names
-static std::vector<std::string> collidableElementNames;
-static bool collisionCacheInitialized = false;
+thread_local static std::vector<std::string> collidableElementNames;
+thread_local static bool collisionCacheInitialized = false;
 
 // Spatial partitioning grid for more efficient collision detection
 // This divides the game world into a grid of cells, and only checks collisions
 // with elements in the same or neighboring cells
 const int SPATIAL_GRID_SIZE = 10; // Size of each spatial grid cell
-static std::unordered_map<int, std::vector<std::string>> spatialGrid;
-bool spatialGridInitialized = false;
-static float lastSpatialGridUpdateTime = 0.0f;
+thread_local static std::unordered_map<int, std::vector<std::string>> spatialGrid;
+thread_local static bool spatialGridInitialized = false;
+thread_local static float lastSpatialGridUpdateTime = 0.0f;
 
 // Safety distance for collision resolution - ensures entities aren't teleported too close to collision areas
 const float SAFETY_DISTANCE_FROM_COLLISION_AREA_AFTER_RESOLUTION = 1.0f;
 
 // Last time debug messages were printed to reduce spam
-static float lastCollisionDebugTime = 0.0f;
+thread_local static float lastCollisionDebugTime = 0.0f;
 
 // Define the set of non-traversable blocks
 std::set<BlockName> nonTraversableBlocks = {
@@ -87,8 +88,8 @@ void printNonTraversableBlocks() {
 
 // Function to get all collidable element names in the game
 std::vector<std::string> getCollidableElementNames() {
-    static float lastCacheUpdateTime = 0.0f;
-    static bool firstInit = true;
+    thread_local static float lastCacheUpdateTime = 0.0f;
+    thread_local static bool firstInit = true;
     
     // CRASH FIX: Validate elementsManager before accessing
     try {
@@ -124,7 +125,7 @@ std::vector<std::string> getCollidableElementNames() {
 }
 
 // Define a constant maximum collision range to optimize element checks
-const float MAX_COLLISION_CHECK_RANGE = 3.0f; // Only check elements within this range
+const float MAX_COLLISION_CHECK_RANGE = 1.5f; // Only check elements within this range (reduced from 3.0f for better performance)
 
 // Function to check if a position would collide with a collidable element
 bool wouldCollideWithElement(float x, float y, float playerRadius) {
@@ -136,7 +137,10 @@ bool wouldCollideWithElement(float x, float y, float playerRadius) {
 void resetCollisionCache() {
     collisionCacheInitialized = false;
     spatialGridInitialized = false;
-    g_hierarchicalGrid.clear();  // Also reset hierarchical grid
+    {
+        std::lock_guard<std::mutex> lock(g_hierarchicalGridMutex);
+        g_hierarchicalGrid.clear();  // Also reset hierarchical grid
+    }
 }
 
 // Get spatial grid cell index from world coordinates
@@ -222,8 +226,8 @@ bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap) {
     // Check if this block type is in our set of non-traversable blocks
     if (nonTraversableBlocks.find(blockType) != nonTraversableBlocks.end()) {
         // Throttle debug output much more aggressively
-        static int mapCollisionCounter = 0;
-        static float lastMapDebugTime = 0.0f;
+        thread_local static int mapCollisionCounter = 0;
+        thread_local static float lastMapDebugTime = 0.0f;
         float currentTime = static_cast<float>(glfwGetTime());
         
         if (playerDebugMode && currentTime - lastMapDebugTime > 5.0f) {
@@ -253,9 +257,8 @@ bool wouldCollideWithMapBlock(float x, float y, const Map& gameMap, const std::s
     
     // Check if this block type is in the entity's set of non-traversable blocks
     if (entityNonTraversableBlocks.find(blockType) != entityNonTraversableBlocks.end()) {
-        // Throttle debug output much more aggressively
-        static int mapCollisionCounter = 0;
-        static float lastMapDebugTime = 0.0f;
+        // Throttle debug output much more aggressively        thread_local static int mapCollisionCounter = 0;
+        thread_local static float lastMapDebugTime = 0.0f;
         float currentTime = static_cast<float>(glfwGetTime());
         
         if (playerDebugMode && currentTime - lastMapDebugTime > 5.0f) {
@@ -545,6 +548,69 @@ bool polygonPolygonCollision(const std::vector<std::pair<float, float>>& poly1, 
     return true; // No separating axis found, collision detected
 }
 
+// Helper function for circle-polygon collision detection
+bool circlePolygonCollision(float circleX, float circleY, float radius, const std::vector<std::pair<float, float>>& polygon) {
+    if (polygon.empty()) {
+        return false;
+    }
+    
+    // Check if circle center is inside polygon
+    bool inside = true;
+    for (size_t i = 0; i < polygon.size(); ++i) {
+        size_t j = (i + 1) % polygon.size();
+        
+        float edgeX = polygon[j].first - polygon[i].first;
+        float edgeY = polygon[j].second - polygon[i].second;
+        
+        float toCircleX = circleX - polygon[i].first;
+        float toCircleY = circleY - polygon[i].second;
+        
+        // Cross product to determine which side of edge the circle center is on
+        float cross = edgeX * toCircleY - edgeY * toCircleX;
+        if (cross < 0) {
+            inside = false;
+            break;
+        }
+    }
+    
+    if (inside) {
+        return true; // Circle center is inside polygon
+    }
+    
+    // Check if circle intersects any edge of the polygon
+    for (size_t i = 0; i < polygon.size(); ++i) {
+        size_t j = (i + 1) % polygon.size();
+        
+        float edgeX = polygon[j].first - polygon[i].first;
+        float edgeY = polygon[j].second - polygon[i].second;
+        
+        float toCircleX = circleX - polygon[i].first;
+        float toCircleY = circleY - polygon[i].second;
+        
+        // Project circle center onto edge
+        float edgeLength = edgeX * edgeX + edgeY * edgeY;
+        if (edgeLength == 0) continue; // Skip zero-length edges
+        
+        float t = (toCircleX * edgeX + toCircleY * edgeY) / edgeLength;
+        t = std::max(0.0f, std::min(1.0f, t)); // Clamp to edge
+        
+        // Find closest point on edge
+        float closestX = polygon[i].first + t * edgeX;
+        float closestY = polygon[i].second + t * edgeY;
+        
+        // Check distance from circle center to closest point
+        float distX = circleX - closestX;
+        float distY = circleY - closestY;
+        float distSquared = distX * distX + distY * distY;
+        
+        if (distSquared <= radius * radius) {
+            return true; // Circle intersects this edge
+        }
+    }
+    
+    return false; // No intersection
+}
+
 // Helper function to check if an entity's collision shape would go beyond map boundaries
 bool wouldEntityCollideWithMapBounds(float x, float y, const std::vector<std::pair<float, float>>& collisionShapePoints, float entityScale, float entityRotation) {
     if (collisionShapePoints.empty()) {
@@ -587,6 +653,11 @@ bool wouldEntityCollideWithMapBounds(const EntityConfiguration& config, float x,
 
 // Global instance of hierarchical spatial grid
 HierarchicalSpatialGrid g_hierarchicalGrid;
+std::mutex g_hierarchicalGridMutex;
+
+// Thread-safe hierarchical entity grid for optimized entity-to-entity collision
+HierarchicalEntityGrid g_hierarchicalEntityGrid;
+std::mutex g_hierarchicalEntityGridMutex;
 
 // Performance monitoring for collision system
 CollisionPerformanceStats g_collisionStats;
@@ -848,16 +919,21 @@ void HierarchicalSpatialGrid::removeElementFromGrid(const std::string& elementNa
 
 // Enhanced collision detection functions using hierarchical grid
 bool wouldCollideWithElementHierarchical(float x, float y, float playerRadius) {
-    // Initialize hierarchical grid if needed
-    if (!g_hierarchicalGrid.isInitializedState()) {
-        g_hierarchicalGrid.initialize();
+    // Thread-safe access to hierarchical grid
+    std::vector<std::string> nearbyElements;
+    {
+        std::lock_guard<std::mutex> lock(g_hierarchicalGridMutex);
+        // Initialize hierarchical grid if needed
+        if (!g_hierarchicalGrid.isInitializedState()) {
+            g_hierarchicalGrid.initialize();
+        }
+        
+        // Update grid before collision check
+        g_hierarchicalGrid.updateGrid();
+        
+        // Get nearby elements using hierarchical lookup
+        nearbyElements = g_hierarchicalGrid.getElementsHierarchical(x, y, playerRadius + MAX_COLLISION_CHECK_RANGE);
     }
-    
-    // Update grid before collision check
-    g_hierarchicalGrid.updateGrid();
-    
-    // Get nearby elements using hierarchical lookup
-    std::vector<std::string> nearbyElements = g_hierarchicalGrid.getElementsHierarchical(x, y, playerRadius + MAX_COLLISION_CHECK_RANGE);
     
     // Perform collision detection on nearby elements
     for (const auto& elementName : nearbyElements) {
@@ -866,98 +942,221 @@ bool wouldCollideWithElementHierarchical(float x, float y, float playerRadius) {
         float elementRotation = 0.0f;
         std::vector<std::pair<float, float>> elementCollisionShapePoints;
         
-        // Find the element to get its actual collision properties
-        const auto& elements = elementsManager.getElements();
-        const PlacedElement* currentElement = nullptr;
-        for (const auto& el : elements) {
-            if (el.instanceName == elementName) {
-                currentElement = &el;
-                break;
+        if (elementsManager.getElementPosition(elementName, elementX, elementY)) {
+            auto elementData = elementsManager.getElementData(elementName);
+            if (elementData) {
+                elementScale = elementData->scale;
+                elementRotation = elementData->rotation;
+                elementCollisionShapePoints = elementData->collisionShapePoints;
             }
-        }
-        
-        if (!currentElement || !currentElement->hasCollision || currentElement->collisionShapePoints.empty()) {
-            continue;
-        }
-        
-        elementX = currentElement->x;
-        elementY = currentElement->y;
-        elementScale = currentElement->scale;
-        elementRotation = currentElement->rotation;
-        elementCollisionShapePoints = currentElement->collisionShapePoints;
-        
-        // Transform polygon points to world coordinates
-        std::vector<std::pair<float, float>> worldShapePoints;
-        float angleRad = elementRotation * M_PI / 180.0f;
-        float cosA = cos(angleRad);
-        float sinA = sin(angleRad);
-        
-        for (const auto& localPoint : elementCollisionShapePoints) {
-            float scaledX = localPoint.first * elementScale;
-            float scaledY = localPoint.second * elementScale;
             
-            float rotatedX = scaledX * cosA - scaledY * sinA;
-            float rotatedY = scaledX * sinA + scaledY * cosA;
+            // Calculate distance between player and element centers
+            float dx = x - elementX;
+            float dy = y - elementY;
+            float distance = std::sqrt(dx * dx + dy * dy);
             
-            worldShapePoints.push_back({elementX + rotatedX, elementY + rotatedY});
-        }
-        
-        // Perform circle-polygon collision detection
-        bool collision = false;
-        int intersectCount = 0;
-        for (size_t i = 0; i < worldShapePoints.size(); ++i) {
-            std::pair<float, float> p1 = worldShapePoints[i];
-            std::pair<float, float> p2 = worldShapePoints[(i + 1) % worldShapePoints.size()];
-            
-            if (((p1.second > y) != (p2.second > y)) &&
-                (x < (p2.first - p1.first) * (y - p1.second) / (p2.second - p1.second) + p1.first)) {
-                intersectCount++;
-            }
-        }
-        
-        if (intersectCount % 2 == 1) {
-            collision = true;
-        } else {
-            // Check distance to polygon edges
-            for (size_t i = 0; i < worldShapePoints.size(); ++i) {
-                std::pair<float, float> p1 = worldShapePoints[i];
-                std::pair<float, float> p2 = worldShapePoints[(i + 1) % worldShapePoints.size()];
+            // If the element has collision shape points, use precise polygon collision
+            if (!elementCollisionShapePoints.empty()) {
+                // Calculate element collision shape in world coordinates
+                std::vector<std::pair<float, float>> elementWorldShapePoints;
+                float elementAngleRad = elementRotation * M_PI / 180.0f;
+                float elementCosA = cos(elementAngleRad);
+                float elementSinA = sin(elementAngleRad);
                 
-                float A = y - p1.second;
-                float B = p1.first - x;
-                float C = (x - p1.first) * (p2.second - p1.second) - (y - p1.second) * (p2.first - p1.first);
-                
-                float distance = std::abs(A * p2.first + B * p2.second + C) / std::sqrt(A * A + B * B);
-                
-                if (distance <= playerRadius) {
-                    float dotProduct = (x - p1.first) * (p2.first - p1.first) + (y - p1.second) * (p2.second - p1.second);
-                    float squaredLength = (p2.first - p1.first) * (p2.first - p1.first) + (p2.second - p1.second) * (p2.second - p1.second);
+                for (const auto& localPoint : elementCollisionShapePoints) {
+                    float scaledX = localPoint.first * elementScale;
+                    float scaledY = localPoint.second * elementScale;
                     
-                    if (dotProduct >= 0 && dotProduct <= squaredLength) {
-                        collision = true;
-                        break;
-                    }
+                    float rotatedX = scaledX * elementCosA - scaledY * elementSinA;
+                    float rotatedY = scaledX * elementSinA + scaledY * elementCosA;
+                    
+                    elementWorldShapePoints.push_back({elementX + rotatedX, elementY + rotatedY});
+                }
+                
+                // Check if player circle intersects with element polygon
+                if (circlePolygonCollision(x, y, playerRadius, elementWorldShapePoints)) {
+                    return true;
+                }
+            } else {
+                // Fallback to radius-based collision
+                if (distance < playerRadius + 1.0f) {
+                    return true;
                 }
             }
-        }
-        
-        if (collision) {
-            return true;
         }
     }
     
     return false;
 }
 
-bool wouldEntityCollideWithElementHierarchical(float x, float y, const std::vector<std::pair<float, float>>& entityCollisionShapePoints, float entityScale, float entityRotation) {
-    // Initialize hierarchical grid if needed
-    if (!g_hierarchicalGrid.isInitializedState()) {
-        g_hierarchicalGrid.initialize();
+// HIERARCHICAL ENTITY GRID IMPLEMENTATION
+// HierarchicalEntityGrid - Optimized entity-to-entity collision detection
+void HierarchicalEntityGrid::initialize() {
+    if (isInitialized) return;
+    
+    clear();
+    
+    // Initialize with all current entities
+    const auto& allEntities = entitiesManager.getEntities();
+    for (const auto& pair : allEntities) {
+        entityInstanceNames.insert(pair.first);
     }
     
-    // Update grid before collision check
-    g_hierarchicalGrid.updateGrid();
+    updateGrid(true); // Force initial update
+    isInitialized = true;
     
+    if (DEBUG_LOGS) {
+        std::cout << "HierarchicalEntityGrid initialized with " 
+                  << entityInstanceNames.size() << " entities" << std::endl;
+    }
+}
+
+void HierarchicalEntityGrid::updateGrid(bool forceUpdate) {
+    float currentTime = static_cast<float>(glfwGetTime());
+    
+    bool shouldUpdate = forceUpdate || (currentTime - lastFineUpdateTime > DYNAMIC_UPDATE_INTERVAL);
+    
+    if (shouldUpdate) {
+        updateEntityPositions();
+        lastFineUpdateTime = currentTime;
+    }
+}
+
+void HierarchicalEntityGrid::updateEntityPositions() {
+    // Clear both grids
+    coarseGrid.clear();
+    fineGrid.clear();
+    
+    // Re-add all entities to both grids
+    for (const auto& instanceName : entityInstanceNames) {
+        const Entity* entity = entitiesManager.getEntity(instanceName);
+        if (entity) {
+            std::string elementName = EntitiesManager::getElementName(instanceName);
+            float x, y;
+            if (elementsManager.getElementPosition(elementName, x, y)) {
+                addEntityToGrid(instanceName, x, y);
+            }
+        }
+    }
+}
+
+std::vector<std::string> HierarchicalEntityGrid::getBroadPhaseEntities(float x, float y, float radius) {
+    std::vector<std::string> result;
+    
+    // Use coarse grid for broad phase
+    int cellRadius = static_cast<int>(radius / COARSE_GRID_SIZE) + 1;
+    int centerCellX = static_cast<int>(x) / COARSE_GRID_SIZE;
+    int centerCellY = static_cast<int>(y) / COARSE_GRID_SIZE;
+    
+    for (int cellX = centerCellX - cellRadius; cellX <= centerCellX + cellRadius; cellX++) {
+        for (int cellY = centerCellY - cellRadius; cellY <= centerCellY + cellRadius; cellY++) {
+            int index = getCoarseGridIndex(cellX * COARSE_GRID_SIZE, cellY * COARSE_GRID_SIZE);
+            
+            auto it = coarseGrid.find(index);
+            if (it != coarseGrid.end()) {
+                const auto& cell = it->second;
+                result.insert(result.end(), cell.staticElements.begin(), cell.staticElements.end());
+                result.insert(result.end(), cell.dynamicElements.begin(), cell.dynamicElements.end());
+            }
+        }
+    }
+    
+    return result;
+}
+
+std::vector<std::string> HierarchicalEntityGrid::getNarrowPhaseEntities(float x, float y, float radius) {
+    std::vector<std::string> result;
+    
+    // Use fine grid for narrow phase
+    int cellRadius = static_cast<int>(radius / FINE_GRID_SIZE) + 1;
+    int centerCellX = static_cast<int>(x) / FINE_GRID_SIZE;
+    int centerCellY = static_cast<int>(y) / FINE_GRID_SIZE;
+    
+    for (int cellX = centerCellX - cellRadius; cellX <= centerCellX + cellRadius; cellX++) {
+        for (int cellY = centerCellY - cellRadius; cellY <= centerCellY + cellRadius; cellY++) {
+            int index = getFineGridIndex(cellX * FINE_GRID_SIZE, cellY * FINE_GRID_SIZE);
+            
+            auto it = fineGrid.find(index);
+            if (it != fineGrid.end()) {
+                const auto& cell = it->second;
+                result.insert(result.end(), cell.staticElements.begin(), cell.staticElements.end());
+                result.insert(result.end(), cell.dynamicElements.begin(), cell.dynamicElements.end());
+            }
+        }
+    }
+    
+    return result;
+}
+
+std::vector<std::string> HierarchicalEntityGrid::getEntitiesHierarchical(float x, float y, float radius) {
+    std::vector<std::string> result;
+    
+    // Use broad phase for large radius queries
+    if (radius > COARSE_GRID_SIZE * 0.5f) {
+        result = getBroadPhaseEntities(x, y, radius);
+    } else {
+        // Use narrow phase for precise queries
+        result = getNarrowPhaseEntities(x, y, radius);
+    }
+    
+    return result;
+}
+
+void HierarchicalEntityGrid::addEntity(const std::string& instanceName, float x, float y) {
+    entityInstanceNames.insert(instanceName);
+    addEntityToGrid(instanceName, x, y);
+}
+
+void HierarchicalEntityGrid::removeEntity(const std::string& instanceName) {
+    entityInstanceNames.erase(instanceName);
+    // Note: We don't remove from grids immediately for performance
+    // The grid will be cleaned up on next update
+}
+
+void HierarchicalEntityGrid::clear() {
+    coarseGrid.clear();
+    fineGrid.clear();
+    entityInstanceNames.clear();
+    isInitialized = false;
+    lastCoarseUpdateTime = 0.0f;
+    lastFineUpdateTime = 0.0f;
+}
+
+bool HierarchicalEntityGrid::isEmpty() const {
+    return entityInstanceNames.empty();
+}
+
+bool HierarchicalEntityGrid::isInitializedState() const {
+    return isInitialized;
+}
+
+size_t HierarchicalEntityGrid::getEntityCount() const {
+    return entityInstanceNames.size();
+}
+
+int HierarchicalEntityGrid::getCoarseGridIndex(float x, float y) const {
+    int gridX = static_cast<int>(x) / COARSE_GRID_SIZE;
+    int gridY = static_cast<int>(y) / COARSE_GRID_SIZE;
+    return gridX * 10000 + gridY; // Use larger multiplier for coarse grid
+}
+
+int HierarchicalEntityGrid::getFineGridIndex(float x, float y) const {
+    int gridX = static_cast<int>(x) / FINE_GRID_SIZE;
+    int gridY = static_cast<int>(y) / FINE_GRID_SIZE;
+    return gridX * 1000 + gridY; // Original multiplier for fine grid
+}
+
+void HierarchicalEntityGrid::addEntityToGrid(const std::string& instanceName, float x, float y) {
+    // Add to coarse grid
+    int coarseIndex = getCoarseGridIndex(x, y);
+    coarseGrid[coarseIndex].dynamicElements.push_back(instanceName);
+    
+    // Add to fine grid
+    int fineIndex = getFineGridIndex(x, y);
+    fineGrid[fineIndex].dynamicElements.push_back(instanceName);
+}
+
+bool wouldEntityCollideWithElementHierarchical(float x, float y, const std::vector<std::pair<float, float>>& entityCollisionShapePoints, float entityScale, float entityRotation) {
     // Calculate approximate radius for nearby element search
     float maxRadius = 0.0f;
     for (const auto& point : entityCollisionShapePoints) {
@@ -965,8 +1164,21 @@ bool wouldEntityCollideWithElementHierarchical(float x, float y, const std::vect
         maxRadius = std::max(maxRadius, dist * entityScale);
     }
     
-    // Get nearby elements using hierarchical lookup
-    std::vector<std::string> nearbyElements = g_hierarchicalGrid.getElementsHierarchical(x, y, maxRadius + MAX_COLLISION_CHECK_RANGE);
+    // Thread-safe access to hierarchical grid
+    std::vector<std::string> nearbyElements;
+    {
+        std::lock_guard<std::mutex> lock(g_hierarchicalGridMutex);
+        // Initialize hierarchical grid if needed
+        if (!g_hierarchicalGrid.isInitializedState()) {
+            g_hierarchicalGrid.initialize();
+        }
+        
+        // Update grid before collision check
+        g_hierarchicalGrid.updateGrid();
+        
+        // Get nearby elements using hierarchical lookup
+        nearbyElements = g_hierarchicalGrid.getElementsHierarchical(x, y, maxRadius + MAX_COLLISION_CHECK_RANGE);
+    }
     
     // Transform entity polygon points to world coordinates
     std::vector<std::pair<float, float>> entityWorldShapePoints;

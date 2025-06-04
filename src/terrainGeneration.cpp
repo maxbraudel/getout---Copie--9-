@@ -15,10 +15,10 @@
 
 
 // Static variables for noise generation (assuming these are part of your existing setup)
-static std::vector<std::vector<float>> baseNoiseGrid;
-static int baseNoiseWidth_static = 0; // Renamed to avoid conflict if baseNoiseWidth is a param
-static int baseNoiseHeight_static = 0; // Renamed
-static bool baseNoiseInitialized = false;
+thread_local static std::vector<std::vector<float>> baseNoiseGrid;
+thread_local static int baseNoiseWidth_static = 0; // Renamed to avoid conflict if baseNoiseWidth is a param
+thread_local static int baseNoiseHeight_static = 0; // Renamed
+thread_local static bool baseNoiseInitialized = false;
 
 // Function to initialize the base noise grid (assuming this exists)
 void initializeBaseNoiseIfNeeded(int gridWidth, int gridHeight, float featureSizeFactor) {

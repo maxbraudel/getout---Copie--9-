@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <atomic>
+#include <mutex>
 #include "enumDefinitions.h"
 
 
@@ -26,6 +27,9 @@ bool wouldEntityCollideWithElement(float x, float y, const std::vector<std::pair
 
 // Helper function for polygon-polygon collision detection using Separating Axis Theorem (SAT)
 bool polygonPolygonCollision(const std::vector<std::pair<float, float>>& poly1, const std::vector<std::pair<float, float>>& poly2);
+
+// Helper function for circle-polygon collision detection
+bool circlePolygonCollision(float circleX, float circleY, float radius, const std::vector<std::pair<float, float>>& polygon);
 
 // Helper functions to check map boundary collisions with entity collision shapes
 bool wouldEntityCollideWithMapBounds(float x, float y, const std::vector<std::pair<float, float>>& collisionShapePoints, float entityScale = 1.0f, float entityRotation = 0.0f);
@@ -48,7 +52,6 @@ void updateSpatialGrid();
 std::vector<std::string> getNearbyElements(float x, float y, float radius);
 
 // External declarations for collision system variables
-extern bool spatialGridInitialized;
 extern const float MAX_COLLISION_CHECK_RANGE;
 
 // Set of non-traversable block types (water, lava, etc.)
@@ -129,7 +132,57 @@ private:
     void removeElementFromGrid(const std::string& elementName);
 };
 
+// Global instance of hierarchical spatial grid
 extern HierarchicalSpatialGrid g_hierarchicalGrid;
+extern std::mutex g_hierarchicalGridMutex;
+
+// HIERARCHICAL ENTITY GRID FOR OPTIMIZED ENTITY-TO-ENTITY COLLISION
+// Thread-safe hierarchical entity spatial grid for massive performance improvements
+class HierarchicalEntityGrid {
+private:
+    static const int COARSE_GRID_SIZE = 50;  // Large cells for broad-phase entity search
+    static const int FINE_GRID_SIZE = 10;    // Small cells for narrow-phase entity search
+    static constexpr float STATIC_UPDATE_INTERVAL = 1.0f;   // Entity positions change less frequently than elements
+    static constexpr float DYNAMIC_UPDATE_INTERVAL = 0.05f; // More frequent updates for moving entities
+    
+    std::unordered_map<int, SpatialCell> coarseGrid;
+    std::unordered_map<int, SpatialCell> fineGrid;
+    std::unordered_set<std::string> entityInstanceNames;
+    
+    bool isInitialized = false;
+    float lastCoarseUpdateTime = 0.0f;
+    float lastFineUpdateTime = 0.0f;
+    
+public:
+    void initialize();
+    void updateGrid(bool forceUpdate = false);
+    void updateEntityPositions();
+    
+    // Fast broad-phase entity collision detection
+    std::vector<std::string> getBroadPhaseEntities(float x, float y, float radius);
+    
+    // Precise narrow-phase entity collision detection
+    std::vector<std::string> getNarrowPhaseEntities(float x, float y, float radius);
+    
+    // Combined hierarchical entity lookup (REPLACES getNearbyEntities)
+    std::vector<std::string> getEntitiesHierarchical(float x, float y, float radius);
+    
+    void addEntity(const std::string& instanceName, float x, float y);
+    void removeEntity(const std::string& instanceName);
+    void clear();
+    bool isEmpty() const;
+    bool isInitializedState() const;
+    size_t getEntityCount() const;
+    
+private:
+    int getCoarseGridIndex(float x, float y) const;
+    int getFineGridIndex(float x, float y) const;
+    void addEntityToGrid(const std::string& instanceName, float x, float y);
+};
+
+// Global hierarchical entity grid instance
+extern HierarchicalEntityGrid g_hierarchicalEntityGrid;
+extern std::mutex g_hierarchicalEntityGridMutex;
 
 // Enhanced collision detection functions using hierarchical grid
 bool wouldCollideWithElementHierarchical(float x, float y, float playerRadius = 0.2f);

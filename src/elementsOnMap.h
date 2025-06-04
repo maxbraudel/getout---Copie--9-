@@ -9,6 +9,7 @@
 #include <map>
 #include <mutex>
 #include "enumDefinitions.h"
+#include "collisionCache.h"
 
 
 // Define an enum for texture types
@@ -69,10 +70,12 @@ struct PlacedElement {
     float animationSpeed = 10.0f; // Frames per second for animation
     float currentFrameTime = 0.0f; // Time accumulator for animation
     int numFramesInPhase = 0;     // Number of frames in current animation phase (calculated)
-    
-    // Collision properties
+      // Collision properties
     bool hasCollision = false;    // Whether this element has collision detection
     std::vector<std::pair<float, float>> collisionShapePoints; // Points defining the collision polygon
+    
+    // Pre-calculated collision box for performance optimization
+    mutable PreCalculatedCollisionBox cachedCollisionBox;
 };
 
 // Main class to handle elements on the map
@@ -106,6 +109,9 @@ public:
     bool moveElement(const std::string& instanceName, float deltaX, float deltaY);
       // Get element position
     bool getElementPosition(const std::string& instanceName, float& x, float& y);
+    
+    // Get element data by instance name
+    const PlacedElement* getElementData(const std::string& instanceName) const;
     
     // Check if an element exists by instance name
     bool elementExists(const std::string& instanceName) const;

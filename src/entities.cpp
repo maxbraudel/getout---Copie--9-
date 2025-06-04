@@ -1,6 +1,7 @@
 #include "entities.h"
 #include "entityBehaviors.h"
 #include "collision.h"
+#include "collisionCache.h"
 #include "map.h" // Adding for gameMap access
 #include "pathfinding.h" // Include for pathfinding cooldown functions
 #include "globals.h" // For GRID_SIZE
@@ -13,7 +14,15 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <mutex>
+#include <GLFW/glfw3.h>
 #include "enumDefinitions.h"
+
+// Forward declaration for global hierarchical grid mutex from collision.cpp
+extern std::mutex g_hierarchicalGridMutex;
+
+// Forward declaration for global hierarchical entity grid from collision.cpp
+extern HierarchicalEntityGrid g_hierarchicalEntityGrid;
+extern std::mutex g_hierarchicalEntityGridMutex;
 
 
 // Global async pathfinder instance (separate from pathfinding.h's AsyncPathfinder)
@@ -21,9 +30,18 @@ static AsyncEntityPathfinder* g_entityAsyncPathfinder = nullptr;
 
 // Static vector of predefined entity types
 static std::vector<EntityInfo> entityTypes;
+static std::mutex entityTypesInitMutex;
+
+// Spatial grid optimization for entity collision detection (thread-safe with thread_local)
+thread_local static std::unordered_map<int, std::vector<std::string>> entitySpatialGrid;
+thread_local static bool entitySpatialGridInitialized = false;
+thread_local static float lastEntitySpatialGridUpdateTime = 0.0f;
+static const int ENTITY_SPATIAL_GRID_SIZE = 20; // Size of each spatial grid cell for entities
+static const float ENTITY_SPATIAL_GRID_UPDATE_INTERVAL = 0.1f; // Update every 0.1 seconds
 
 // Function to initialize entity types
 static void initializeEntityTypes() {
+    std::lock_guard<std::mutex> lock(entityTypesInitMutex);
     if (!entityTypes.empty()) {
         return; // Already initialized
     }
@@ -439,13 +457,26 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, EntityName en
         false,  // not animated initially
         config->defaultAnimationSpeed,
         AnchorPoint::USE_TEXTURE_DEFAULT
-    );
-      // Add the entity to our entities map
+    );    // Add the entity to our entities map
     entities[instanceName] = entity;
     
-    // Initialize entity behaviors
+    // Reset spatial grid since we added a new entity
+    resetEntitySpatialGrid();
+      // Initialize entity behaviors
     Entity& createdEntity = entities[instanceName];
     entityBehaviorManager.initializeEntityBehavior(createdEntity, *config);
+    
+    // Register entity with hierarchical entity grid for optimized collision detection
+    {
+        std::lock_guard<std::mutex> lock(g_hierarchicalEntityGridMutex);
+        // Initialize hierarchical entity grid if needed
+        if (!g_hierarchicalEntityGrid.isInitializedState()) {
+            g_hierarchicalEntityGrid.initialize();
+        }
+        // Register the newly placed entity
+        g_hierarchicalEntityGrid.addEntity(instanceName, safeX, safeY);
+    }
+    
       if (needsSafePosition && (safeX != x || safeY != y)) {
         std::cout << "Entity " << instanceName << " placed with collision resolution - moved from (" 
                   << x << ", " << y << ") to (" << safeX << ", " << safeY << ")" << std::endl;
@@ -682,11 +713,9 @@ bool EntitiesManager::findRandomSafePointAroundTheEntity(const std::string& inst
     if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
         std::cerr << "Error getting position for entity: " << instanceName << std::endl;
         return false;
-    }
-
-    // Set up random number generation
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
+    }    // Set up random number generation (thread-safe)
+    thread_local static std::random_device rd;
+    thread_local static std::mt19937 gen(rd());
     std::uniform_real_distribution<float> angleDist(0.0f, 2.0f * M_PI);
     std::uniform_real_distribution<float> radiusDist(0.0f, radius);
 
@@ -1333,9 +1362,6 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
                 entity.pathfindingTimeoutActive = false;
                 entity.lastPositionChangeTime = entity.stuckCheckTime;
                 entity.stuckCount = 0;
-                
-                // We're done with this entity for this frame
-                return;
             } 
             else if (entity.stuckCheckTime - entity.lastPositionChangeTime >= stuckThreshold) {
                 // Entity has been stuck for too long, try collision resolution
@@ -1484,11 +1510,6 @@ bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, f
     if (elementsToCheck.empty()) {
         return false; // No elements to check = no collision
     }
-    
-    // Make sure the spatial grid is up to date
-    if (!spatialGridInitialized) {
-        updateSpatialGrid();
-    }
       // Calculate approximate radius for nearby element search
     float searchRadius = 0.0f;
     if (!config.collisionShapePoints.empty()) {
@@ -1496,35 +1517,53 @@ bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, f
             float dist = std::sqrt(point.first * point.first + point.second * point.second);
             searchRadius = std::max(searchRadius, dist);
         }
+    }// Use hierarchical spatial grid for better performance with large numbers of elements
+    // Thread-safe access to hierarchical grid
+    std::vector<std::string> nearbyElements;
+    {
+        std::lock_guard<std::mutex> lock(g_hierarchicalGridMutex);
+        // Initialize hierarchical grid if needed
+        if (!g_hierarchicalGrid.isInitializedState()) {
+            g_hierarchicalGrid.initialize();
+        }
+        
+        // Update grid before collision check
+        g_hierarchicalGrid.updateGrid();
+        
+        // Get nearby elements using optimized hierarchical lookup
+        nearbyElements = g_hierarchicalGrid.getElementsHierarchical(x, y, searchRadius + MAX_COLLISION_CHECK_RANGE);
     }
-      // Get only nearby elements instead of checking all elements
-    std::vector<std::string> nearbyElements = getNearbyElements(x, y, searchRadius + MAX_COLLISION_CHECK_RANGE);
-      // PERFORMANCE OPTIMIZATION: Cache element data to avoid linear searches
-    // Thread-safe cache implementation
-    static std::mutex cacheMutex;
-    static std::unordered_map<std::string, PlacedElement> elementDataCache;
-    static float lastCacheUpdateTime = 0.0f;
-    static std::unordered_set<ElementName> elementsToCheckSet;
-    static bool elementSetCached = false;
-    static bool collisionCacheInitialized = false;
+    // PERFORMANCE OPTIMIZATION: Thread-safe cache with proper synchronization
+    // Use thread_local to avoid contention between threads
+    thread_local static std::unordered_map<std::string, PlacedElement> elementDataCache;
+    thread_local static float lastCacheUpdateTime = 0.0f;
+    thread_local static std::unordered_set<ElementName> elementsToCheckSet;
+    thread_local static bool elementSetCached = false;
+    thread_local static bool collisionCacheInitialized = false;
     
-    // Refresh cache periodically or when elements list changes (thread-safe)
-    std::lock_guard<std::mutex> lock(cacheMutex);
+    // Refresh cache periodically or when elements list changes
     float currentTime = static_cast<float>(glfwGetTime());
     if (!collisionCacheInitialized || currentTime - lastCacheUpdateTime > 1.0f) {
         elementDataCache.clear();
+        elementsToCheckSet.clear();
+        
+        // Get fresh copy of elements (this is already thread-safe in ElementsManager)
         const auto& elements = elementsManager.getElements();
+        elementDataCache.reserve(elements.size()); // Pre-allocate to prevent reallocations
+        
         for (const auto& el : elements) {
             elementDataCache[el.instanceName] = el; // Store copy of element data
         }
+        
         lastCacheUpdateTime = currentTime;
         collisionCacheInitialized = true;
         elementSetCached = false;
     }
     
-    // Cache the set conversion for faster lookups
+    // Cache the set conversion for faster lookups (thread-local, no race condition)
     if (!elementSetCached) {
         elementsToCheckSet.clear();
+        elementsToCheckSet.reserve(elementsToCheck.size()); // Pre-allocate
         elementsToCheckSet.insert(elementsToCheck.begin(), elementsToCheck.end());
         elementSetCached = true;
     }
@@ -1547,69 +1586,70 @@ bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, f
             continue; // Skip elements not in our collision/avoidance list
         }        // Perform the actual collision check for this specific element
         if (!config.collisionShapePoints.empty() && !currentElement.collisionShapePoints.empty()) {
-            // PERFORMANCE OPTIMIZATION: Simple distance-based early rejection
-            // Calculate bounding box distance before expensive polygon collision
-            float dx = x - currentElement.x;
-            float dy = y - currentElement.y;
-            float distance = std::sqrt(dx * dx + dy * dy);
-            
-            // Calculate approximate collision radii for early rejection
-            float entityRadius = 0.0f;
-            float elementRadius = 0.0f;
-            
-            for (const auto& point : config.collisionShapePoints) {
-                float dist = std::sqrt(point.first * point.first + point.second * point.second);
-                entityRadius = std::max(entityRadius, dist);
+            // MEMORY SAFETY: Validate collision shape data integrity
+            if (config.collisionShapePoints.size() > 1000 || currentElement.collisionShapePoints.size() > 1000) {
+                continue; // Skip elements with suspiciously large collision shapes
             }
             
-            for (const auto& point : currentElement.collisionShapePoints) {
-                float dist = std::sqrt(point.first * point.first + point.second * point.second);
-                elementRadius = std::max(elementRadius, dist * currentElement.scale);
+            // Validate scale and rotation values to prevent numerical issues
+            if (std::isnan(currentElement.scale) || std::isinf(currentElement.scale) || 
+                currentElement.scale <= 0.0f || currentElement.scale > 100.0f) {
+                continue; // Skip elements with invalid scale
             }
             
-            // Early rejection if entities are too far apart to possibly collide
-            if (distance > (entityRadius + elementRadius + 1.0f)) {
-                continue; // Skip expensive polygon collision check
+            if (std::isnan(currentElement.rotation) || std::isinf(currentElement.rotation)) {
+                continue; // Skip elements with invalid rotation
             }
             
-            // Use polygon-polygon collision detection
-            std::vector<std::pair<float, float>> entityWorldShapePoints;
-            std::vector<std::pair<float, float>> elementWorldShapePoints;
+            // PERFORMANCE OPTIMIZATION: Use pre-calculated collision boxes for massive speedup
+            // This replaces the expensive real-time transformation calculations
             
-            // Transform entity polygon points to world coordinates
-            float entityAngleRad = 0.0f; // Entities don't rotate currently
-            float entityCosA = cos(entityAngleRad);
-            float entitySinA = sin(entityAngleRad);
+            // Get or calculate cached collision box for entity
+            PreCalculatedCollisionBox entityCollisionBox;
+            const auto& entityCachedBox = CollisionBoxUtils::getOrUpdateCollisionBox(
+                entityCollisionBox, config.collisionShapePoints, x, y, 0.0f, 1.0f);
             
-            entityWorldShapePoints.reserve(config.collisionShapePoints.size());
-            for (const auto& localPoint : config.collisionShapePoints) {
-                float scaledX = localPoint.first;
-                float scaledY = localPoint.second;
-                
-                float rotatedX = scaledX * entityCosA - scaledY * entitySinA;
-                float rotatedY = scaledX * entitySinA + scaledY * entityCosA;
-                
-                entityWorldShapePoints.push_back({x + rotatedX, y + rotatedY});
-            }            // Transform element polygon points to world coordinates
-            float elementAngleRad = currentElement.rotation * M_PI / 180.0f;
-            float elementCosA = cos(elementAngleRad);
-            float elementSinA = sin(elementAngleRad);
+            // Get or calculate cached collision box for element 
+            const auto& elementCachedBox = CollisionBoxUtils::getOrUpdateCollisionBox(
+                currentElement.cachedCollisionBox, currentElement.collisionShapePoints, 
+                currentElement.x, currentElement.y, currentElement.rotation, currentElement.scale);
             
-            elementWorldShapePoints.reserve(currentElement.collisionShapePoints.size());
-            for (const auto& localPoint : currentElement.collisionShapePoints) {
-                float scaledX = localPoint.first * currentElement.scale;
-                float scaledY = localPoint.second * currentElement.scale;
-                
-                float rotatedX = scaledX * elementCosA - scaledY * elementSinA;
-                float rotatedY = scaledX * elementSinA + scaledY * elementCosA;
-                
-                elementWorldShapePoints.push_back({currentElement.x + rotatedX, currentElement.y + rotatedY});
+            // Fast bounding box intersection test first
+            if (!entityCachedBox.boundingBoxIntersects(elementCachedBox)) {
+                continue; // No intersection possible, skip expensive polygon test
             }
-              // Perform polygon-polygon collision detection using Separating Axis Theorem (SAT)
-            // Check if both polygons have valid points before collision detection
-            if (!entityWorldShapePoints.empty() && !elementWorldShapePoints.empty()) {
-                if (polygonPolygonCollision(entityWorldShapePoints, elementWorldShapePoints)) {
-                    return true; // Collision detected
+              // Perform polygon-polygon collision detection using cached world points
+            // MEMORY SAFETY: Check if both polygons have valid points before collision detection
+            if (!entityCachedBox.worldPoints.empty() && !elementCachedBox.worldPoints.empty() &&
+                entityCachedBox.worldPoints.size() >= 3 && elementCachedBox.worldPoints.size() >= 3) {
+                
+                // Additional safety check: ensure cached vectors are not corrupted
+                bool entityShapeValid = true;
+                bool elementShapeValid = true;
+                
+                for (const auto& point : entityCachedBox.worldPoints) {
+                    if (std::isnan(point.first) || std::isnan(point.second) ||
+                        std::isinf(point.first) || std::isinf(point.second)) {
+                        entityShapeValid = false;
+                        break;
+                    }
+                }
+                
+                if (entityShapeValid) {
+                    for (const auto& point : elementCachedBox.worldPoints) {
+                        if (std::isnan(point.first) || std::isnan(point.second) ||
+                            std::isinf(point.first) || std::isinf(point.second)) {
+                            elementShapeValid = false;
+                            break;
+                        }
+                    }
+                }
+                
+                // Only perform collision detection if both shapes are valid
+                if (entityShapeValid && elementShapeValid) {
+                    if (polygonPolygonCollision(entityCachedBox.worldPoints, elementCachedBox.worldPoints)) {
+                        return true; // Collision detected
+                    }
                 }
             }
         }
@@ -2261,33 +2301,52 @@ bool wouldEntityCollideWithEntitiesGranular(const EntityConfiguration& config, f
     }
     
     // Convert to std::set for faster lookup
-    std::set<EntityName> entitySet(entitiesToCheck.begin(), entitiesToCheck.end());
-    
-    // If entity has no collision shape, use center point collision
+    std::set<EntityName> entitySet(entitiesToCheck.begin(), entitiesToCheck.end());    // If entity has no collision shape, use center point collision
     if (config.collisionShapePoints.empty()) {
-        // Point-based collision check - iterate through all entities
-        const auto& allEntities = entitiesManager.getEntities();
-        for (const auto& pair : allEntities) {
-            const Entity& otherEntity = pair.second;
+        // PERFORMANCE OPTIMIZATION: Use hierarchical entity grid instead of getNearbyEntities
+        const float pointCollisionRadius = 2.0f; // Search radius for nearby entities
+        std::vector<std::string> nearbyEntityNames;
+        
+        // Thread-safe access to hierarchical entity grid
+        {
+            std::lock_guard<std::mutex> lock(g_hierarchicalEntityGridMutex);
+            // Initialize hierarchical entity grid if needed
+            if (!g_hierarchicalEntityGrid.isInitializedState()) {
+                g_hierarchicalEntityGrid.initialize();
+            }
             
+            // Update grid before collision check
+            g_hierarchicalEntityGrid.updateGrid();
+            
+            // Get nearby entities using hierarchical lookup (REPLACES O(N²) getNearbyEntities)
+            nearbyEntityNames = g_hierarchicalEntityGrid.getEntitiesHierarchical(x, y, pointCollisionRadius);
+        }
+        
+        for (const std::string& otherInstanceName : nearbyEntityNames) {
             // Skip self and excluded entity
-            if (otherEntity.instanceName == excludeInstanceName) {
+            if (otherInstanceName == excludeInstanceName) {
                 continue;
             }
             
+            // Get entity reference
+            const Entity* otherEntity = entitiesManager.getEntity(otherInstanceName);
+            if (!otherEntity) {
+                continue; // Entity no longer exists
+            }
+            
             // Check if this entity type is in our collision list
-            if (entitySet.find(otherEntity.type) == entitySet.end()) {
+            if (entitySet.find(otherEntity->type) == entitySet.end()) {
                 continue; // Skip entities not in our collision/avoidance list
             }
             
             // Get other entity position and configuration
-            std::string otherElementName = EntitiesManager::getElementName(otherEntity.instanceName);
+            std::string otherElementName = EntitiesManager::getElementName(otherEntity->instanceName);
             float otherX, otherY;
             if (!elementsManager.getElementPosition(otherElementName, otherX, otherY)) {
                 continue; // Can't get position, skip this entity
             }
             
-            const EntityConfiguration* otherConfig = entitiesManager.getConfiguration(otherEntity.type);
+            const EntityConfiguration* otherConfig = entitiesManager.getConfiguration(otherEntity->type);
             if (!otherConfig || !otherConfig->canCollide) {
                 continue; // Other entity doesn't have collision enabled
             }
@@ -2303,45 +2362,52 @@ bool wouldEntityCollideWithEntitiesGranular(const EntityConfiguration& config, f
             }
         }
         return false;
-    }
-    
-    // Use collision shape for precise entity collision detection
-    // Transform entity collision shape points to world coordinates
-    std::vector<std::pair<float, float>> entityWorldShapePoints;
-    float entityAngleRad = 0.0f; // Entities don't rotate currently
-    float entityCosA = cos(entityAngleRad);
-    float entitySinA = sin(entityAngleRad);
-    
-    for (const auto& localPoint : config.collisionShapePoints) {
-        float scaledX = localPoint.first;
-        float scaledY = localPoint.second;
+    }// PERFORMANCE OPTIMIZATION: Use pre-calculated collision boxes for massive speedup
+    // This replaces expensive real-time transformation calculations
+    PreCalculatedCollisionBox entityCollisionBox;
+    const auto& entityCachedBox = CollisionBoxUtils::getOrUpdateCollisionBox(
+        entityCollisionBox, config.collisionShapePoints, x, y, 0.0f, 1.0f);
+        // CRASH FIX: Check if transformation actually produced any points
+    if (entityCachedBox.worldPoints.empty()) {
+        std::cerr << "CRITICAL: entityCachedBox.worldPoints is empty after transformation - using fallback collision detection" << std::endl;
+        // Fallback to point-based collision with hierarchical spatial optimization
+        const float fallbackRadius = 2.0f;
+        std::vector<std::string> nearbyEntityNames;
         
-        float rotatedX = scaledX * entityCosA - scaledY * entitySinA;
-        float rotatedY = scaledX * entitySinA + scaledY * entityCosA;
-        
-        entityWorldShapePoints.push_back({x + rotatedX, y + rotatedY});
-    }
-    
-    // CRASH FIX: Check if transformation actually produced any points
-    if (entityWorldShapePoints.empty()) {
-        std::cerr << "CRITICAL: entityWorldShapePoints is empty after transformation - using fallback collision detection" << std::endl;
-        // Fallback to point-based collision
-        const auto& allEntities = entitiesManager.getEntities();
-        for (const auto& pair : allEntities) {
-            const Entity& otherEntity = pair.second;
+        // Thread-safe access to hierarchical entity grid
+        {
+            std::lock_guard<std::mutex> lock(g_hierarchicalEntityGridMutex);
+            // Initialize hierarchical entity grid if needed
+            if (!g_hierarchicalEntityGrid.isInitializedState()) {
+                g_hierarchicalEntityGrid.initialize();
+            }
             
+            // Update grid before collision check
+            g_hierarchicalEntityGrid.updateGrid();
+            
+            // Get nearby entities using hierarchical lookup (REPLACES O(N²) getNearbyEntities)
+            nearbyEntityNames = g_hierarchicalEntityGrid.getEntitiesHierarchical(x, y, fallbackRadius);
+        }
+        
+        for (const std::string& otherInstanceName : nearbyEntityNames) {
             // Skip self and excluded entity
-            if (otherEntity.instanceName == excludeInstanceName) {
+            if (otherInstanceName == excludeInstanceName) {
                 continue;
             }
             
+            // Get entity reference
+            const Entity* otherEntity = entitiesManager.getEntity(otherInstanceName);
+            if (!otherEntity) {
+                continue; // Entity no longer exists
+            }
+            
             // Check if this entity type is in our collision list
-            if (entitySet.find(otherEntity.type) == entitySet.end()) {
+            if (entitySet.find(otherEntity->type) == entitySet.end()) {
                 continue;
             }
             
             // Get other entity position
-            std::string otherElementName = EntitiesManager::getElementName(otherEntity.instanceName);
+            std::string otherElementName = EntitiesManager::getElementName(otherEntity->instanceName);
             float otherX, otherY;
             if (!elementsManager.getElementPosition(otherElementName, otherX, otherY)) {
                 continue;
@@ -2357,59 +2423,186 @@ bool wouldEntityCollideWithEntitiesGranular(const EntityConfiguration& config, f
             }
         }
         return false;
+    }    // Check collision with nearby entities using hierarchical spatial optimization
+    // Calculate search radius based on entity collision shape
+    float searchRadius = 0.0f;
+    for (const auto& point : config.collisionShapePoints) {
+        float dist = std::sqrt(point.first * point.first + point.second * point.second);
+        searchRadius = std::max(searchRadius, dist);
+    }
+    searchRadius += 5.0f; // Add buffer for other entity collision shapes
+    
+    std::vector<std::string> nearbyEntityNames;
+    
+    // PERFORMANCE OPTIMIZATION: Use hierarchical entity grid instead of O(N²) getNearbyEntities
+    {
+        std::lock_guard<std::mutex> lock(g_hierarchicalEntityGridMutex);
+        // Initialize hierarchical entity grid if needed
+        if (!g_hierarchicalEntityGrid.isInitializedState()) {
+            g_hierarchicalEntityGrid.initialize();
+        }
+        
+        // Update grid before collision check
+        g_hierarchicalEntityGrid.updateGrid();
+        
+        // Get nearby entities using hierarchical lookup (MASSIVE PERFORMANCE IMPROVEMENT)
+        nearbyEntityNames = g_hierarchicalEntityGrid.getEntitiesHierarchical(x, y, searchRadius);
     }
     
-    // Check collision with all entities of the specified types
-    const auto& allEntities = entitiesManager.getEntities();
-    for (const auto& pair : allEntities) {
-        const Entity& otherEntity = pair.second;
-        
+    for (const std::string& otherInstanceName : nearbyEntityNames) {
         // Skip self and excluded entity
-        if (otherEntity.instanceName == excludeInstanceName) {
+        if (otherInstanceName == excludeInstanceName) {
             continue;
         }
         
+        // Get entity reference
+        const Entity* otherEntity = entitiesManager.getEntity(otherInstanceName);
+        if (!otherEntity) {
+            continue; // Entity no longer exists
+        }
+        
         // Check if this entity type is in our collision list
-        if (entitySet.find(otherEntity.type) == entitySet.end()) {
+        if (entitySet.find(otherEntity->type) == entitySet.end()) {
             continue; // Skip entities not in our collision/avoidance list
         }
         
         // Get other entity position and configuration
-        std::string otherElementName = EntitiesManager::getElementName(otherEntity.instanceName);
+        std::string otherElementName = EntitiesManager::getElementName(otherEntity->instanceName);
         float otherX, otherY;
         if (!elementsManager.getElementPosition(otherElementName, otherX, otherY)) {
             continue; // Can't get position, skip this entity
         }
         
-        const EntityConfiguration* otherConfig = entitiesManager.getConfiguration(otherEntity.type);
+        const EntityConfiguration* otherConfig = entitiesManager.getConfiguration(otherEntity->type);
         if (!otherConfig || !otherConfig->canCollide || otherConfig->collisionShapePoints.empty()) {
             continue; // Other entity doesn't have collision enabled or collision shape
-        }
-        
-        // Transform other entity collision shape points to world coordinates
-        std::vector<std::pair<float, float>> otherEntityWorldShapePoints;
-        float otherEntityAngleRad = 0.0f; // Entities don't rotate currently
-        float otherEntityCosA = cos(otherEntityAngleRad);
-        float otherEntitySinA = sin(otherEntityAngleRad);
-        
-        for (const auto& localPoint : otherConfig->collisionShapePoints) {
-            float scaledX = localPoint.first;
-            float scaledY = localPoint.second;
+        }// PERFORMANCE OPTIMIZATION: Use pre-calculated collision boxes for other entity
+            // Get or calculate cached collision box for other entity using its cached collision box from Entity struct
+            const auto& otherEntityCachedBox = CollisionBoxUtils::getOrUpdateCollisionBox(
+                const_cast<Entity*>(otherEntity)->cachedCollisionBox, otherConfig->collisionShapePoints, 
+                otherX, otherY, 0.0f, 1.0f);
             
-            float rotatedX = scaledX * otherEntityCosA - scaledY * otherEntitySinA;
-            float rotatedY = scaledX * otherEntitySinA + scaledY * otherEntityCosA;
-            
-            otherEntityWorldShapePoints.push_back({otherX + rotatedX, otherY + rotatedY});
-        }
+            // Fast bounding box intersection test first
+            if (!entityCachedBox.boundingBoxIntersects(otherEntityCachedBox)) {
+                continue; // No intersection possible, skip expensive polygon test
+            }
+              
+            // Perform polygon-polygon collision detection using cached world points
+            // MEMORY SAFETY: Check if both polygons have valid points before collision detection
+            if (!entityCachedBox.worldPoints.empty() && !otherEntityCachedBox.worldPoints.empty() &&
+                entityCachedBox.worldPoints.size() >= 3 && otherEntityCachedBox.worldPoints.size() >= 3) {
+                
+                // Additional safety check: ensure cached vectors are not corrupted
+                bool entityShapeValid = true;
+                bool otherEntityShapeValid = true;
+                
+                for (const auto& point : entityCachedBox.worldPoints) {
+                    if (std::isnan(point.first) || std::isnan(point.second) ||
+                        std::isinf(point.first) || std::isinf(point.second)) {
+                        entityShapeValid = false;
+                        break;
+                    }
+                }
+                
+                if (entityShapeValid) {
+                    for (const auto& point : otherEntityCachedBox.worldPoints) {
+                        if (std::isnan(point.first) || std::isnan(point.second) ||
+                            std::isinf(point.first) || std::isinf(point.second)) {
+                            otherEntityShapeValid = false;
+                            break;
+                        }
+                    }
+                }
+                
+                // Only perform collision detection if both shapes are valid
+                if (entityShapeValid && otherEntityShapeValid) {
+                    try {
+                        if (polygonPolygonCollision(entityCachedBox.worldPoints, otherEntityCachedBox.worldPoints)) {
+                            return true; // Collision detected
+                        }
+                    } catch (const std::exception& e) {
+                        std::cerr << "WARNING: Exception in polygonPolygonCollision: " << e.what() << std::endl;
+                        continue; // Skip this collision check and continue with next entity
+                    } catch (...) {
+                        std::cerr << "WARNING: Unknown exception in polygonPolygonCollision" << std::endl;
+                        continue; // Skip this collision check and continue with next entity
+                    }
+                }
+            }
+    }
+    
+    return false; // No collision detected with specified entity types
+}
+
+// Spatial grid system management
+
+// Get spatial grid cell index for entity positions
+int getEntitySpatialGridIndex(float x, float y) {
+    int gridX = static_cast<int>(x) / ENTITY_SPATIAL_GRID_SIZE;
+    int gridY = static_cast<int>(y) / ENTITY_SPATIAL_GRID_SIZE;
+    return gridX * 1000 + gridY;
+}
+
+// Update the entity spatial partitioning grid
+void updateEntitySpatialGrid() {
+    float currentTime = static_cast<float>(glfwGetTime());
+    
+    // Only update periodically to avoid performance impact
+    if (entitySpatialGridInitialized && currentTime - lastEntitySpatialGridUpdateTime < ENTITY_SPATIAL_GRID_UPDATE_INTERVAL) {
+        return;
+    }
+    
+    lastEntitySpatialGridUpdateTime = currentTime;
+    entitySpatialGrid.clear();
+    
+    // Place each entity in the appropriate grid cell
+    const auto& allEntities = entitiesManager.getEntities();
+    for (const auto& pair : allEntities) {
+        const Entity& entity = pair.second;
         
-        // Perform polygon-polygon collision detection using Separating Axis Theorem (SAT)
-        // Check if both polygons have valid points before collision detection
-        if (!entityWorldShapePoints.empty() && !otherEntityWorldShapePoints.empty()) {
-            if (polygonPolygonCollision(entityWorldShapePoints, otherEntityWorldShapePoints)) {
-                return true; // Collision detected
+        // Get entity position
+        std::string elementName = EntitiesManager::getElementName(entity.instanceName);
+        float entityX, entityY;
+        if (elementsManager.getElementPosition(elementName, entityX, entityY)) {
+            int index = getEntitySpatialGridIndex(entityX, entityY);
+            entitySpatialGrid[index].push_back(entity.instanceName);
+        }
+    }
+    
+    entitySpatialGridInitialized = true;
+}
+
+// Function to reset entity spatial grid when entities are added/removed
+void resetEntitySpatialGrid() {
+    entitySpatialGridInitialized = false;
+    entitySpatialGrid.clear();
+}
+
+// Get nearby entities within a radius using spatial grid
+std::vector<std::string> getNearbyEntities(float x, float y, float radius) {
+    std::vector<std::string> result;
+    
+    // Make sure the spatial grid is up to date
+    updateEntitySpatialGrid();
+    
+    // Calculate the grid cell range that could contain entities within the radius
+    int cellRadius = static_cast<int>(radius / ENTITY_SPATIAL_GRID_SIZE) + 1;
+    int centerCellX = static_cast<int>(x) / ENTITY_SPATIAL_GRID_SIZE;
+    int centerCellY = static_cast<int>(y) / ENTITY_SPATIAL_GRID_SIZE;
+    
+    // Check all cells in the vicinity
+    for (int cellX = centerCellX - cellRadius; cellX <= centerCellX + cellRadius; cellX++) {
+        for (int cellY = centerCellY - cellRadius; cellY <= centerCellY + cellRadius; cellY++) {
+            int index = cellX * 1000 + cellY;
+            
+            // Get all entities in this grid cell
+            auto it = entitySpatialGrid.find(index);
+            if (it != entitySpatialGrid.end()) {
+                // Add entities from this cell to the result
+                result.insert(result.end(), it->second.begin(), it->second.end());
             }
         }
     }
     
-    return false; // No collision detected with specified entity types
+    return result;
 }

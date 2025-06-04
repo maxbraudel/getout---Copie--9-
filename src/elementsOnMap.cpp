@@ -397,6 +397,22 @@ if (DEBUG_LOGS) { std::cerr << "Element not found for position query: " << insta
     return true;
 }
 
+const PlacedElement* ElementsOnMap::getElementData(const std::string& instanceName) const {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
+    // Find the element by name directly
+    auto it = std::find_if(elements.begin(), elements.end(),
+        [&instanceName](const PlacedElement& element) {
+            return element.instanceName == instanceName;
+        });
+        
+    if (it == elements.end()) {
+        return nullptr;
+    }
+    
+    return &(*it);
+}
+
 bool ElementsOnMap::elementExists(const std::string& instanceName) const {
     std::lock_guard<std::mutex> lock(elementsMutex);
     

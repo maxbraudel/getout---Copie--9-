@@ -11,8 +11,8 @@
 // Global variables for player state - 'extern' in collision.h
 bool playerDebugMode = false;
 
-// Player stuck detection state
-static PlayerStuckState playerStuckState;
+// Player stuck detection state (thread-safe)
+thread_local static PlayerStuckState playerStuckState;
 
 // Define a getter for player configuration to ensure it's always up-to-date
 inline const EntityConfiguration* getPlayerConfig() {
