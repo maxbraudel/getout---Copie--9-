@@ -306,11 +306,14 @@ void GameThreadManager::updateGameLogic(double deltaTime)
             auto playerState = g_playerMovementManager->getPlayerState();
             m_currentGameState.playerX = playerState.x;
             m_currentGameState.playerY = playerState.y;
-            m_currentGameState.playerMoving = playerState.isMoving;
-        } else {
+            m_currentGameState.playerMoving = playerState.isMoving;        } else {
             // Fallback to direct position query if player movement manager is not available
-            getPlayerPosition(m_currentGameState.playerX, m_currentGameState.playerY);
-            m_currentGameState.playerMoving = false;
+            if (!getPlayerPosition(m_currentGameState.playerX, m_currentGameState.playerY)) {
+                // Player entity doesn't exist - keep previous position and disable movement
+                m_currentGameState.playerMoving = false;
+            } else {
+                m_currentGameState.playerMoving = false;
+            }
         }
           m_currentGameState.currentTime = gameTime;
         m_currentGameState.deltaTime = deltaTime;

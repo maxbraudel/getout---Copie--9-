@@ -173,11 +173,16 @@ void GameLogic::updateCamera(double deltaTime) {
 void GameLogic::updateGameState(double deltaTime, bool playerMoving) {
     std::lock_guard<std::mutex> lock(m_stateMutex);
     
-    // Get player position
-    getPlayerPosition(m_gameState.playerX, m_gameState.playerY);
+    // Get player position - only update if player exists
+    if (!getPlayerPosition(m_gameState.playerX, m_gameState.playerY)) {
+        // Player entity doesn't exist - set movement state to false
+        m_gameState.playerMoving = false;
+    } else {
+        // Player exists - update movement state normally
+        m_gameState.playerMoving = playerMoving;
+    }
     
     // Update timing
     m_gameState.currentTime = m_gameTime;
     m_gameState.deltaTime = deltaTime;
-    m_gameState.playerMoving = playerMoving;
 }

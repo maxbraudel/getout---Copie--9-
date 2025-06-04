@@ -157,6 +157,12 @@ void PlayerMovementManager::syncWithGameState()
                 m_playerState.x = actualX;
                 m_playerState.y = actualY;
             }
+        } else {
+            // Player entity was destroyed - disable movement state
+            if (m_playerState.isMoving) {
+                std::cout << "Player entity destroyed during sync - disabling movement state" << std::endl;
+                m_playerState.isMoving = false;
+            }
         }
         
         m_playerState.needsSync = false;
@@ -219,6 +225,18 @@ void PlayerMovementManager::playerMovementThread()
 
 void PlayerMovementManager::processPlayerMovement(const PlayerInput& input, double deltaTime)
 {
+    // CRITICAL FIX: Check if player entity exists before processing any movement
+    float playerX, playerY;
+    if (!getPlayerPosition(playerX, playerY)) {
+        // Player entity doesn't exist - disable all movement and camera updates
+        std::lock_guard<std::mutex> lock(m_stateMutex);
+        if (m_playerState.isMoving) {
+            m_playerState.isMoving = false;
+            std::cout << "Player entity destroyed - disabling movement controls" << std::endl;
+        }
+        return;
+    }
+    
     // Skip if no movement
     if (input.moveX == 0.0f && input.moveY == 0.0f) {
         std::lock_guard<std::mutex> lock(m_stateMutex);
@@ -389,8 +407,16 @@ void PlayerMovementManager::updateCamera(double deltaTime)
         return;
     }
     
-    // Get current player position (thread-safe)
+    // CRITICAL FIX: Check if player entity exists before updating camera
     float playerX, playerY;
+    if (!getPlayerPosition(playerX, playerY)) {
+        // Player entity doesn't exist - don't update camera position
+        // Only update smooth transitions to maintain visual consistency
+        m_camera->updateSmoothTransitions(static_cast<float>(deltaTime));
+        return;
+    }
+    
+    // Get current player position (thread-safe)
     {
         std::lock_guard<std::mutex> lock(m_stateMutex);
         playerX = m_playerState.x;

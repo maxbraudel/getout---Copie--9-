@@ -389,20 +389,27 @@ int main() {
         float playerMoveX = 0.0f;
         float playerMoveY = 0.0f;
         
-        // Get normalized input direction (not multiplied by speed or deltaTime)
-        // Check arrow keys for player movement direction
-        if (keyPressedStates[GLFW_KEY_UP] || keyPressedStates[GLFW_KEY_W]) {
-            playerMoveY += 1.0f;
+        // Check if player entity exists before processing movement input
+        float tempX, tempY;
+        bool playerExists = getPlayerPosition(tempX, tempY);
+        
+        if (playerExists) {
+            // Get normalized input direction (not multiplied by speed or deltaTime)
+            // Check arrow keys for player movement direction
+            if (keyPressedStates[GLFW_KEY_UP] || keyPressedStates[GLFW_KEY_W]) {
+                playerMoveY += 1.0f;
+            }
+            if (keyPressedStates[GLFW_KEY_DOWN] || keyPressedStates[GLFW_KEY_S]) {
+                playerMoveY -= 1.0f;
+            }
+            if (keyPressedStates[GLFW_KEY_LEFT] || keyPressedStates[GLFW_KEY_A]) {
+                playerMoveX -= 1.0f;
+            }
+            if (keyPressedStates[GLFW_KEY_RIGHT] || keyPressedStates[GLFW_KEY_D]) {
+                playerMoveX += 1.0f;
+            }
         }
-        if (keyPressedStates[GLFW_KEY_DOWN] || keyPressedStates[GLFW_KEY_S]) {
-            playerMoveY -= 1.0f;
-        }
-        if (keyPressedStates[GLFW_KEY_LEFT] || keyPressedStates[GLFW_KEY_A]) {
-            playerMoveX -= 1.0f;
-        }
-        if (keyPressedStates[GLFW_KEY_RIGHT] || keyPressedStates[GLFW_KEY_D]) {
-            playerMoveX += 1.0f;
-        }
+        // If player doesn't exist, playerMoveX and playerMoveY remain 0.0f
         
         // Check sprint state for player movement
         bool sprint = keyPressedStates[GLFW_KEY_LEFT_SHIFT] || keyPressedStates[GLFW_KEY_RIGHT_SHIFT];
