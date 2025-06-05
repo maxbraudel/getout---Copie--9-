@@ -159,13 +159,14 @@ static void initializeEntityTypes() {
           // Health settings
         antagonist.lifePoints = 20; // Antagonist has 20 life points
         antagonist.damagePoints = 5; // Antagonist deals 5 damage points
-
-
+        
+        // Add to the list
+        entityTypes.push_back(antagonist);
 
 
         
-        // Add to the list
-        entityTypes.push_back(antagonist);EntityInfo player;
+        
+        EntityInfo player;
         player.type = EntityName::PLAYER;
         player.elementName = ElementName::CHARACTER1;
         player.scale = 1.5f;

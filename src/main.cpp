@@ -465,10 +465,11 @@ int main() {
                 glVertex2f(startX, screenY);
                 glVertex2f(endX, screenY);
             }
-            glEnd();        
-        }
-				// Update block transformations
-		gameMap.updateBlockTransformations(gameState.deltaTime);
+            glEnd();          }
+				// Update block transformations (only when game is not paused)
+		if (!g_threadManager->isPaused()) {
+			gameMap.updateBlockTransformations(gameState.deltaTime);
+		}
 		
 		// Draw the blocks (textured squares) on the grid
 		// Now we pass the camera boundaries to drawBlocks instead of the GRID_SIZE
