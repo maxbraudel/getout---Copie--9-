@@ -135,6 +135,11 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     water4Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
     textureConfigs[BlockName::WATER_4] = water4Info;
 
+    BlockInfo iceInfo;
+    iceInfo.path = "../assets/textures/blocks/sand.png";
+    iceInfo.animType = TextureAnimationType::STATIC;
+    textureConfigs[BlockName::ICE] = iceInfo;
+
 
 
 

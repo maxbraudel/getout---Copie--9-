@@ -648,6 +648,23 @@ if (DEBUG_LOGS) { std::cerr << "Invalid animation speed (must be non-negative): 
     }
 }
 
+int ElementsOnMap::getElementSpritePhase(const std::string& instanceName) const {
+    std::lock_guard<std::mutex> lock(elementsMutex);
+    
+    // Find element by name directly
+    auto it = std::find_if(elements.begin(), elements.end(),
+        [&instanceName](const PlacedElement& element) {
+            return element.instanceName == instanceName;
+        });
+        
+    if (it == elements.end()) {
+if (DEBUG_LOGS) { std::cerr << "Element not found for getting sprite phase: " << instanceName << std::endl; }
+        return -1; // Return -1 to indicate element not found
+    }
+    
+    return it->spriteSheetPhase;
+}
+
 void ElementsOnMap::drawElements(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop, double deltaTime) {
     std::lock_guard<std::mutex> lock(elementsMutex);
     

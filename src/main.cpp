@@ -420,6 +420,15 @@ int main() {
         // Set player movement input directly to the player movement manager
         g_threadManager->setPlayerMovementInput(playerMoveX, playerMoveY, sprint);
         
+        // Handle spacebar for ICE block placement
+        static bool lastSpaceState = false;
+        bool currentSpaceState = keyPressedStates[GLFW_KEY_SPACE];
+        if (currentSpaceState && !lastSpaceState && playerExists) {
+            // Spacebar was just pressed - place ICE block
+            placeIceBlockInFront();
+        }
+        lastSpaceState = currentSpaceState;
+        
         // Prepare input arrays for thread manager (debug keys and camera controls only)
         bool debugKeys[10] = {false};
         bool cameraControls[5] = {false};

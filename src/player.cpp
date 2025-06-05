@@ -362,3 +362,98 @@ bool resolvePlayerCollisionStuck(float& x, float& y) {
 
 // Function to ensure player is not stuck using entity system (DISABLED)
 
+// Function to get the player's current facing direction (0=Up, 1=Right, 2=Left, 3=Down)
+int getPlayerDirection() {
+    // Get the player's current sprite phase
+    std::string elementName = EntitiesManager::getElementName(PLAYER_INSTANCE_NAME);
+    int currentPhase = elementsManager.getElementSpritePhase(elementName);
+    
+    if (currentPhase == -1) {
+        std::cerr << "Could not get player sprite phase" << std::endl;
+        return -1; // Error
+    }
+    
+    // Get player configuration to map sprite phases to directions
+    const EntityConfiguration* config = getPlayerConfig();
+    if (!config) {
+        std::cerr << "Player configuration not found" << std::endl;
+        return -1; // Error
+    }
+    
+    // Map sprite phases back to direction values
+    // 0=Up, 1=Right, 2=Left, 3=Down
+    if (currentPhase == config->spritePhaseWalkUp) {
+        return 0; // Up
+    } else if (currentPhase == config->spritePhaseWalkRight) {
+        return 1; // Right
+    } else if (currentPhase == config->spritePhaseWalkLeft) {
+        return 2; // Left
+    } else if (currentPhase == config->spritePhaseWalkDown) {
+        return 3; // Down
+    } else {
+        // Default to down if we can't determine direction
+        return 3; // Down
+    }
+}
+
+// Function to place an ICE block in front of the player
+void placeIceBlockInFront() {
+    // Get player position
+    float playerX, playerY;
+    if (!getPlayerPosition(playerX, playerY)) {
+        std::cerr << "Could not get player position for ICE placement" << std::endl;
+        return;
+    }
+    
+    // Get player direction
+    int direction = getPlayerDirection();
+    if (direction == -1) {
+        std::cerr << "Could not get player direction for ICE placement" << std::endl;
+        return;
+    }
+      // Calculate target position based on direction
+    // Convert float coordinates to grid coordinates using floor to get the current grid cell
+    int gridX = static_cast<int>(std::floor(playerX));
+    int gridY = static_cast<int>(std::floor(playerY));
+    
+    // Calculate the position in front of the player
+    int targetX = gridX;
+    int targetY = gridY;
+    
+    switch (direction) {
+        case 0: // Up
+            targetY += 1;
+            break;
+        case 1: // Right
+            targetX += 1;
+            break;
+        case 2: // Left
+            targetX -= 1;
+            break;
+        case 3: // Down
+            targetY -= 1;
+            break;
+    }
+    
+    // Check if target position is within map bounds
+    if (targetX < 0 || targetX >= GRID_SIZE || targetY < 0 || targetY >= GRID_SIZE) {
+        std::cout << "Cannot place ICE block - target position (" << targetX << ", " << targetY << ") is outside map bounds" << std::endl;
+        return;
+    }
+      // Check if there's already a block at the target position (skip placing on certain blocks)
+    BlockName existingBlock = gameMap.getBlockNameByCoordinates(targetX, targetY);
+    if (existingBlock == BlockName::ICE) {
+        std::cout << "Cannot place ICE block - position (" << targetX << ", " << targetY << ") already contains an ICE block" << std::endl;
+        return;
+    }
+    
+    // Place the ICE block
+    gameMap.placeBlock(BlockName::ICE, targetX, targetY);
+    
+    if (playerDebugMode) {
+        std::cout << "ICE block placed at position (" << targetX << ", " << targetY << ") in direction " << direction << " from player at (" << playerX << ", " << playerY << ")" << std::endl;
+    } else {
+        std::cout << "ICE block placed!" << std::endl;
+    }
+}
+

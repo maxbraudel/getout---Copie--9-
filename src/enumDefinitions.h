@@ -36,7 +36,8 @@ enum class BlockName {
     WATER_1,
     WATER_2,
     WATER_3,
-    WATER_4
+    WATER_4,
+    ICE
 };
 
 // Utility functions for EntityName enum using magic_enum

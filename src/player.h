@@ -43,4 +43,10 @@ bool handlePlayerStuckDetection(float currentX, float currentY, double deltaTime
 // Function to resolve player collision when stuck
 bool resolvePlayerCollisionStuck(float& x, float& y);
 
+// Function to get the player's current facing direction (0=Up, 1=Right, 2=Left, 3=Down)
+int getPlayerDirection();
+
+// Function to place an ICE block in front of the player
+void placeIceBlockInFront();
+
 #endif // PLAYER_H
