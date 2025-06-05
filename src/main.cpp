@@ -191,13 +191,18 @@ int main() {
 	for (const auto& pair : specialBlocks) {
 		generatedMap[pair.first] = pair.second;
 	} */
+		std::cout << "Map generation complete." << std::endl;
 	
-	std::cout << "Map generation complete." << std::endl;
-		// Automatically place terrain elements (bushes on sand blocks) with 1/50 chance
+	// Initialize entity configurations before terrain element placement (needed for entity spawning)
+	std::cout << "Initializing entity configurations..." << std::endl;
+	entitiesManager.initializeEntityConfigurations();
+	
+	// Automatically place terrain elements (bushes on sand blocks) with 1/50 chance
+	// This can now spawn entities because entity configurations are initialized
 	// Instead of creating a separate map, we'll use the gameMap directly to ensure we see the actual blocks
 	placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);    
     
-    // Initialize entity configurations from predefined types in entities.cpp
+    // Entity configurations already initialized above
    
 
    
@@ -269,12 +274,10 @@ int main() {
 
     gameMap.placeBlockArea(BlockName::WATER_3, 0, 33, 50, 33);
     gameMap.placeBlockArea(BlockName::GRASS_2, 5, 33, 10, 33); */
-
-
     DEBUG_LOG_MEMORY("map_initialization_complete");
     
     // Place the antagonist entity at coordinates (10, 10)
-    std::cout << "Initializing entities..." << std::endl;    entitiesManager.initializeEntityConfigurations();
+    std::cout << "Placing manual entities..." << std::endl;
     DEBUG_LOG_MEMORY("entity_configs_initialized");
 
     entitiesManager.placeEntityByTypeSafely("antagonist1", EntityName::ANTAGONIST2, 5.0f, 30.0f);

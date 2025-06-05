@@ -70,9 +70,46 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     coconutTreeRule.anchorPoint = AnchorPoint::USE_TEXTURE_DEFAULT;
     coconutTreeRule.additionalXAnchorOffset = 0.0f;
     coconutTreeRule.additionalYAnchorOffset = 0.0f;
-    
-    // Add the rule to the configuration
+      // Add the rule to the configuration
     addGenerationRule(coconutTreeRule);
+    
+    // Antagonist entity rule - spawn antagonist entities in groups on GRASS_2 blocks
+    GenerationRuleInfo antagonistRule;
+    antagonistRule.ruleName = "AntagonistEntities";
+    antagonistRule.spawnType = SpawnType::ENTITY;
+    
+    // Add antagonist entity types with equal probability
+    antagonistRule.spawnEntities = {
+        EntityName::ANTAGONIST,
+        EntityName::ANTAGONIST2
+    };
+    
+    // Spawn on GRASS_2 blocks only
+    antagonistRule.spawnBlocks = {BlockName::GRASS_2};
+    
+    // Spawn probability and constraints
+    antagonistRule.spawnChance = 25;                     // 1/25 chance for more frequent spawning
+    antagonistRule.maxSpawns = 2000;                       // Max 50 antagonist entities
+    
+    // Distance constraints - maintain reasonable spacing between groups
+    antagonistRule.minDistanceFromSameRule = 8.0f;      // Min distance between antagonist groups
+    antagonistRule.maxDistanceFromBlocks = 0.0f;        // No proximity requirement
+    antagonistRule.proximityBlocks = {};                // No specific blocks needed nearby
+    
+    // Group spawning configuration - spawn antagonists in small groups
+    antagonistRule.spawnInGroup = true;
+    antagonistRule.groupRadius = 3.0f;                  // Spread group members within 3 units
+    antagonistRule.groupNumberMin = 2;                  // Min 2 entities per group
+    antagonistRule.groupNumberMax = 4;                  // Max 4 entities per group
+    
+    // Entity properties (not used for entities, but kept for consistency)
+    antagonistRule.scaleMin = 1.0f;
+    antagonistRule.scaleMax = 1.0f;
+    antagonistRule.baseScale = 1.0f;
+    antagonistRule.rotation = 0.0f;
+    
+    // Add the antagonist rule to the configuration
+    addGenerationRule(antagonistRule);
 }
 
 // Clear all rules

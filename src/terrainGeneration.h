@@ -42,4 +42,12 @@ void placeElementsFromRule(
     const GenerationRuleInfo& rule
 );
 
+// Helper function to place entities based on a single generation rule
+void placeEntitiesFromRule(
+    const Map& map,
+    int gridWidth,
+    int gridHeight,
+    const GenerationRuleInfo& rule
+);
+
 #endif // TERRAIN_GENERATION_H

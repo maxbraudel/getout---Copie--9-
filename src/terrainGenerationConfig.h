@@ -14,10 +14,10 @@ enum class SpawnType {
 };
 
 // Structure defining rules for spawning elements during terrain generation
-struct GenerationRuleInfo {
-    // Basic spawn configuration
+struct GenerationRuleInfo {    // Basic spawn configuration
     SpawnType spawnType = SpawnType::ELEMENT;
     std::vector<ElementName> spawnElements;  // Elements to spawn with this rule (equiprobable if multiple)
+    std::vector<EntityName> spawnEntities;   // Entities to spawn with this rule (equiprobable if multiple)
     std::vector<BlockName> spawnBlocks;      // Block types on which elements can spawn
     
     // Spawn probability and constraints

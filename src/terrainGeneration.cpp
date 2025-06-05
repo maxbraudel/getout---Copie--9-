@@ -2,6 +2,7 @@
 #include "terrainGenerationConfig.h" // For configuration system
 #include "map.h" // For BlockName enum and gameMap
 #include "collision.h" // For collision detection
+#include "entities.h" // For global entitiesManager
 #include "globals.h" // For DEBUG_MAP flag
 #include <vector>
 #include <queue>
@@ -255,13 +256,14 @@ void placeTerrainElements(
             }
         }
     }
-    
-    // Process each generation rule
+      // Process each generation rule
     for (const auto& rule : rules) {
         if (rule.spawnType == SpawnType::ELEMENT) {
             placeElementsFromRule(elementsManager, map, gridWidth, gridHeight, rule);
+        } else if (rule.spawnType == SpawnType::ENTITY) {
+            placeEntitiesFromRule(map, gridWidth, gridHeight, rule);
         }
-        // Future: handle ENTITY and BLOCK spawn types
+        // Future: handle BLOCK spawn types
     }
     
     std::cout << "Terrain blocks: " << sandCount << " sand, " << grassCount << " grass, " 
@@ -416,4 +418,129 @@ void placeElementsFromRule(
     }
     
     std::cout << "Placed " << placedCount << " elements using rule '" << rule.ruleName << "'" << std::endl;
+}
+
+// Helper function to place entities based on a single generation rule
+void placeEntitiesFromRule(
+    const Map& map,
+    int gridWidth,
+    int gridHeight,
+    const GenerationRuleInfo& rule
+) {
+    // Access the global entities manager
+    extern EntitiesManager entitiesManager;
+    
+    int placedCount = 0;
+    std::vector<std::pair<int, int>> placedLocations;
+    
+    // Pre-compute proximity blocks locations if needed
+    std::vector<std::pair<int, int>> proximityBlockLocations;
+    if (!rule.proximityBlocks.empty() && rule.maxDistanceFromBlocks > 0) {
+        for (int y = 0; y < gridHeight; y++) {
+            for (int x = 0; x < gridWidth; x++) {
+                BlockName blockType = map.getBlockNameByCoordinates(x, y);
+                for (const auto& proximityBlock : rule.proximityBlocks) {
+                    if (blockType == proximityBlock) {
+                        proximityBlockLocations.push_back({x, y});
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Iterate through all grid positions
+    for (int y = 0; y < gridHeight && placedCount < rule.maxSpawns; y++) {
+        for (int x = 0; x < gridWidth && placedCount < rule.maxSpawns; x++) {
+            // Check if current block type matches spawn requirements
+            BlockName currentBlockType = map.getBlockNameByCoordinates(x, y);
+            bool matchesSpawnBlock = false;
+            for (const auto& spawnBlock : rule.spawnBlocks) {
+                if (currentBlockType == spawnBlock) {
+                    matchesSpawnBlock = true;
+                    break;
+                }
+            }
+            
+            if (!matchesSpawnBlock) continue;
+            
+            // Check spawn probability
+            if (rand() % rule.spawnChance != 0) continue;
+            
+            // Check minimum distance from previous spawns of same rule
+            bool tooClose = false;
+            for (const auto& placedLoc : placedLocations) {
+                int dx = placedLoc.first - x;
+                int dy = placedLoc.second - y;
+                float distanceSquared = static_cast<float>(dx*dx + dy*dy);
+                if (distanceSquared < rule.minDistanceFromSameRule * rule.minDistanceFromSameRule) {
+                    tooClose = true;
+                    break;
+                }
+            }
+            
+            if (tooClose) continue;
+            
+            // Check proximity to required blocks if specified
+            if (!rule.proximityBlocks.empty() && rule.maxDistanceFromBlocks > 0) {
+                bool nearProximityBlocks = false;
+                for (const auto& proximityLoc : proximityBlockLocations) {
+                    int dx = proximityLoc.first - x;
+                    int dy = proximityLoc.second - y;
+                    float distanceSquared = static_cast<float>(dx*dx + dy*dy);
+                    if (distanceSquared <= rule.maxDistanceFromBlocks * rule.maxDistanceFromBlocks) {
+                        nearProximityBlocks = true;
+                        break;
+                    }
+                }
+                
+                if (!nearProximityBlocks) continue;
+            }
+            
+            // Determine how many entities to place (group spawning)
+            int entitiesToPlace = 1;
+            if (rule.spawnInGroup) {
+                entitiesToPlace = rule.groupNumberMin + 
+                    (rand() % (rule.groupNumberMax - rule.groupNumberMin + 1));
+            }
+            
+            // Place the entity(s)
+            for (int groupIndex = 0; groupIndex < entitiesToPlace && placedCount < rule.maxSpawns; groupIndex++) {
+                // Calculate position for this entity
+                float entityX = x + 0.5f;  // Center of the block
+                float entityY = y + 0.5f;  // Center of the block
+                
+                // Add group positioning offset if spawning in groups
+                if (rule.spawnInGroup && groupIndex > 0) {
+                    float angle = static_cast<float>(rand()) / RAND_MAX * 2.0f * 3.14159f;
+                    float distance = static_cast<float>(rand()) / RAND_MAX * rule.groupRadius;
+                    entityX += distance * cos(angle);
+                    entityY += distance * sin(angle);
+                }
+                
+                // Select entity to spawn (equiprobable if multiple)
+                EntityName selectedEntity = rule.spawnEntities[rand() % rule.spawnEntities.size()];
+                
+                // Create unique name for this entity
+                std::string entityInstanceName = rule.ruleName + "_" + std::to_string(placedCount);
+                
+                // Place the entity using safe placement to avoid collisions
+                bool success = entitiesManager.placeEntityByTypeSafely(entityInstanceName, selectedEntity, entityX, entityY);
+                
+                if (success) {
+                    placedCount++;
+                    
+                    // Only track the first entity of a group for distance calculations
+                    if (groupIndex == 0) {
+                        placedLocations.push_back({x, y});
+                    }
+                } else {
+                    std::cout << "Warning: Failed to place entity " << entityInstanceName 
+                              << " at position (" << entityX << "," << entityY << ")" << std::endl;
+                }
+            }
+        }
+    }
+    
+    std::cout << "Placed " << placedCount << " entities using rule '" << rule.ruleName << "'" << std::endl;
 }
