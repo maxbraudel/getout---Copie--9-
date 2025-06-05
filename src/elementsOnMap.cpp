@@ -585,6 +585,8 @@ if (DEBUG_LOGS) { std::cerr << "Element doesn't support sprite frames: " << inst
 
 bool ElementsOnMap::changeElementSpritePhase(const std::string& instanceName, int newPhase) {
     std::lock_guard<std::mutex> lock(elementsMutex);
+
+    std::cout << "Changing sprite phase for element: " << instanceName << std::endl;
     
     // Find element by name directly to handle elements being sorted in drawElements
     auto it = std::find_if(elements.begin(), elements.end(),
@@ -606,11 +608,10 @@ if (DEBUG_LOGS) { std::cerr << "Element not found for changing sprite phase: " <
                 auto dims = textureDimensions[it->elementName];
                 int totalHeight = dims.second;
                 int numPhases = totalHeight / texInfo.spriteHeight;
-                
-                // Check if phase is valid
+                  // Check if phase is valid
                 if (newPhase >= 0 && newPhase < numPhases) {
                     it->spriteSheetPhase = newPhase;
-if (DEBUG_LOGS) { std::cout << "Changed element sprite phase: " << instanceName << " to " << newPhase << std::endl; }
+                    std::cout << "Changing sprite phase for element: " << instanceName << " to " << newPhase << std::endl;
                     return true;
                 } else {
                     std::cerr << "Invalid sprite phase " << newPhase << " for element: " << instanceName 
