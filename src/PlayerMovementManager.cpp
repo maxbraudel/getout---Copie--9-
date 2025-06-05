@@ -306,10 +306,9 @@ void PlayerMovementManager::processPlayerMovement(const PlayerInput& input, doub
       // Update player position if movement is possible
     if (canMove) {
         updatePlayerPosition(actualDeltaX, actualDeltaY);
-        
-        // Check for water damage after player movement
+          // Check for water damage after player movement
         if (m_entitiesManager) {
-            checkAndApplyWaterDamageToPlayer(*m_entitiesManager);
+            checkAndApplyDamageBlocksToEntity("player1", *m_entitiesManager);
         }
     }
     

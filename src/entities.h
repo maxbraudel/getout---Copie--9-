@@ -35,10 +35,12 @@ enum class WalkType {
 struct EntityInfo {    EntityName type;
     ElementName elementName;
     float scale;
-    
-    // Health/damage system
+      // Health/damage system
     int lifePoints = 100; // Default life points
     int damagePoints = 0; // Default damage points
+    
+    // Damage blocks system - blocks that instantly kill the entity with high damage
+    std::vector<BlockName> damageBlocks; // Blocks that deal 1000 damage when stepped on
     
     // Sprite configuration
     int defaultSpriteSheetPhase;
@@ -105,10 +107,12 @@ struct EntityInfo {    EntityName type;
 struct EntityConfiguration {    EntityName type;
     ElementName elementName;
     float scale = 1.0f;
-    
-    // Health/damage system
+      // Health/damage system
     int lifePoints = 100; // Default life points
     int damagePoints = 0; // Default damage points
+    
+    // Damage blocks system - blocks that instantly kill the entity with high damage
+    std::vector<BlockName> damageBlocks; // Blocks that deal 1000 damage when stepped on
     
     // Default sprite configuration
     int defaultSpriteSheetPhase = 0;
@@ -174,10 +178,10 @@ struct EntityConfiguration {    EntityName type;
     EntityConfiguration() = default;    EntityConfiguration(const EntityInfo& info) {
         type = info.type;
         elementName = info.elementName;
-        scale = info.scale;
-          // Copy health/damage settings
+        scale = info.scale;        // Copy health/damage settings
         lifePoints = info.lifePoints;
         damagePoints = info.damagePoints;
+        damageBlocks = info.damageBlocks;
         
         defaultSpriteSheetPhase = info.defaultSpriteSheetPhase;
         defaultSpriteSheetFrame = info.defaultSpriteSheetFrame;

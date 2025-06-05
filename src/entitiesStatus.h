@@ -29,5 +29,11 @@ BlockName giveBlockNameUnderneathEntity(const std::string& instanceName, Entitie
 // Function to check and apply water damage to the player
 void checkAndApplyWaterDamageToPlayer(EntitiesManager& entitiesManager);
 
+// Function to check and apply damage blocks to any entity based on its configuration
+void checkAndApplyDamageBlocksToEntity(const std::string& instanceName, EntitiesManager& entitiesManager);
+
 // Function to check if a player is on a specific block position and apply water damage if needed
 void checkPlayerWaterDamageAtPosition(int blockX, int blockY, BlockName blockType, EntitiesManager& entitiesManager);
+
+// Function to check all entities at a specific position and apply damage if damage blocks are placed
+void checkAllEntitiesDamageAtPosition(int blockX, int blockY, BlockName blockType, EntitiesManager& entitiesManager);

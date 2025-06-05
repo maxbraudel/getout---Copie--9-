@@ -347,10 +347,9 @@ void Map::placeBlock(BlockName name, int x, int y) {
         // Update the position map
         blockPositionMap[{x, y}] = blocks.size() - 1;
     }
-    
-    // Check for water damage if a water block was placed
+      // Check for damage blocks if any entities are affected by the placed block
     extern EntitiesManager entitiesManager;
-    checkPlayerWaterDamageAtPosition(x, y, name, entitiesManager);
+    checkAllEntitiesDamageAtPosition(x, y, name, entitiesManager);
 }
 
 void Map::placeBlocks(const std::map<std::pair<int, int>, BlockName>& blocksToPlace) {
@@ -463,13 +462,12 @@ void Map::placeBlocks(const std::map<std::pair<int, int>, BlockName>& blocksToPl
             blockPositionMap[coords] = blocks.size() - 1;
         }
     }
-    
-    // Check for water damage for each placed block
+      // Check for damage blocks for each placed block
     extern EntitiesManager entitiesManager;
     for (const auto& pair : blocksToPlace) {
         const std::pair<int, int>& coords = pair.first;
         BlockName name = pair.second;
-        checkPlayerWaterDamageAtPosition(coords.first, coords.second, name, entitiesManager);
+        checkAllEntitiesDamageAtPosition(coords.first, coords.second, name, entitiesManager);
     }
 }
 

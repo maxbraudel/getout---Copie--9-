@@ -2,6 +2,7 @@
 #include "entityBehaviors.h"
 #include "collision.h"
 #include "collisionCache.h"
+#include "entitiesStatus.h"
 #include "map.h" // Adding for gameMap access
 #include "pathfinding.h" // Include for pathfinding cooldown functions
 #include "globals.h" // For GRID_SIZE
@@ -98,13 +99,21 @@ static void initializeEntityTypes() {
             BlockName::WATER_3,
             BlockName::WATER_4
         };
-        
-        antagonist.collisionBlocks = {
+          antagonist.collisionBlocks = {
             BlockName::WATER_0,
             BlockName::WATER_1,
             BlockName::WATER_2,
             BlockName::WATER_3,
             BlockName::WATER_4        
+        };
+        
+        // Damage blocks configuration - Antagonist takes damage when stepping on these blocks
+        antagonist.damageBlocks = {
+            BlockName::WATER_0, // Water blocks deal 1000 damage to antagonist
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4
         };
         
         // Entity collision configuration - Antagonist avoids player for pathfinding but can collide during movement
@@ -204,14 +213,22 @@ static void initializeEntityTypes() {
             BlockName::WATER_4 // Player avoids deep water blocks for pathfinding
 
         };
-        
-        // Player physically collides with deep water but can walk through shallow water
+          // Player physically collides with deep water but can walk through shallow water
         player.collisionBlocks = {
             BlockName::WATER_0,
             BlockName::WATER_1,
             BlockName::WATER_2,
             BlockName::WATER_3,
             BlockName::WATER_4 // Only deep water blocks movement        
+        };
+        
+        // Damage blocks configuration - Player takes damage when stepping on these blocks
+        player.damageBlocks = {
+            BlockName::WATER_0, // Water blocks deal 1000 damage to player
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4
         };        
         // Entity collision configuration - Player avoids antagonist for pathfinding and can collide during movement
         /* player.avoidanceEntities = {
@@ -265,9 +282,7 @@ static void initializeEntityTypes() {
             BlockName::WATER_0,
             BlockName::WATER_1,
             BlockName::WATER_2,
-        };
-
-        shark.avoidanceBlocks = {
+        };        shark.avoidanceBlocks = {
             BlockName::SAND,
             BlockName::GRASS_0,
             BlockName::GRASS_1,
@@ -276,6 +291,18 @@ static void initializeEntityTypes() {
             BlockName::WATER_0,
             BlockName::WATER_1,
             BlockName::WATER_2,
+        };
+
+        // Damage blocks configuration - Shark doesn't take damage from any blocks (lives in water)
+        shark.damageBlocks = {
+            BlockName::GRASS_0,
+            BlockName::GRASS_1,
+            BlockName::GRASS_2,
+            BlockName::GRASS_3,
+            BlockName::SAND,
+            BlockName::ICE_1,
+            BlockName::ICE_2,
+            BlockName::ICE_3
         };
 
 
@@ -1692,9 +1719,11 @@ void EntitiesManager::updateEntityWalking(Entity& entity, const EntityConfigurat
     // Apply the actual movement
     float newX = currentActualX + moveDx;
     float newY = currentActualY + moveDy;
-    
-    // Update the entity position on the map
+      // Update the entity position on the map
     elementsManager.changeElementCoordinates(elementName, newX, newY);
+    
+    // Check for damage blocks after entity movement
+    checkAndApplyDamageBlocksToEntity(entity.instanceName, *this);
 }
 
 // Function to check entity collision with elements (uses collision shape points if available, otherwise fallback to radius)

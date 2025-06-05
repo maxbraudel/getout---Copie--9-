@@ -139,6 +139,45 @@ BlockName giveBlockNameUnderneathEntity(const std::string& instanceName, Entitie
     return blockType;
 }
 
+// Function to check and apply damage blocks to any entity based on its configuration
+void checkAndApplyDamageBlocksToEntity(const std::string& instanceName, EntitiesManager& entitiesManager) {
+    // Get the entity
+    Entity* entity = entitiesManager.getEntity(instanceName);
+    if (!entity) {
+        return; // Entity doesn't exist
+    }
+    
+    // Get the entity configuration to access damage blocks
+    const EntityConfiguration* config = entitiesManager.getConfiguration(entity->type);
+    if (!config || config->damageBlocks.empty()) {
+        return; // No configuration or no damage blocks defined
+    }
+    
+    // Get the block underneath the entity
+    BlockName blockUnderEntity = giveBlockNameUnderneathEntity(instanceName, entitiesManager);
+    
+    // Check if the block under the entity is in the damage blocks list
+    for (const BlockName& damageBlock : config->damageBlocks) {
+        if (blockUnderEntity == damageBlock) {
+            // Apply 1000 damage (enough to kill most entities)
+            entity->lifePoints -= 1000;
+            
+            std::cout << "Entity " << instanceName << " stepped on damage block (" 
+                      << static_cast<int>(blockUnderEntity) << ") and took 1000 damage! Remaining life: " 
+                      << entity->lifePoints << std::endl;
+            
+            // Check if entity should be destroyed
+            if (entity->lifePoints <= 0) {
+                std::cout << "Entity " << instanceName << " destroyed by damage block!" << std::endl;
+                destroyEntity(instanceName, entitiesManager);
+            }
+            
+            // Only apply damage once per check, even if multiple damage blocks match
+            break;
+        }
+    }
+}
+
 // Function to check and apply water damage to the player
 void checkAndApplyWaterDamageToPlayer(EntitiesManager& entitiesManager) {
     const std::string playerInstanceName = "player1";
@@ -208,6 +247,67 @@ void checkPlayerWaterDamageAtPosition(int blockX, int blockY, BlockName blockTyp
             if (player->lifePoints <= 0) {
                 std::cout << "Player destroyed by water damage from placed block!" << std::endl;
                 destroyEntity(playerInstanceName, entitiesManager);
+            }
+        }
+    }
+}
+
+// Function to check all entities at a specific position and apply damage if damage blocks are placed
+void checkAllEntitiesDamageAtPosition(int blockX, int blockY, BlockName blockType, EntitiesManager& entitiesManager) {
+    // Get all entities and check if any are at the same position as the placed block
+    auto& entities = entitiesManager.getEntities();
+    
+    for (const auto& pair : entities) {
+        const std::string& instanceName = pair.first;
+        const Entity& entity = pair.second;
+        
+        // Get entity configuration to check if this block type is a damage block for this entity
+        const EntityConfiguration* config = entitiesManager.getConfiguration(entity.type);
+        if (!config || config->damageBlocks.empty()) {
+            continue; // No damage blocks configured for this entity
+        }
+        
+        // Check if the placed block is in this entity's damage blocks list
+        bool isDamageBlock = false;
+        for (const BlockName& damageBlock : config->damageBlocks) {
+            if (blockType == damageBlock) {
+                isDamageBlock = true;
+                break;
+            }
+        }
+        
+        if (!isDamageBlock) {
+            continue; // This block type doesn't damage this entity
+        }
+        
+        // Get entity position
+        float entityX, entityY;
+        std::string elementName = EntitiesManager::getElementName(instanceName);
+        extern ElementsOnMap elementsManager;
+        if (!elementsManager.getElementPosition(elementName, entityX, entityY)) {
+            continue; // Could not get entity position
+        }
+        
+        // Convert entity position to grid coordinates
+        int entityGridX = static_cast<int>(std::floor(entityX));
+        int entityGridY = static_cast<int>(std::floor(entityY));
+        
+        // Check if entity is on the same grid position as the placed block
+        if (entityGridX == blockX && entityGridY == blockY) {
+            // Entity is on the damage block, apply damage
+            Entity* mutableEntity = entitiesManager.getEntity(instanceName);
+            if (mutableEntity) {
+                mutableEntity->lifePoints -= 1000;
+                
+                std::cout << "Entity " << instanceName << " was standing on position where damage block (" 
+                          << static_cast<int>(blockType) << ") was placed! Entity took 1000 damage! Remaining life: " 
+                          << mutableEntity->lifePoints << std::endl;
+                
+                // Check if entity should be destroyed
+                if (mutableEntity->lifePoints <= 0) {
+                    std::cout << "Entity " << instanceName << " destroyed by damage block placement!" << std::endl;
+                    destroyEntity(instanceName, entitiesManager);
+                }
             }
         }
     }
