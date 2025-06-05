@@ -1,4 +1,5 @@
 #include "terrainGeneration.h"
+#include "terrainGenerationConfig.h" // For configuration system
 #include "map.h" // For BlockName enum and gameMap
 #include "collision.h" // For collision detection
 #include "globals.h" // For DEBUG_MAP flag
@@ -223,15 +224,15 @@ std::map<std::pair<int, int>, BlockName> generateTerrain(
     return generatedBlocks;
 }
 
-// Places decorative elements (bushes, etc.) on appropriate terrain blocks
+// Places decorative elements based on configuration rules
 void placeTerrainElements(
     ElementsOnMap& elementsManager,
     const Map& map,
     int gridWidth,
     int gridHeight
 ) {
-    // Keep track of how many bushes we've placed to give unique IDs
-    int bushCount = 0;
+    // Get generation rules from the global configuration
+    const auto& rules = g_terrainConfig.getGenerationRules();
     
     // Count of different block types for debugging
     int sandCount = 0;
@@ -239,115 +240,12 @@ void placeTerrainElements(
     int waterCount = 0;
     int otherCount = 0;
     
-    // Track placed bush locations for distance checking
-    std::vector<std::pair<int, int>> placedBushes;
-    const int MIN_COCONUT_TREE_DISTANCE = 4; // Minimum distance between trees
-    const int MAX_WATER_DISTANCE = 3; // Maximum distance from water for coconut trees
-    
-    // First, find all water blocks and store their positions for distance checks
-    std::vector<std::pair<int, int>> waterBlocks;
+    // Count blocks for debugging
     for (int y = 0; y < gridHeight; y++) {
         for (int x = 0; x < gridWidth; x++) {
             BlockName blockType = map.getBlockNameByCoordinates(x, y);
-            if (blockType >= BlockName::WATER_0 && blockType <= BlockName::WATER_4) {
-                waterBlocks.push_back({x, y});
-            }
-        }
-    }
-    
-    // Iterate through all grid positions
-    for (int y = 0; y < gridHeight; y++) {
-        for (int x = 0; x < gridWidth; x++) {
-            // Get the actual block type from the map
-            BlockName blockType = map.getBlockNameByCoordinates(x, y);
-            
-            // Count block types for debugging
             if (blockType == BlockName::SAND) {
-                // Count sand blocks and edges
                 sandCount++;
-                // Place trees with 1/50 chance, but limit to max 50 total trees for performance
-                const int MAX_COCONUT_TREES = 1000;
-                const int COCONUT_TREE_CHANCE = 50; // 1/50 chance
-                
-                if (bushCount < MAX_COCONUT_TREES && rand() % COCONUT_TREE_CHANCE == 0) {
-                    // Check distance from existing trees
-                    bool tooClose = false;
-                    for (const auto& bush : placedBushes) {
-                        int dx = bush.first - x;
-                        int dy = bush.second - y;
-                        int distanceSquared = dx*dx + dy*dy;
-                        
-                        // Use square of distance to avoid square root calculation
-                        if (distanceSquared < MIN_COCONUT_TREE_DISTANCE * MIN_COCONUT_TREE_DISTANCE) {
-                            tooClose = true;
-                            break;
-                        }
-                    }
-                    
-                    // Check distance from water blocks - trees must be within MAX_WATER_DISTANCE blocks from water
-                    bool nearWater = false;
-                    for (const auto& water : waterBlocks) {
-                        int dx = water.first - x;
-                        int dy = water.second - y;
-                        int distanceSquared = dx*dx + dy*dy;
-                        
-                        // Check if within MAX_WATER_DISTANCE blocks from water (using squared distance)
-                        if (distanceSquared <= MAX_WATER_DISTANCE * MAX_WATER_DISTANCE) {
-                            nearWater = true;
-                            break;
-                        }
-                    }
-                    
-                    // Only place tree if not too close to existing trees AND is near water
-                    if (!tooClose && nearWater) {
-                        // Create a unique name for this coconut tree
-                        std::string bushName = "terrain_coconut_tree_" + std::to_string(bushCount++);                        // Convert grid coordinates to world coordinates (center of the block)
-                        float worldX = x + 0.5f;  // Center of the block
-                        
-                        // Ensure Y coordinate matches the system with (0,0) at bottom-left
-                        float worldY = y + 0.5f;  // Center of the block
-                        
-                        // Add tree location to tracking vector
-                        placedBushes.push_back({x, y});
-                        
-                        // Randomly pick one of the three coconut tree textures with equal probability
-                        ElementName treeTexture;
-                        int randomTree = rand() % 3;
-                        switch (randomTree) {
-                            case 0:
-                                treeTexture = ElementName::COCONUT_TREE_1;
-                                break;
-                            case 1:
-                                treeTexture = ElementName::COCONUT_TREE_2;
-                                break;
-                            case 2:
-                                treeTexture = ElementName::COCONUT_TREE_3;
-                                break;
-                            default: // Should never happen, but just in case
-                                treeTexture = ElementName::COCONUT_TREE_1;
-                        }                        // Add random scale variation to trees for visual diversity
-                        float randomScale = 0.7f + static_cast<float>(rand()) / RAND_MAX * (1.0f - 0.7f);
-                        
-                        // Place a coconut tree at this location
-                        // Using default anchor point from texture (BOTTOM_CENTER for trees)                        // Using default anchor point from texture (BOTTOM_CENTER for trees)
-                        elementsManager.placeElement(
-                            bushName,                    // Unique name
-                            treeTexture,                 // Randomly selected coconut tree texture
-                            7.0f * randomScale,          // Size (scaled by 5.0f with random variation)
-                            worldX,                      // X position
-                            worldY,                      // Y position
-                            0.0f,                        // No rotation
-                            0,                           // Default sprite sheet phase
-                            0,                           // Default sprite sheet frame
-                            false,                       // Not animated
-                            10.0f,                       // Default animation speed
-                            AnchorPoint::USE_TEXTURE_DEFAULT, // Use texture's default anchor point
-                            0.0f,                        // No additional X anchor offset
-                            0.0f                         // No additional Y anchor offset
-                        );
-                        // Note: Hitbox parameters were removed as they're not supported in the function definition
-                    }
-                }
             } else if (blockType >= BlockName::GRASS_0 && blockType <= BlockName::GRASS_5) {
                 grassCount++;
             } else if (blockType >= BlockName::WATER_0 && blockType <= BlockName::WATER_4) {
@@ -356,11 +254,166 @@ void placeTerrainElements(
                 otherCount++;
             }
         }
-    }    // Concise summary of terrain generation results
+    }
+    
+    // Process each generation rule
+    for (const auto& rule : rules) {
+        if (rule.spawnType == SpawnType::ELEMENT) {
+            placeElementsFromRule(elementsManager, map, gridWidth, gridHeight, rule);
+        }
+        // Future: handle ENTITY and BLOCK spawn types
+    }
+    
     std::cout << "Terrain blocks: " << sandCount << " sand, " << grassCount << " grass, " 
               << waterCount << " water blocks" << std::endl;
-    std::cout << "Placed " << bushCount << " coconut trees (near water only)" << std::endl;
     
     // Reset the collision cache to ensure collision detection uses up-to-date information
     resetCollisionCache();
+}
+
+// Helper function to place elements based on a single generation rule
+void placeElementsFromRule(
+    ElementsOnMap& elementsManager,
+    const Map& map,
+    int gridWidth,
+    int gridHeight,
+    const GenerationRuleInfo& rule
+) {
+    int placedCount = 0;
+    std::vector<std::pair<int, int>> placedLocations;
+    
+    // Pre-compute proximity blocks locations if needed
+    std::vector<std::pair<int, int>> proximityBlockLocations;
+    if (!rule.proximityBlocks.empty() && rule.maxDistanceFromBlocks > 0) {
+        for (int y = 0; y < gridHeight; y++) {
+            for (int x = 0; x < gridWidth; x++) {
+                BlockName blockType = map.getBlockNameByCoordinates(x, y);
+                for (const auto& proximityBlock : rule.proximityBlocks) {
+                    if (blockType == proximityBlock) {
+                        proximityBlockLocations.push_back({x, y});
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Iterate through all grid positions
+    for (int y = 0; y < gridHeight && placedCount < rule.maxSpawns; y++) {
+        for (int x = 0; x < gridWidth && placedCount < rule.maxSpawns; x++) {
+            BlockName blockType = map.getBlockNameByCoordinates(x, y);
+            
+            // Check if this block type is valid for spawning
+            bool validBlock = false;
+            for (const auto& spawnBlock : rule.spawnBlocks) {
+                if (blockType == spawnBlock) {
+                    validBlock = true;
+                    break;
+                }
+            }
+            
+            if (!validBlock) continue;
+            
+            // Check spawn probability
+            if (rand() % rule.spawnChance != 0) continue;
+            
+            // Check distance from previously placed elements of this rule
+            bool tooClose = false;
+            if (rule.minDistanceFromSameRule > 0) {
+                for (const auto& placed : placedLocations) {
+                    int dx = placed.first - x;
+                    int dy = placed.second - y;
+                    float distanceSquared = static_cast<float>(dx*dx + dy*dy);
+                    if (distanceSquared < rule.minDistanceFromSameRule * rule.minDistanceFromSameRule) {
+                        tooClose = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (tooClose) continue;
+            
+            // Check proximity to required blocks
+            bool nearProximityBlocks = true;
+            if (!rule.proximityBlocks.empty() && rule.maxDistanceFromBlocks > 0) {
+                nearProximityBlocks = false;
+                for (const auto& proximityLoc : proximityBlockLocations) {
+                    int dx = proximityLoc.first - x;
+                    int dy = proximityLoc.second - y;
+                    float distanceSquared = static_cast<float>(dx*dx + dy*dy);
+                    if (distanceSquared <= rule.maxDistanceFromBlocks * rule.maxDistanceFromBlocks) {
+                        nearProximityBlocks = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!nearProximityBlocks) continue;
+            
+            // Determine how many elements to place (group spawning)
+            int elementsToPlace = 1;
+            if (rule.spawnInGroup) {
+                elementsToPlace = rule.groupNumberMin + 
+                    (rand() % (rule.groupNumberMax - rule.groupNumberMin + 1));
+            }
+            
+            // Place the element(s)
+            for (int groupIndex = 0; groupIndex < elementsToPlace && placedCount < rule.maxSpawns; groupIndex++) {
+                // Calculate position for this element
+                float elementX = x + 0.5f;  // Center of the block
+                float elementY = y + 0.5f;  // Center of the block
+                
+                // Add group positioning offset if spawning in groups
+                if (rule.spawnInGroup && groupIndex > 0) {
+                    float angle = static_cast<float>(rand()) / RAND_MAX * 2.0f * 3.14159f;
+                    float distance = static_cast<float>(rand()) / RAND_MAX * rule.groupRadius;
+                    elementX += distance * cos(angle);
+                    elementY += distance * sin(angle);
+                }
+                
+                // Select element to spawn (equiprobable if multiple)
+                ElementName selectedElement = rule.spawnElements[rand() % rule.spawnElements.size()];
+                
+                // Calculate scale with random variation
+                float randomScale = rule.scaleMin + 
+                    static_cast<float>(rand()) / RAND_MAX * (rule.scaleMax - rule.scaleMin);
+                float finalScale = rule.baseScale * randomScale;
+                
+                // Calculate rotation
+                float finalRotation = rule.rotation;
+                if (rule.rotation < 0) {  // -1 means random rotation
+                    finalRotation = static_cast<float>(rand()) / RAND_MAX * 360.0f;
+                }
+                
+                // Create unique name for this element
+                std::string elementName = rule.ruleName + "_" + std::to_string(placedCount);
+                
+                // Place the element
+                elementsManager.placeElement(
+                    elementName,
+                    selectedElement,
+                    finalScale,
+                    elementX,
+                    elementY,
+                    finalRotation,
+                    rule.defaultSpriteSheetPhase,
+                    rule.defaultSpriteSheetFrame,
+                    rule.isAnimated,
+                    rule.animationSpeed,
+                    rule.anchorPoint,
+                    rule.additionalXAnchorOffset,
+                    rule.additionalYAnchorOffset
+                );
+                
+                placedCount++;
+                
+                // Only track the first element of a group for distance calculations
+                if (groupIndex == 0) {
+                    placedLocations.push_back({x, y});
+                }
+            }
+        }
+    }
+    
+    std::cout << "Placed " << placedCount << " elements using rule '" << rule.ruleName << "'" << std::endl;
 }

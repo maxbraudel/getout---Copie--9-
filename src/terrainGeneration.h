@@ -7,6 +7,9 @@
 #include "elementsOnMap.h" // For ElementsOnMap class
 #include "enumDefinitions.h"
 
+// Forward declaration for configuration structure
+struct GenerationRuleInfo;
+
 
 // Generates a terrain map using a placeholder Perlin noise function.
 // A real Perlin noise implementation/library should be used for better results.
@@ -28,6 +31,15 @@ void placeTerrainElements(
     const Map& map,
     int gridWidth,
     int gridHeight
+);
+
+// Helper function to place elements based on a single generation rule
+void placeElementsFromRule(
+    ElementsOnMap& elementsManager,
+    const Map& map,
+    int gridWidth,
+    int gridHeight,
+    const GenerationRuleInfo& rule
 );
 
 #endif // TERRAIN_GENERATION_H
