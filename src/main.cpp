@@ -83,6 +83,12 @@ void endGameplay() {
     
     std::cout << "Stopping gameplay..." << std::endl;
     
+    // If the game is paused, resume it first to ensure proper cleanup
+    if (g_threadManager && g_threadManager->isPaused()) {
+        std::cout << "Game is paused - resuming before cleanup..." << std::endl;
+        g_threadManager->resumeGame();
+    }
+    
     // Cleanup gameplay systems (threads, entities, etc.)
     Gameplay::cleanup();
     
