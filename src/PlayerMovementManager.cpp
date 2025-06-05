@@ -251,12 +251,30 @@ void PlayerMovementManager::processPlayerMovement(const PlayerInput& input, doub
         }
         return;
     }
-    
-    // Get player configuration
+      // Get player configuration
     const EntityConfiguration* config = m_entitiesManager->getConfiguration(EntityName::PLAYER);
     if (!config) {
         std::cerr << "Player configuration not found in player movement thread" << std::endl;
         return;
+    }
+    
+    // Change the player's facing direction based on input direction FIRST
+    // Always use the original input moveX/Y for direction changes, regardless of whether movement will succeed
+    // This ensures the player always faces the direction they're trying to move, even if blocked by collision
+    if (input.moveX != 0.0f || input.moveY != 0.0f) {
+        if (input.moveX > 0.0f && std::abs(input.moveX) > std::abs(input.moveY)) {
+            // Trying to move right (and right movement is dominant)
+            m_elementsManager->changeElementSpritePhase("player1", config->spritePhaseWalkRight);
+        } else if (input.moveX < 0.0f && std::abs(input.moveX) > std::abs(input.moveY)) {
+            // Trying to move left (and left movement is dominant)
+            m_elementsManager->changeElementSpritePhase("player1", config->spritePhaseWalkLeft);
+        } else if (input.moveY > 0.0f) {
+            // Trying to move up (or up movement is dominant)
+            m_elementsManager->changeElementSpritePhase("player1", config->spritePhaseWalkUp);
+        } else if (input.moveY < 0.0f) {
+            // Trying to move down (or down movement is dominant)
+            m_elementsManager->changeElementSpritePhase("player1", config->spritePhaseWalkDown);
+        }
     }
     
     // Calculate movement speed based on sprint state
@@ -323,28 +341,9 @@ void PlayerMovementManager::updatePlayerPosition(float deltaX, float deltaY)
     m_playerState.x += deltaX;
     m_playerState.y += deltaY;
     m_playerState.needsSync = true;
-    
-    // Update actual game element position
+      // Update actual game element position
     if (m_elementsManager) {
         m_elementsManager->moveElement("player1", deltaX, deltaY);
-        
-        // Update sprite direction based on movement
-        const EntityConfiguration* config = m_entitiesManager->getConfiguration(EntityName::PLAYER);
-        if (config) {
-            if (deltaX > 0 && std::abs(deltaX) > std::abs(deltaY)) {
-                // Moving right
-                m_elementsManager->changeElementSpritePhase("player1", config->spritePhaseWalkRight);
-            } else if (deltaX < 0 && std::abs(deltaX) > std::abs(deltaY)) {
-                // Moving left
-                m_elementsManager->changeElementSpritePhase("player1", config->spritePhaseWalkLeft);
-            } else if (deltaY > 0) {
-                // Moving up
-                m_elementsManager->changeElementSpritePhase("player1", config->spritePhaseWalkUp);
-            } else if (deltaY < 0) {
-                // Moving down
-                m_elementsManager->changeElementSpritePhase("player1", config->spritePhaseWalkDown);
-            }
-        }
     }
 }
 

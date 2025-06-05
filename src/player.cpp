@@ -78,12 +78,30 @@ void changePlayerDirection(int direction) {
 
 // Function to move the player relative to its current position
 void movePlayer(float deltaX, float deltaY) {
-    // Before moving, check if player1 exists by trying to get its position
-    // Get player entity configuration for collision parameters
+    // Before moving, check if player1 exists by trying to get its position    // Get player entity configuration for collision parameters
     const EntityConfiguration* config = getPlayerConfig();
     if (!config) {
         std::cerr << "ERROR: Cannot move player - player configuration not found!" << std::endl;
         return;    }
+    
+    // Change the player's facing direction based on attempted movement direction FIRST
+    // Always use the original requested deltaX/Y for direction changes, regardless of whether movement succeeded
+    // This ensures the player always faces the direction they're trying to move, even if blocked by collision
+    if (deltaX != 0 || deltaY != 0) {
+        if (deltaX > 0 && std::abs(deltaX) > std::abs(deltaY)) {
+            // Trying to move right (and right movement is dominant)
+            elementsManager.changeElementSpritePhase("player1", config->spritePhaseWalkRight);
+        } else if (deltaX < 0 && std::abs(deltaX) > std::abs(deltaY)) {
+            // Trying to move left (and left movement is dominant)
+            elementsManager.changeElementSpritePhase("player1", config->spritePhaseWalkLeft);
+        } else if (deltaY > 0) {
+            // Trying to move up (or up movement is dominant)
+            elementsManager.changeElementSpritePhase("player1", config->spritePhaseWalkUp);
+        } else if (deltaY < 0) {
+            // Trying to move down (or down movement is dominant)
+            elementsManager.changeElementSpritePhase("player1", config->spritePhaseWalkDown);
+        }
+    }
     
     // Entity collision detection now uses polygon shapes only
     float x, y;
@@ -178,8 +196,7 @@ void movePlayer(float deltaX, float deltaY) {
         
         // Disable animation since player can't move at all
         elementsManager.changeElementAnimationStatus("player1", false);
-        
-        // Set to standing frame
+          // Set to standing frame
         elementsManager.changeElementSpriteFrame("player1", 0);
     }
 
@@ -188,28 +205,6 @@ void movePlayer(float deltaX, float deltaY) {
     float currentX, currentY;
     if (getPlayerPosition(currentX, currentY)) {
         handlePlayerStuckDetection(currentX, currentY, 0.016, !movedPartially);
-    }
-
-    // Change the player's facing direction based on attempted movement direction
-    // Use actualDeltaX/Y if we're moving partially, otherwise use requested deltaX/Y for facing
-    float directionDeltaX = movedPartially ? actualDeltaX : deltaX;
-    float directionDeltaY = movedPartially ? actualDeltaY : deltaY;
-    
-    // Use the already declared config variable from above
-    if (config) {
-        if (directionDeltaX > 0 && std::abs(directionDeltaX) > std::abs(directionDeltaY)) {
-            // Moving right (and right movement is dominant)
-            elementsManager.changeElementSpritePhase("player1", config->spritePhaseWalkRight);
-        } else if (directionDeltaX < 0 && std::abs(directionDeltaX) > std::abs(directionDeltaY)) {
-            // Moving left (and left movement is dominant)
-            elementsManager.changeElementSpritePhase("player1", config->spritePhaseWalkLeft);
-        } else if (directionDeltaY > 0) {
-            // Moving up (or up movement is dominant)
-            elementsManager.changeElementSpritePhase("player1", config->spritePhaseWalkUp);
-        } else if (directionDeltaY < 0) {
-            // Moving down (or down movement is dominant)
-            elementsManager.changeElementSpritePhase("player1", config->spritePhaseWalkDown);
-        }
     }
 
     // Display player position in debug mode
@@ -439,11 +434,14 @@ void placeIceBlockInFront() {
     if (targetX < 0 || targetX >= GRID_SIZE || targetY < 0 || targetY >= GRID_SIZE) {
         std::cout << "Cannot place ICE block - target position (" << targetX << ", " << targetY << ") is outside map bounds" << std::endl;
         return;
-    }
-      // Check if there's already a block at the target position (skip placing on certain blocks)
+    }    // Check if the target position contains a water block (only allow ICE placement on water)
     BlockName existingBlock = gameMap.getBlockNameByCoordinates(targetX, targetY);
-    if (existingBlock == BlockName::ICE) {
-        std::cout << "Cannot place ICE block - position (" << targetX << ", " << targetY << ") already contains an ICE block" << std::endl;
+    if (existingBlock != BlockName::WATER_0 && 
+        existingBlock != BlockName::WATER_1 && 
+        existingBlock != BlockName::WATER_2 && 
+        existingBlock != BlockName::WATER_3 && 
+        existingBlock != BlockName::WATER_4) {
+        std::cout << "Cannot place ICE block - can only place on water blocks" << std::endl;
         return;
     }
     

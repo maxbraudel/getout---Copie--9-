@@ -136,7 +136,7 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     textureConfigs[BlockName::WATER_4] = water4Info;
 
     BlockInfo iceInfo;
-    iceInfo.path = "../assets/textures/blocks/sand.png";
+    iceInfo.path = "../assets/textures/blocks/ice1.png";
     iceInfo.animType = TextureAnimationType::STATIC;
     textureConfigs[BlockName::ICE] = iceInfo;
 
