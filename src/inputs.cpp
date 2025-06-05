@@ -11,6 +11,7 @@
 #include "terrainGeneration.h"
 #include "enumDefinitions.h"
 #include "threading.h"
+#include "glbasimac/glbi_engine.hpp"
 #include <iostream>
 #include <cmath>
 #include <algorithm>
@@ -176,11 +177,22 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                     }
                 }
             }
-        }
-        // Toggle path debugging with F8
+        }        // Toggle path debugging with F8
         else if (key == GLFW_KEY_F8) {
             DEBUG_SHOW_PATHS = !DEBUG_SHOW_PATHS;
             std::cout << "Entity path debugging " << (DEBUG_SHOW_PATHS ? "enabled" : "disabled") << std::endl;
+        }        // Toggle gameplay with Enter key
+        else if (key == GLFW_KEY_ENTER) {
+            extern bool gameplayActive;
+            extern glbasimac::GLBI_Engine myEngine;
+            bool startGameplay(glbasimac::GLBI_Engine& engine, GLFWwindow* window);
+            void endGameplay();
+            
+            if (gameplayActive) {
+                endGameplay();
+            } else {
+                startGameplay(myEngine, window);
+            }
         }
     } else if (action == GLFW_RELEASE) {
         keyPressedStates[key] = false;

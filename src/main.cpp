@@ -21,7 +21,8 @@
 #include <chrono> // For std::chrono::seconds
 #include "enumDefinitions.h"
 
-
+// Global gameplay state
+bool gameplayActive = false;
 
 using namespace glbasimac;
 
@@ -40,6 +41,54 @@ void updateCameraToPlayerPosition();
 /* Forward declarations for functions in debug.cpp */
 bool isPlayerDebugModeActive();
 void printPlayerDebugInfo(float playerX, float playerY, int mapWidth, int mapHeight);
+
+/* Gameplay management functions */
+bool startGameplay(GLBI_Engine& engine, GLFWwindow* window);
+void endGameplay();
+
+/* Gameplay management function implementations */
+bool startGameplay(GLBI_Engine& engine, GLFWwindow* window) {
+    if (gameplayActive) {
+        return true; // Already active
+    }
+    
+    std::cout << "Starting gameplay..." << std::endl;
+    
+    // Initialize all gameplay systems (map, entities, elements, threading)
+    if (!Gameplay::initialize(engine, window)) {
+        std::cerr << "Failed to initialize gameplay systems!" << std::endl;
+        return false;
+    }
+    
+    // Reset all entity movement states to fix movement issues after restart
+    std::cout << "Resetting entity movement states..." << std::endl;
+    Gameplay::getEntitiesManager().resetAllEntityMovementStates();
+    
+    // Start game threads
+    if (!Gameplay::startGameThreads()) {
+        std::cerr << "Failed to start game threads!" << std::endl;
+        Gameplay::cleanup();
+        return false;
+    }
+    
+    gameplayActive = true;
+    std::cout << "Gameplay started successfully" << std::endl;
+    return true;
+}
+
+void endGameplay() {
+    if (!gameplayActive) {
+        return; // Already inactive
+    }
+    
+    std::cout << "Stopping gameplay..." << std::endl;
+    
+    // Cleanup gameplay systems (threads, entities, etc.)
+    Gameplay::cleanup();
+    
+    gameplayActive = false;
+    std::cout << "Gameplay stopped" << std::endl;
+}
 
 /* Window close callback function */
 void onWindowClose(GLFWwindow* window) {
@@ -160,31 +209,15 @@ int main() {
 	// Intialize glad (loads the OpenGL functions)
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
 		return -1;
-	}
-      // Initialize Rendering Engine first
+	}      // Initialize Rendering Engine first
 	myEngine.initGL();
 		// Then call the resize callback to set up the correct projection based on window size
     onWindowResize(window, windowWidth, windowHeight);
 	
-	// Initialize all gameplay systems (map, entities, elements, threading)
-	if (!Gameplay::initialize(myEngine, window)) {
-		std::cerr << "Failed to initialize gameplay systems!" << std::endl;
-		glfwTerminate();
-		return -1;
-	}
-	
-	// Start game threads
-	if (!Gameplay::startGameThreads()) {
-		std::cerr << "Failed to start game threads!" << std::endl;
-		Gameplay::cleanup();
-		glfwTerminate();
-		return -1;
-	}
-	
-	std::cout << "Game initialization complete - entering render loop" << std::endl;
+	std::cout << "Game engine initialization complete - press Enter to start gameplay" << std::endl;
 	/* Main render loop - runs until user closes the window */
 	int frameCount = 0;
-	while (!glfwWindowShouldClose(window) && g_threadManager->isRunning())
+	while (!glfwWindowShouldClose(window))
 	{
 		frameCount++;
 		
@@ -192,164 +225,178 @@ int main() {
 		if (frameCount % 300 == 0) { // Every ~5 seconds at 60 FPS
 			DEBUG_LOG_MEMORY("game_loop_frame_" + std::to_string(frameCount));
 		}
-		
-		try {
+				try {
 			/* Get time (in second) at loop beginning */
 			double startTime = glfwGetTime();
 			
-			// CRASH FIX: Validate thread manager before use
-			DEBUG_VALIDATE_PTR(g_threadManager);
+			/* Render here */
+			glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
+			glClear(GL_COLOR_BUFFER_BIT);
 			
-			// Get current game state from thread manager
-			auto gameState = g_threadManager->getGameState();        // Process input and send to thread manager
-        float playerMoveX = 0.0f;
-        float playerMoveY = 0.0f;
-        
-        // Check if player entity exists before processing movement input
-        float tempX, tempY;
-        bool playerExists = getPlayerPosition(tempX, tempY);
-        
-        if (playerExists) {
-            // Get normalized input direction (not multiplied by speed or deltaTime)
-            // Check arrow keys for player movement direction
-            if (keyPressedStates[GLFW_KEY_UP] || keyPressedStates[GLFW_KEY_W]) {
-                playerMoveY += 1.0f;
-            }
-            if (keyPressedStates[GLFW_KEY_DOWN] || keyPressedStates[GLFW_KEY_S]) {
-                playerMoveY -= 1.0f;
-            }
-            if (keyPressedStates[GLFW_KEY_LEFT] || keyPressedStates[GLFW_KEY_A]) {
-                playerMoveX -= 1.0f;
-            }
-            if (keyPressedStates[GLFW_KEY_RIGHT] || keyPressedStates[GLFW_KEY_D]) {
-                playerMoveX += 1.0f;
-            }
-        }
-        // If player doesn't exist, playerMoveX and playerMoveY remain 0.0f
-        
-        // Check sprint state for player movement
-        bool sprint = keyPressedStates[GLFW_KEY_LEFT_SHIFT] || keyPressedStates[GLFW_KEY_RIGHT_SHIFT];
-        
-        // Set player movement input directly to the player movement manager
-        g_threadManager->setPlayerMovementInput(playerMoveX, playerMoveY, sprint);
-        
-        // Handle spacebar for ICE block placement
-        static bool lastSpaceState = false;
-        bool currentSpaceState = keyPressedStates[GLFW_KEY_SPACE];
-        if (currentSpaceState && !lastSpaceState && playerExists) {
-            // Spacebar was just pressed - place ICE block
-            placeIceBlockInFront();
-        }
-        lastSpaceState = currentSpaceState;
-        
-        // Prepare input arrays for thread manager (debug keys and camera controls only)
-        bool debugKeys[10] = {false};
-        bool cameraControls[5] = {false};
-        
-        // Set input state in thread manager (now excludes player movement)
-        g_threadManager->setInputState(0.0f, 0.0f, debugKeys, cameraControls);
-
-        /* Render here */
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
-		glClear(GL_COLOR_BUFFER_BIT);
-        
-        // Grid positions for rendering - these will be used to map from world to screen
-        // We still use the aspect ratio correction from g_startX etc.
-        float startX = g_startX;
-        float endX = g_endX;
-        float startY = g_startY;
-        float endY = g_endY;
-        
-        // Get camera boundaries (camera position is updated by game thread)
-        float cameraLeft = gameCamera.getLeft();
-        float cameraRight = gameCamera.getRight();
-        float cameraBottom = gameCamera.getBottom();
-        float cameraTop = gameCamera.getTop();
-        
-        // Calculate the width and height of the view in world coordinates
-        float viewWidth = gameCamera.getWidth();
-        float viewHeight = gameCamera.getHeight();
-          
-        // Calculate the map grid boundaries in window coordinates for the scissor test
-        // Convert from normalized device coordinates (-1 to 1) to window coordinates (0 to windowWidth/Height)
-        // First, determine what portion of screen space is occupied by the grid
-        float gridScreenWidth = endX - startX;   // Width in NDC space
-        float gridScreenHeight = endY - startY;  // Height in NDC space
-        
-        // Convert NDC coordinates (-1 to 1) to window coordinates (0 to windowWidth/Height)
-        // In OpenGL, (0,0) is the bottom-left corner of the window
-        int scissorX = (int)((startX + 1.0f) * 0.5f * windowWidth);
-        int scissorY = (int)((startY + 1.0f) * 0.5f * windowHeight);
-        int scissorWidth = (int)(gridScreenWidth * 0.5f * windowWidth);
-        int scissorHeight = (int)(gridScreenHeight * 0.5f * windowHeight);
-          
-        // Make sure scissor dimensions are positive (required by OpenGL)
-        scissorWidth = scissorWidth > 0 ? scissorWidth : 0;
-        scissorHeight = scissorHeight > 0 ? scissorHeight : 0;
-        
-        // Enable scissor test to hide pixels outside the map grid, but only if the feature is enabled
-        if (hideOutsideGrid) {
-            glEnable(GL_SCISSOR_TEST);
-            glScissor(scissorX, scissorY, scissorWidth, scissorHeight);
-        }
-          
-        // Draw grid
-        if (showGridLines) {
-            myEngine.setFlatColor(1.0f, 1.0f, 1.0f); // White color for grid lines
-            
-            // Draw the grid lines
-            glLineWidth(gridLineWidth);
-            
-            // Draw vertical lines for the visible camera region
-            glBegin(GL_LINES);
-            for (int i = (int)cameraLeft; i <= (int)cameraRight + 1; i++) {
-                // Convert from world coordinates to screen coordinates
-                float worldRatio = (float)(i - cameraLeft) / (cameraRight - cameraLeft);
-                float screenX = startX + worldRatio * (endX - startX);
-                glVertex2f(screenX, startY);
-                glVertex2f(screenX, endY);
-            }
-                    
-            // Draw horizontal lines for the visible camera region
-            for (int i = (int)cameraBottom; i <= (int)cameraTop + 1; i++) {
-                // Convert from world coordinates to screen coordinates
-                float worldRatio = (float)(i - cameraBottom) / (cameraTop - cameraBottom);
-                float screenY = startY + worldRatio * (endY - startY);
-                glVertex2f(startX, screenY);
-                glVertex2f(endX, screenY);
-            }
-            glEnd();          }
-		// Update block transformations (only when game is not paused)
-		if (!g_threadManager->isPaused()) {
-			Gameplay::getGameMap().updateBlockTransformations(gameState.deltaTime);
-		}
-		
-		// Draw the blocks (textured squares) on the grid
-		// Now we pass the camera boundaries to drawBlocks instead of the GRID_SIZE
-		Gameplay::getGameMap().drawBlocks(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, gameState.deltaTime);
+			// Only render gameplay content if gameplay is active
+			if (gameplayActive && g_threadManager) {
+				// CRASH FIX: Validate thread manager before use
+				DEBUG_VALIDATE_PTR(g_threadManager);
+				
+				// Get current game state from thread manager
+				auto gameState = g_threadManager->getGameState();
+				
+				// Process input and send to thread manager
+				float playerMoveX = 0.0f;
+				float playerMoveY = 0.0f;
+				
+				// Check if player entity exists before processing movement input
+				float tempX, tempY;
+				bool playerExists = getPlayerPosition(tempX, tempY);
+				
+				if (playerExists) {
+					// Get normalized input direction (not multiplied by speed or deltaTime)
+					// Check arrow keys for player movement direction
+					if (keyPressedStates[GLFW_KEY_UP] || keyPressedStates[GLFW_KEY_W]) {
+						playerMoveY += 1.0f;
+					}
+					if (keyPressedStates[GLFW_KEY_DOWN] || keyPressedStates[GLFW_KEY_S]) {
+						playerMoveY -= 1.0f;
+					}
+					if (keyPressedStates[GLFW_KEY_LEFT] || keyPressedStates[GLFW_KEY_A]) {
+						playerMoveX -= 1.0f;
+					}
+					if (keyPressedStates[GLFW_KEY_RIGHT] || keyPressedStates[GLFW_KEY_D]) {
+						playerMoveX += 1.0f;
+					}
+				}
+				// If player doesn't exist, playerMoveX and playerMoveY remain 0.0f
+				
+				// Check sprint state for player movement
+				bool sprint = keyPressedStates[GLFW_KEY_LEFT_SHIFT] || keyPressedStates[GLFW_KEY_RIGHT_SHIFT];
+				
+				// Set player movement input directly to the player movement manager
+				g_threadManager->setPlayerMovementInput(playerMoveX, playerMoveY, sprint);
+				
+				// Handle spacebar for ICE block placement
+				static bool lastSpaceState = false;
+				bool currentSpaceState = keyPressedStates[GLFW_KEY_SPACE];
+				if (currentSpaceState && !lastSpaceState && playerExists) {
+					// Spacebar was just pressed - place ICE block
+					placeIceBlockInFront();
+				}
+				lastSpaceState = currentSpaceState;
+				
+				// Prepare input arrays for thread manager (debug keys and camera controls only)
+				bool debugKeys[10] = {false};
+				bool cameraControls[5] = {false};
+				
+				// Set input state in thread manager (now excludes player movement)
+				g_threadManager->setInputState(0.0f, 0.0f, debugKeys, cameraControls);
+				
+				// Grid positions for rendering - these will be used to map from world to screen
+				// We still use the aspect ratio correction from g_startX etc.
+				float startX = g_startX;
+				float endX = g_endX;
+				float startY = g_startY;
+				float endY = g_endY;
+				
+				// Get camera boundaries (camera position is updated by game thread)
+				float cameraLeft = gameCamera.getLeft();
+				float cameraRight = gameCamera.getRight();
+				float cameraBottom = gameCamera.getBottom();
+				float cameraTop = gameCamera.getTop();
+				
+				// Calculate the width and height of the view in world coordinates
+				float viewWidth = gameCamera.getWidth();
+				float viewHeight = gameCamera.getHeight();
+				  
+				// Calculate the map grid boundaries in window coordinates for the scissor test
+				// Convert from normalized device coordinates (-1 to 1) to window coordinates (0 to windowWidth/Height)
+				// First, determine what portion of screen space is occupied by the grid
+				float gridScreenWidth = endX - startX;   // Width in NDC space
+				float gridScreenHeight = endY - startY;  // Height in NDC space
+				
+				// Convert NDC coordinates (-1 to 1) to window coordinates (0 to windowWidth/Height)
+				// In OpenGL, (0,0) is the bottom-left corner of the window
+				int scissorX = (int)((startX + 1.0f) * 0.5f * windowWidth);
+				int scissorY = (int)((startY + 1.0f) * 0.5f * windowHeight);
+				int scissorWidth = (int)(gridScreenWidth * 0.5f * windowWidth);
+				int scissorHeight = (int)(gridScreenHeight * 0.5f * windowHeight);
+				  
+				// Make sure scissor dimensions are positive (required by OpenGL)
+				scissorWidth = scissorWidth > 0 ? scissorWidth : 0;
+				scissorHeight = scissorHeight > 0 ? scissorHeight : 0;
+				
+				// Enable scissor test to hide pixels outside the map grid, but only if the feature is enabled
+				if (hideOutsideGrid) {
+					glEnable(GL_SCISSOR_TEST);
+					glScissor(scissorX, scissorY, scissorWidth, scissorHeight);
+				}
+				  
+				// Draw grid
+				if (showGridLines) {
+					myEngine.setFlatColor(1.0f, 1.0f, 1.0f); // White color for grid lines
+					
+					// Draw the grid lines
+					glLineWidth(gridLineWidth);
+					
+					// Draw vertical lines for the visible camera region
+					glBegin(GL_LINES);
+					for (int i = (int)cameraLeft; i <= (int)cameraRight + 1; i++) {
+						// Convert from world coordinates to screen coordinates
+						float worldRatio = (float)(i - cameraLeft) / (cameraRight - cameraLeft);
+						float screenX = startX + worldRatio * (endX - startX);
+						glVertex2f(screenX, startY);
+						glVertex2f(screenX, endY);
+					}
+							
+					// Draw horizontal lines for the visible camera region
+					for (int i = (int)cameraBottom; i <= (int)cameraTop + 1; i++) {
+						// Convert from world coordinates to screen coordinates
+						float worldRatio = (float)(i - cameraBottom) / (cameraTop - cameraBottom);
+						float screenY = startY + worldRatio * (endY - startY);
+						glVertex2f(startX, screenY);
+						glVertex2f(endX, screenY);
+					}
+					glEnd();
+				}
+				
+				// Update block transformations (only when game is not paused)
+				if (!g_threadManager->isPaused()) {
+					Gameplay::getGameMap().updateBlockTransformations(gameState.deltaTime);
+				}
+				
+				// Draw the blocks (textured squares) on the grid
+				// Now we pass the camera boundaries to drawBlocks instead of the GRID_SIZE
+				Gameplay::getGameMap().drawBlocks(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, gameState.deltaTime);
+				
 				// Reset to default state before drawing elements
-		glMatrixMode(GL_MODELVIEW);
-		glLoadIdentity();
-		
-		// Draw elements on top of the map tiles (freely placed decorations)
-		Gameplay::getElementsManager().drawElements(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, gameState.deltaTime);        // Draw entity debug paths if enabled
-        if (DEBUG_SHOW_PATHS) {
-            Gameplay::getEntitiesManager().drawDebugPaths(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop);
-        }
+				glMatrixMode(GL_MODELVIEW);
+				glLoadIdentity();
+				
+				// Draw elements on top of the map tiles (freely placed decorations)
+				Gameplay::getElementsManager().drawElements(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop, gameState.deltaTime);
+				
+				// Draw entity debug paths if enabled
+				if (DEBUG_SHOW_PATHS) {
+					Gameplay::getEntitiesManager().drawDebugPaths(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop);
+				}
 
-        // Draw entity collision radii if collision visualization is enabled
-        Gameplay::getEntitiesManager().drawDebugCollisionRadii(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop);
+				// Draw entity collision radii if collision visualization is enabled
+				Gameplay::getEntitiesManager().drawDebugCollisionRadii(startX, endX, startY, endY, cameraLeft, cameraRight, cameraBottom, cameraTop);
 
-        // Disable scissor test when rendering is complete
-        if (hideOutsideGrid) {
-            glDisable(GL_SCISSOR_TEST);
-        }
-        
-        // Check escape key to close the window
-        if (keyPressedStates[GLFW_KEY_ESCAPE]) {
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-            g_threadManager->setRunning(false);
-        }
+				// Disable scissor test when rendering is complete
+				if (hideOutsideGrid) {
+					glDisable(GL_SCISSOR_TEST);
+				}
+				
+				// Check escape key to close the window
+				if (keyPressedStates[GLFW_KEY_ESCAPE]) {
+					glfwSetWindowShouldClose(window, GLFW_TRUE);
+					g_threadManager->setRunning(false);
+				}
+			} else {
+				// Gameplay not active - just show black screen and handle escape key
+				if (keyPressedStates[GLFW_KEY_ESCAPE]) {
+					glfwSetWindowShouldClose(window, GLFW_TRUE);
+				}
+			}
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
 

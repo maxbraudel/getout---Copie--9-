@@ -126,7 +126,12 @@ bool Gameplay::initializeEntityConfigurations() {
     entitiesManager.initializeEntityConfigurations();
     DEBUG_LOG_MEMORY("entity_configs_initialized");
     
-    std::cout << "Entity configurations initialized." << std::endl;
+    // Initialize async pathfinding system for entity movement
+    std::cout << "Initializing async pathfinding system..." << std::endl;
+    entitiesManager.initializeAsyncPathfinding();
+    DEBUG_LOG_MEMORY("async_pathfinding_initialized");
+    
+    std::cout << "Entity configurations and async pathfinding initialized." << std::endl;
     
     s_entitiesInitialized = true;
     return true;

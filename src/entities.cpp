@@ -10,6 +10,7 @@
 #include "asyncPathfinding.h"
 #include "performanceProfiler.h"
 #include "camera.h" // For camera culling optimization
+#include "Gameplay.h" // Include for accessing Gameplay::getGameMap()
 #include <iostream>
 #include <cmath>
 #include <limits>
@@ -1319,6 +1320,95 @@ void EntitiesManager::drawDebugCollisionRadii(float startX, float endX, float st
     glLineWidth(1.0f); // Reset line width
 }
 
+// Implementation of async pathfinding system methods
+void EntitiesManager::initializeAsyncPathfinding() {
+    if (!g_entityAsyncPathfinder) {
+        // Create new async pathfinder with 4 threads
+        g_entityAsyncPathfinder = new AsyncEntityPathfinder(4);
+        
+        // Initialize with game map reference from Gameplay
+        g_entityAsyncPathfinder->initialize(&Gameplay::getGameMap());
+        
+        // Start the async pathfinding system
+        g_entityAsyncPathfinder->start();
+        
+        std::cout << "Async pathfinding system initialized" << std::endl;
+    }
+}
+
+void EntitiesManager::shutdownAsyncPathfinding() {
+    if (g_entityAsyncPathfinder) {
+        // Stop the async pathfinding system
+        g_entityAsyncPathfinder->stop();
+        
+        // Delete the pathfinder instance
+        delete g_entityAsyncPathfinder;
+        g_entityAsyncPathfinder = nullptr;
+        
+        std::cout << "Async pathfinding system shutdown" << std::endl;
+    }
+}
+
+void EntitiesManager::processAsyncPathfindingResults() {
+    if (!g_entityAsyncPathfinder) {
+        return;
+    }
+    
+    // Get all completed pathfinding results
+    std::vector<AsyncPathfindingResult> completedResults = g_entityAsyncPathfinder->getCompletedResults();
+    
+    // Process each completed result
+    for (const auto& result : completedResults) {
+        // Find the entity that requested this pathfinding
+        Entity* entity = getEntity(result.instanceName);
+        if (!entity) {
+            // Entity no longer exists, skip this result
+            continue;
+        }
+        
+        // Check if this result matches the entity's current pathfinding request
+        if (entity->pathfindingRequestId != static_cast<int>(result.requestId)) {
+            // This result is for an outdated request, skip it
+            continue;
+        }
+        
+        // Clear the pathfinding request state
+        entity->pathfindingRequestId = 0;
+        entity->isWaitingForPath = false;
+        
+        if (result.success && !result.path.empty()) {
+            // Successful pathfinding - apply the new path
+            entity->path = result.path;
+            entity->currentPathIndex = 0;
+            entity->hasValidPath = true;
+            
+            // Start or continue walking with the new path
+            if (!entity->isWalking) {
+                entity->isWalking = true;
+                entity->walkType = result.walkType;
+                entity->targetX = result.targetX;
+                entity->targetY = result.targetY;
+                
+                // Enable animation
+                std::string elementName = getElementName(entity->instanceName);
+                elementsManager.changeElementAnimationStatus(elementName, true);
+                
+                std::cout << "Entity " << entity->instanceName << " received pathfinding result with " 
+                          << result.path.size() << " waypoints" << std::endl;
+            }
+        } else {
+            // Failed pathfinding - stop the entity
+            std::cout << "Pathfinding failed for entity " << entity->instanceName;
+            if (!result.errorMessage.empty()) {
+                std::cout << ": " << result.errorMessage;
+            }
+            std::cout << std::endl;
+            
+            stopEntityMovement(entity->instanceName);
+        }
+    }
+}
+
 // Private helper methods
 
 Entity* EntitiesManager::getEntity(const std::string& instanceName) {
@@ -2198,417 +2288,108 @@ void EntitiesManager::stopEntityMovement(const std::string& instanceName) {
     entity->stuckCount = 0;
 }
 
-// Async pathfinding management methods
-void EntitiesManager::initializeAsyncPathfinding() {
-    if (!g_entityAsyncPathfinder) {
-        g_entityAsyncPathfinder = new AsyncEntityPathfinder();
-        
-        // CRITICAL FIX: Initialize with game map reference before starting
-        g_entityAsyncPathfinder->initialize(&gameMap);
-        g_entityAsyncPathfinder->start();
-        
-        std::cout << "Async pathfinding system initialized with game map reference" << std::endl;
-    }
-}
-
-void EntitiesManager::shutdownAsyncPathfinding() {
-    if (g_entityAsyncPathfinder) {
-        g_entityAsyncPathfinder->stop();
-        delete g_entityAsyncPathfinder;
-        g_entityAsyncPathfinder = nullptr;
-        std::cout << "Async pathfinding system shutdown" << std::endl;
-    }
-}
-
-void EntitiesManager::processAsyncPathfindingResults() {
-    if (!g_entityAsyncPathfinder) {
-        return;
-    }
+// Reset all entity movement states for gameplay restart
+void EntitiesManager::resetAllEntityMovementStates() {
+    std::cout << "Resetting all entity movement states for gameplay restart..." << std::endl;
     
-    // CRASH FIX: Add comprehensive try-catch around async result processing
-    try {        // Process all completed pathfinding requests
-        std::vector<AsyncPathfindingResult> results = g_entityAsyncPathfinder->getCompletedResults();
-        
-        // CRASH FIX: Validate results vector before processing
-        if (results.empty()) {
-            return; // No results to process
+    try {
+        // 1. Clear all pathfinding cooldowns to allow immediate pathfinding requests
+        std::vector<std::string> entityNames;
+        for (const auto& pair : entities) {
+            entityNames.push_back(pair.first);
         }
         
-        // Additional safety: Validate each result before processing
-        std::vector<AsyncPathfindingResult> validResults;
-        validResults.reserve(results.size());
-        
-        for (const auto& result : results) {
-            try {
-                // Test that we can safely access the result data
-                if (!result.instanceName.empty() && 
-                    (!result.success || (!result.path.empty() && result.path.size() > 0))) {
-                    validResults.push_back(result);
-                } else {
-                    std::cerr << "Warning: Skipping invalid pathfinding result for entity: " << result.instanceName << std::endl;
-                }
-            } catch (const std::exception& e) {
-                std::cerr << "Warning: Exception validating pathfinding result: " << e.what() << std::endl;
-            }
+        for (const std::string& instanceName : entityNames) {
+            clearEntityPathfindingCooldown(instanceName);
         }
         
-        for (const auto& result : validResults) {
-            // CRASH FIX: Enhanced validation of result data before processing
-            if (result.instanceName.empty()) {
-                std::cerr << "Warning: Received pathfinding result with empty instance name" << std::endl;
-                continue;
-            }
+        // 2. Reset entity spatial grid system
+        resetEntitySpatialGrid();
+        
+        // 3. Clear and reinitialize hierarchical entity grid
+        extern HierarchicalEntityGrid g_hierarchicalEntityGrid;
+        extern std::mutex g_hierarchicalEntityGridMutex;
+        {
+            std::lock_guard<std::mutex> lock(g_hierarchicalEntityGridMutex);
+            g_hierarchicalEntityGrid.clear();
+        }
+        
+        // 4. Reset all entity movement-related states
+        for (auto& pair : entities) {
+            Entity& entity = pair.second;
             
-            // CRASH FIX: Additional safety - check if entity still exists before processing result
-            if (!entityExists(result.instanceName)) {
-                std::cerr << "Warning: Received pathfinding result for non-existent entity: " << result.instanceName << std::endl;
-                continue;
-            }
+            // Clear pathfinding states
+            entity.path.clear();
+            entity.currentPathIndex = 0;
+            entity.pathfindingRequestId = 0;
+            entity.isWaitingForPath = false;
+            entity.targetX = 0.0f;
+            entity.targetY = 0.0f;
             
-            // Find the entity that requested this pathfinding
-            Entity* entity = getEntity(result.instanceName);
-            if (!entity) {
-                std::cerr << "Warning: Received pathfinding result for unknown entity: " << result.instanceName << std::endl;
-                continue;
-            }
+            // Reset stuck detection states
+            entity.lastPositionX = 0.0f;
+            entity.lastPositionY = 0.0f;
+            entity.stuckCheckTime = 0.0f;
+            entity.lastPositionChangeTime = 0.0f;
+            entity.stuckCount = 0;
+            entity.pathfindingTimeoutTimer = 0.0f;
+            entity.pathfindingTimeoutActive = false;
             
-            // CRASH FIX: Double-check entity still exists in elements manager
-            std::string elementName = getElementName(result.instanceName);
-            if (!elementsManager.elementExists(elementName)) {
-                std::cerr << "Warning: Entity " << result.instanceName << " element no longer exists during pathfinding result processing" << std::endl;
-                // Clean up entity from our map as it's inconsistent
-                entities.erase(result.instanceName);
-                continue;
-            }
+            // Reset behavior states
+            entity.behaviorTimer = 0.0f;
+            entity.nextBehaviorTriggerTime = 1.0f; // Give entities a small delay before first behavior
+            entity.isInAlertState = false;
+            entity.isInFleeState = false;
+            entity.isInAttackState = false;
+            entity.alertTargetEntityName = "";
+            entity.fleeTargetEntityName = "";
+            entity.attackTargetEntityName = "";
+            entity.alertTargetDistance = 0.0f;
+            entity.fleeTargetDistance = 0.0f;
+            entity.attackTargetDistance = 0.0f;
+            entity.fleeStateTimer = 0.0f;
+            entity.attackStateTimer = 0.0f;
+            entity.isWaitingBeforeCharge = false;
+            entity.attackStateWaitTimer = 0.0f;
+            entity.nextChargeTime = 0.0f;
             
-            // Get the configuration
-            const EntityConfiguration* config = getConfiguration(entity->type);
-            if (!config) {
-                std::cerr << "Warning: Entity configuration not found for: " << entityNameToString(entity->type) << std::endl;
-                continue;
-            }
-            
-            if (result.success && result.path.size() >= 2) {
-                    // CRASH FIX: Validate path data before any vector operations
-                    if (result.path.empty()) {
-                        std::cerr << "Warning: Entity " << result.instanceName << " received empty path" << std::endl;
-                        continue;
-                    }
-                    
-                    // CRASH FIX: Ensure path has minimum required size
-                    if (result.path.size() < 2) {
-                        std::cerr << "Warning: Entity " << result.instanceName << " received path with insufficient points: " 
-                                  << result.path.size() << std::endl;
-                        continue;
-                    }
-                    
-                    // Additional memory safety check
-                    try {
-                        // Test vector access to ensure memory is valid
-                        float testX = result.path[0].first;
-                        float testY = result.path[result.path.size() - 1].second;
-                        (void)testX; (void)testY; // Suppress unused variable warnings
-                    } catch (const std::exception& e) {
-                        std::cerr << "CRITICAL: Path data corruption detected for entity " << result.instanceName 
-                                  << ": " << e.what() << std::endl;
-                        continue;
-                    }
-                    
-                    // Pathfinding succeeded, set up the entity for walking
-                
-                // If entity is already walking, find the best transition point to avoid stopping
-                if (entity->isWalking && entity->usePathfinding && !entity->path.empty()) {
-                    // Get current position
-                    float currentX, currentY;
-                    if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
-                        // Find the closest point in the new path to the current position
-                        size_t bestTransitionIndex = 0;
-                        float minDistance = std::numeric_limits<float>::max();
-                        
-                        for (size_t i = 0; i < result.path.size(); ++i) {
-                            float dx = result.path[i].first - currentX;
-                            float dy = result.path[i].second - currentY;
-                            float distance = std::sqrt(dx * dx + dy * dy);
-                            
-                            if (distance < minDistance) {
-                                minDistance = distance;
-                                bestTransitionIndex = i;
-                            }
-                        }                        // CRASH FIX: Safe smooth transition with comprehensive bounds checking
-                        try {
-                            // Create a safe copy of the result path to avoid any potential race conditions
-                            std::vector<std::pair<float, float>> safePath = result.path;
-                            
-                            // Validate the safe path
-                            if (safePath.empty()) {
-                                std::cerr << "Warning: Safe path copy is empty for entity " << result.instanceName << std::endl;
-                                entity->path = result.path;
-                                entity->currentPathIndex = 1;
-                            } else {
-                                entity->path = std::move(safePath);
-                                
-                                // Ensure bestTransitionIndex is within valid bounds
-                                if (bestTransitionIndex >= entity->path.size()) {
-                                    bestTransitionIndex = entity->path.size() > 0 ? entity->path.size() - 1 : 0;
-                                }
-                                
-                                entity->currentPathIndex = std::max(1u, static_cast<unsigned int>(bestTransitionIndex));
-                            }
-                        } catch (const std::exception& e) {
-                            std::cerr << "CRITICAL: Exception during safe path assignment for entity " << result.instanceName 
-                                      << ": " << e.what() << std::endl;
-                            // Emergency fallback
-                            entity->path.clear();
-                            entity->path.push_back({currentX, currentY});
-                            entity->currentPathIndex = 0;
-                        }
-                          // CRASH FIX: Replace unsafe vector::insert with safer bounds-checked approach
-                        if (bestTransitionIndex > 0 && minDistance > 0.5f && bestTransitionIndex < entity->path.size()) {
-                            try {
-                                // SAFER APPROACH: Create a new vector instead of using insert
-                                std::vector<std::pair<float, float>> newPath;
-                                newPath.reserve(entity->path.size() + 1); // Pre-allocate memory
-                                
-                                // Copy elements before insertion point
-                                for (size_t i = 0; i < bestTransitionIndex && i < entity->path.size(); ++i) {
-                                    newPath.push_back(entity->path[i]);
-                                }
-                                
-                                // Add current position as transition waypoint
-                                newPath.push_back({currentX, currentY});
-                                
-                                // Copy remaining elements
-                                for (size_t i = bestTransitionIndex; i < entity->path.size(); ++i) {
-                                    newPath.push_back(entity->path[i]);
-                                }
-                                
-                                // Safely replace the path
-                                entity->path = std::move(newPath);
-                                entity->currentPathIndex = bestTransitionIndex + 1;
-                                
-                                if (DEBUG_LOGS) {
-                                    std::cout << "Entity " << result.instanceName << " path smoothly transitioned with safe vector construction" << std::endl;
-                                }
-                                
-                            } catch (const std::exception& e) {
-                                std::cerr << "CRITICAL: Exception during safe path construction for entity " << result.instanceName 
-                                          << ": " << e.what() << std::endl;
-                                // Fallback: use simple path assignment
-                                entity->path = result.path;
-                                entity->currentPathIndex = std::min(1u, static_cast<unsigned int>(entity->path.size()));
-                            } catch (...) {
-                                std::cerr << "CRITICAL: Unknown exception during safe path construction for entity " << result.instanceName << std::endl;
-                                // Fallback: use simple path assignment
-                                entity->path = result.path;
-                                entity->currentPathIndex = std::min(1u, static_cast<unsigned int>(entity->path.size()));
-                            }
-                        }
-                        
-                        if (DEBUG_LOGS) {
-                            std::cout << "Entity " << result.instanceName << " smoothly transitioned to new path at index " 
-                                      << entity->currentPathIndex << " (distance: " << minDistance << ")" << std::endl;
-                        }
-                          // SPRITE DIRECTION FIX: Update sprite direction to match new path direction
-                        // Calculate direction from current position to the target waypoint
-                        if (entity->currentPathIndex < entity->path.size()) {
-                            try {
-                                float currentX, currentY;
-                                if (elementsManager.getElementPosition(elementName, currentX, currentY)) {
-                                    // CRASH FIX: Validate array access before using
-                                    if (entity->currentPathIndex < entity->path.size()) {
-                                        const auto& targetWaypoint = entity->path[entity->currentPathIndex];
-                                        float dx = targetWaypoint.first - currentX;
-                                        float dy = targetWaypoint.second - currentY;
-                                        
-                                        // Update sprite direction for the new path direction
-                                        handleWaypointArrival(*entity, elementName, *config, currentX, currentY);
-                                    }
-                                }
-                            } catch (const std::exception& e) {
-                                std::cerr << "CRITICAL: Exception during sprite direction update for entity " << result.instanceName 
-                                          << ": " << e.what() << std::endl;
-                            }
-                        }                    } else {
-                        // Fallback: use the new path normally with enhanced safety
-                        try {
-                            // Create a safe copy to avoid any potential memory issues
-                            std::vector<std::pair<float, float>> safeFallbackPath = result.path;
-                            
-                            if (safeFallbackPath.size() >= 2) {
-                                entity->path = std::move(safeFallbackPath);
-                                entity->currentPathIndex = 1;
-                            } else {
-                                std::cerr << "Warning: Fallback path has insufficient points for entity " << result.instanceName 
-                                          << ": " << safeFallbackPath.size() << std::endl;
-                                entity->path = std::move(safeFallbackPath);
-                                entity->currentPathIndex = 0;
-                            }
-                        } catch (const std::exception& e) {
-                            std::cerr << "CRITICAL: Exception during fallback path assignment for entity " << result.instanceName 
-                                      << ": " << e.what() << std::endl;
-                            // Emergency fallback - create minimal path
-                            entity->path.clear();
-                            entity->path.push_back({0.0f, 0.0f}); // Fallback position
-                            entity->currentPathIndex = 0;
-                        }
-                        
-                        // SPRITE DIRECTION FIX: Update sprite direction for fallback case
-                        try {
-                            if (entity->path.size() >= 2) {
-                                handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
-                            }
-                        } catch (const std::exception& e) {
-                            std::cerr << "CRITICAL: Exception during fallback sprite direction update for entity " << result.instanceName 
-                                      << ": " << e.what() << std::endl;
-                        }
-                    }                } else {
-                    // Entity is not walking, start normally from the beginning
-                    try {
-                        // CRASH FIX: Safe path assignment with validation
-                        std::vector<std::pair<float, float>> safeNewPath = result.path;
-                        
-                        if (safeNewPath.size() >= 2) {
-                            entity->path = std::move(safeNewPath);
-                            entity->currentPathIndex = 1;
-                        } else if (safeNewPath.size() == 1) {
-                            entity->path = std::move(safeNewPath);
-                            entity->currentPathIndex = 0;
-                            std::cerr << "WARNING: Entity " << result.instanceName << " received single-point path" << std::endl;
-                        } else {
-                            entity->path.clear();
-                            entity->currentPathIndex = 0;
-                            std::cerr << "WARNING: Entity " << result.instanceName << " received empty path" << std::endl;
-                        }
-                        
-                        entity->isWalking = true;
-                        
-                        // Enable animation for entities that weren't walking
-                        elementsManager.changeElementAnimationStatus(elementName, true);
-                          } catch (const std::exception& e) {
-                        std::cerr << "CRITICAL: Exception during new entity path setup for " << result.instanceName 
-                                  << ": " << e.what() << std::endl;
-                        // Emergency fallback
-                        stopEntityMovement(result.instanceName);
-                    }
-                    
-                    // Set initial sprite for first path segment
-                    handleWaypointArrival(*entity, elementName, *config, entity->path[0].first, entity->path[0].second);
-                }
-                
-                // Update entity state
-                entity->walkType = result.walkType;
-                entity->usePathfinding = true;
-                entity->lastSegmentDirection = {0.0f, 0.0f};
-                entity->targetX = result.targetX;
-                entity->targetY = result.targetY;
-                entity->pathfindingRequestId = 0; // Clear the request ID
-                entity->isWaitingForPath = false; // No longer waiting
-                
-                // Ensure animation is enabled and set speed
-                elementsManager.changeElementAnimationStatus(elementName, true);
-                float animationSpeed = (result.walkType == WalkType::NORMAL) ?
-                                      config->normalWalkingAnimationSpeed :
-                                      config->sprintWalkingAnimationSpeed;
-                elementsManager.changeElementAnimationSpeed(elementName, animationSpeed);
-                
-                std::cout << "Entity " << result.instanceName << " received async pathfinding result: success, path size: " 
-                          << result.path.size() << std::endl;
-            } else {                // Pathfinding failed or path too short
-                // If entity was walking before, let it continue its current movement
-                // Otherwise, stop the entity
-                if (!entity->isWalking) {
-                    // Stop the entity using centralized function
-                    stopEntityMovement(result.instanceName);
-                }
-                
-                entity->pathfindingRequestId = 0; // Clear the request ID
-                entity->isWaitingForPath = false; // No longer waiting
-                
-                if (!result.success) {
-                    std::cout << "Entity " << result.instanceName << " pathfinding failed: " << result.errorMessage << std::endl;
-                } else {
-                    std::cout << "Entity " << result.instanceName << " pathfinding completed - already at destination" << std::endl;
-                }
+            // Stop any current walking animation
+            if (entity.isWalking) {
+                std::string elementName = getElementName(entity.instanceName);
+                elementsManager.changeElementAnimationStatus(elementName, false);
+                elementsManager.changeElementSpriteFrame(elementName, 0);
+                entity.isWalking = false;
             }
         }
+          // 5. Clear async pathfinding requests without reinitializing the system
+        // The async pathfinder is already initialized and we don't need to restart it
+        if (g_entityAsyncPathfinder) {
+            // Cancel all pending pathfinding requests
+            std::vector<std::string> entityNamesToCancel;
+            for (const auto& pair : entities) {
+                if (pair.second.pathfindingRequestId > 0) {
+                    entityNamesToCancel.push_back(pair.first);
+                }
+            }
+            
+            for (const std::string& instanceName : entityNamesToCancel) {
+                g_entityAsyncPathfinder->cancelPathfindingRequest(instanceName);
+            }
+            
+            std::cout << "Cancelled " << entityNamesToCancel.size() << " pending pathfinding requests" << std::endl;
+        }
+        
+        std::cout << "Entity movement states reset complete - " << entities.size() << " entities processed" << std::endl;
+        
     } catch (const std::exception& e) {
-        std::cerr << "CRITICAL: Exception in processAsyncPathfindingResults: " << e.what() << std::endl;
-        // Continue execution to prevent complete crash
+        std::cerr << "Exception while resetting entity movement states: " << e.what() << std::endl;
     } catch (...) {
-        std::cerr << "CRITICAL: Unknown exception in processAsyncPathfindingResults!" << std::endl;
-        // Continue execution to prevent complete crash
+        std::cerr << "Unknown exception while resetting entity movement states" << std::endl;
     }
-}
-
-// Handle waypoint arrival - update sprite direction for the next segment
-bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY) {
-    // If we don't have a next waypoint, nothing to update
-    if (entity.currentPathIndex >= entity.path.size()) {
-        return false;
-    }
-    
-    // Get the next waypoint
-    const auto& nextWaypoint = entity.path[entity.currentPathIndex];
-    float dx = nextWaypoint.first - currentX;
-    float dy = nextWaypoint.second - currentY;
-    
-    // Only update direction if there's actual movement
-    if (dx == 0 && dy == 0) {
-        return false;
-    }
-    
-    // Determine sprite direction based on movement
-    int spritePhase = config.defaultSpriteSheetPhase;
-    
-    // Use a threshold to determine the primary direction
-    const float directionThreshold = 0.2f;
-    
-    if (std::abs(dx) > std::abs(dy) + directionThreshold) {
-        // Primary horizontal movement
-        if (dx > 0) {
-            spritePhase = config.spritePhaseWalkRight;
-            entity.lastDirection = 3; // Right
-        } else {
-            spritePhase = config.spritePhaseWalkLeft;
-            entity.lastDirection = 2; // Left
-        }
-    } else if (std::abs(dy) > std::abs(dx) + directionThreshold) {
-        // Primary vertical movement
-        if (dy > 0) {
-            spritePhase = config.spritePhaseWalkDown;
-            entity.lastDirection = 1; // Down
-        } else {
-            spritePhase = config.spritePhaseWalkUp;
-            entity.lastDirection = 0; // Up
-        }
-    } else {
-        // Diagonal movement - choose based on the larger component
-        if (std::abs(dx) >= std::abs(dy)) {
-            if (dx > 0) {
-                spritePhase = config.spritePhaseWalkRight;
-                entity.lastDirection = 3; // Right
-            } else {
-                spritePhase = config.spritePhaseWalkLeft;
-                entity.lastDirection = 2; // Left
-            }
-        } else {
-            if (dy > 0) {
-                spritePhase = config.spritePhaseWalkDown;
-                entity.lastDirection = 1; // Down
-            } else {
-                spritePhase = config.spritePhaseWalkUp;
-                entity.lastDirection = 0; // Up
-            }
-        }
-    }
-    
-    // Update sprite phase
-    elementsManager.changeElementSpritePhase(elementName, spritePhase);
-    
-    return true;
 }
 
 // Enhanced entity collision function that respects granular entity collision settings
+// useAvoidanceList: true = check avoidanceEntities, false = check collisionEntities
 bool wouldEntityCollideWithEntitiesGranular(const EntityConfiguration& config, float x, float y, bool useAvoidanceList, const std::string& excludeInstanceName) {
     if (!config.canCollide) {
         return false; // Entity doesn't have collision enabled
@@ -2625,262 +2406,146 @@ bool wouldEntityCollideWithEntitiesGranular(const EntityConfiguration& config, f
     const std::vector<EntityName>& entitiesToCheck = useAvoidanceList ? config.avoidanceEntities : config.collisionEntities;
     
     // If the list is empty, don't check any entities (granular collision control)
-    // This allows entities to have fine-grained control over what they collide with
     if (entitiesToCheck.empty()) {
         return false; // No entities to check = no collision
     }
     
     // Convert to std::set for faster lookup
-    std::set<EntityName> entitySet(entitiesToCheck.begin(), entitiesToCheck.end());    // If entity has no collision shape, use center point collision
+    std::set<EntityName> entitySet(entitiesToCheck.begin(), entitiesToCheck.end());
+    
+    // If entity has no collision shape, fall back to point-based collision
     if (config.collisionShapePoints.empty()) {
-        // PERFORMANCE OPTIMIZATION: Use hierarchical entity grid instead of getNearbyEntities
-        const float pointCollisionRadius = 2.0f; // Search radius for nearby entities
-        std::vector<std::string> nearbyEntityNames;
+        // Simple radius-based collision check - look for nearby entities
+        const float searchRadius = 1.0f; // Default search radius for entities without collision shapes
+        std::vector<std::string> nearbyEntities = getNearbyEntities(x, y, searchRadius);
         
-        // Thread-safe access to hierarchical entity grid
-        {
-            std::lock_guard<std::mutex> lock(g_hierarchicalEntityGridMutex);
-            // Initialize hierarchical entity grid if needed
-            if (!g_hierarchicalEntityGrid.isInitializedState()) {
-                g_hierarchicalEntityGrid.initialize();
-            }
+        for (const std::string& nearbyEntityName : nearbyEntities) {
+            if (nearbyEntityName == excludeInstanceName) continue; // Skip self
             
-            // Update grid before collision check
-            g_hierarchicalEntityGrid.updateGrid();
-            
-            // Get nearby entities using hierarchical lookup (REPLACES O(N²) getNearbyEntities)
-            nearbyEntityNames = g_hierarchicalEntityGrid.getEntitiesHierarchical(x, y, pointCollisionRadius);
-        }
-        
-        for (const std::string& otherInstanceName : nearbyEntityNames) {
-            // Skip self and excluded entity
-            if (otherInstanceName == excludeInstanceName) {
-                continue;
-            }
-            
-            // Get entity reference
-            const Entity* otherEntity = entitiesManager.getEntity(otherInstanceName);
-            if (!otherEntity) {
-                continue; // Entity no longer exists
-            }
+            Entity* nearbyEntity = entitiesManager.getEntity(nearbyEntityName);
+            if (!nearbyEntity) continue;
             
             // Check if this entity type is in our collision list
-            if (entitySet.find(otherEntity->type) == entitySet.end()) {
-                continue; // Skip entities not in our collision/avoidance list
+            if (entitySet.find(nearbyEntity->type) == entitySet.end()) {
+                continue; // Not in our collision list
             }
             
-            // Get other entity position and configuration
-            std::string otherElementName = EntitiesManager::getElementName(otherEntity->instanceName);
-            float otherX, otherY;
-            if (!elementsManager.getElementPosition(otherElementName, otherX, otherY)) {
-                continue; // Can't get position, skip this entity
-            }
-            
-            const EntityConfiguration* otherConfig = entitiesManager.getConfiguration(otherEntity->type);
-            if (!otherConfig || !otherConfig->canCollide) {
-                continue; // Other entity doesn't have collision enabled
-            }
-            
-            // Simple distance check for point-based collision
-            float dx = x - otherX;
-            float dy = y - otherY;
-            float distance = std::sqrt(dx * dx + dy * dy);
-            
-            // Use a small collision radius for point-based collision
-            if (distance < 0.5f) {
-                return true; // Collision detected
+            // Get nearby entity position
+            std::string nearbyElementName = EntitiesManager::getElementName(nearbyEntityName);
+            float nearbyX, nearbyY;
+            if (elementsManager.getElementPosition(nearbyElementName, nearbyX, nearbyY)) {
+                float distance = std::sqrt((x - nearbyX) * (x - nearbyX) + (y - nearbyY) * (y - nearbyY));
+                if (distance < searchRadius) {
+                    return true; // Collision detected
+                }
             }
         }
         return false;
-    }// PERFORMANCE OPTIMIZATION: Use pre-calculated collision boxes for massive speedup
-    // This replaces expensive real-time transformation calculations
-    PreCalculatedCollisionBox entityCollisionBox;
-    const auto& entityCachedBox = CollisionBoxUtils::getOrUpdateCollisionBox(
-        entityCollisionBox, config.collisionShapePoints, x, y, 0.0f, 1.0f);
-        // CRASH FIX: Check if transformation actually produced any points
-    if (entityCachedBox.worldPoints.empty()) {
-        std::cerr << "CRITICAL: entityCachedBox.worldPoints is empty after transformation - using fallback collision detection" << std::endl;
-        // Fallback to point-based collision with hierarchical spatial optimization
-        const float fallbackRadius = 2.0f;
-        std::vector<std::string> nearbyEntityNames;
-        
-        // Thread-safe access to hierarchical entity grid
-        {
-            std::lock_guard<std::mutex> lock(g_hierarchicalEntityGridMutex);
-            // Initialize hierarchical entity grid if needed
-            if (!g_hierarchicalEntityGrid.isInitializedState()) {
-                g_hierarchicalEntityGrid.initialize();
-            }
-            
-            // Update grid before collision check
-            g_hierarchicalEntityGrid.updateGrid();
-            
-            // Get nearby entities using hierarchical lookup (REPLACES O(N²) getNearbyEntities)
-            nearbyEntityNames = g_hierarchicalEntityGrid.getEntitiesHierarchical(x, y, fallbackRadius);
-        }
-        
-        for (const std::string& otherInstanceName : nearbyEntityNames) {
-            // Skip self and excluded entity
-            if (otherInstanceName == excludeInstanceName) {
-                continue;
-            }
-            
-            // Get entity reference
-            const Entity* otherEntity = entitiesManager.getEntity(otherInstanceName);
-            if (!otherEntity) {
-                continue; // Entity no longer exists
-            }
-            
-            // Check if this entity type is in our collision list
-            if (entitySet.find(otherEntity->type) == entitySet.end()) {
-                continue;
-            }
-            
-            // Get other entity position
-            std::string otherElementName = EntitiesManager::getElementName(otherEntity->instanceName);
-            float otherX, otherY;
-            if (!elementsManager.getElementPosition(otherElementName, otherX, otherY)) {
-                continue;
-            }
-            
-            // Simple distance check
-            float dx = x - otherX;
-            float dy = y - otherY;
-            float distance = std::sqrt(dx * dx + dy * dy);
-            
-            if (distance < 0.5f) {
-                return true;
-            }
-        }
-        return false;
-    }    // Check collision with nearby entities using hierarchical spatial optimization
-    // Calculate search radius based on entity collision shape
-    float searchRadius = 0.0f;
-    for (const auto& point : config.collisionShapePoints) {
-        float dist = std::sqrt(point.first * point.first + point.second * point.second);
-        searchRadius = std::max(searchRadius, dist);
     }
-    searchRadius += 5.0f; // Add buffer for other entity collision shapes
     
-    std::vector<std::string> nearbyEntityNames;
+    // Use collision shape for precise entity collision detection
+    // Transform entity collision shape points to world coordinates
+    std::vector<std::pair<float, float>> entityWorldShapePoints;
+    float entityAngleRad = 0.0f; // Entities don't rotate currently
+    float entityCosA = cos(entityAngleRad);
+    float entitySinA = sin(entityAngleRad);
     
-    // PERFORMANCE OPTIMIZATION: Use hierarchical entity grid instead of O(N²) getNearbyEntities
+    for (const auto& localPoint : config.collisionShapePoints) {
+        float scaledX = localPoint.first;
+        float scaledY = localPoint.second;
+        
+        float rotatedX = scaledX * entityCosA - scaledY * entitySinA;
+        float rotatedY = scaledX * entitySinA + scaledY * entityCosA;
+        
+        entityWorldShapePoints.push_back({x + rotatedX, y + rotatedY});
+    }
+    
+    // CRASH FIX: Check if transformation actually produced any points
+    if (entityWorldShapePoints.empty()) {
+        std::cerr << "CRITICAL: entityWorldShapePoints is empty after transformation - using fallback collision detection" << std::endl;
+        return false; // Fallback to no collision
+    }
+    
+    // Check collision with other entities using hierarchical entity grid
+    const float searchRadius = 3.0f; // Search radius for nearby entities
+    std::vector<std::string> nearbyEntities;
+    
+    // Use hierarchical entity grid if available
     {
         std::lock_guard<std::mutex> lock(g_hierarchicalEntityGridMutex);
-        // Initialize hierarchical entity grid if needed
-        if (!g_hierarchicalEntityGrid.isInitializedState()) {
-            g_hierarchicalEntityGrid.initialize();
+        if (g_hierarchicalEntityGrid.isInitializedState()) {
+            nearbyEntities = g_hierarchicalEntityGrid.getEntitiesHierarchical(x, y, searchRadius);
+        } else {
+            // Fallback to basic spatial grid
+            nearbyEntities = getNearbyEntities(x, y, searchRadius);
         }
-        
-        // Update grid before collision check
-        g_hierarchicalEntityGrid.updateGrid();
-        
-        // Get nearby entities using hierarchical lookup (MASSIVE PERFORMANCE IMPROVEMENT)
-        nearbyEntityNames = g_hierarchicalEntityGrid.getEntitiesHierarchical(x, y, searchRadius);
     }
     
-    for (const std::string& otherInstanceName : nearbyEntityNames) {
-        // Skip self and excluded entity
-        if (otherInstanceName == excludeInstanceName) {
-            continue;
-        }
+    // Check each nearby entity for collision
+    for (const std::string& nearbyEntityName : nearbyEntities) {
+        if (nearbyEntityName == excludeInstanceName) continue; // Skip self
         
-        // Get entity reference
-        const Entity* otherEntity = entitiesManager.getEntity(otherInstanceName);
-        if (!otherEntity) {
-            continue; // Entity no longer exists
-        }
+        Entity* nearbyEntity = entitiesManager.getEntity(nearbyEntityName);
+        if (!nearbyEntity) continue;
         
         // Check if this entity type is in our collision list
-        if (entitySet.find(otherEntity->type) == entitySet.end()) {
-            continue; // Skip entities not in our collision/avoidance list
+        if (entitySet.find(nearbyEntity->type) == entitySet.end()) {
+            continue; // Not in our collision list
         }
         
-        // Get other entity position and configuration
-        std::string otherElementName = EntitiesManager::getElementName(otherEntity->instanceName);
-        float otherX, otherY;
-        if (!elementsManager.getElementPosition(otherElementName, otherX, otherY)) {
-            continue; // Can't get position, skip this entity
+        // Get the configuration for the nearby entity
+        const EntityConfiguration* nearbyConfig = entitiesManager.getConfiguration(nearbyEntity->type);
+        if (!nearbyConfig || nearbyConfig->collisionShapePoints.empty()) {
+            continue; // Skip entities without collision shapes
         }
         
-        const EntityConfiguration* otherConfig = entitiesManager.getConfiguration(otherEntity->type);
-        if (!otherConfig || !otherConfig->canCollide || otherConfig->collisionShapePoints.empty()) {
-            continue; // Other entity doesn't have collision enabled or collision shape
-        }// PERFORMANCE OPTIMIZATION: Use pre-calculated collision boxes for other entity
-            // Get or calculate cached collision box for other entity using its cached collision box from Entity struct
-            const auto& otherEntityCachedBox = CollisionBoxUtils::getOrUpdateCollisionBox(
-                const_cast<Entity*>(otherEntity)->cachedCollisionBox, otherConfig->collisionShapePoints, 
-                otherX, otherY, 0.0f, 1.0f);
+        // Get nearby entity position
+        std::string nearbyElementName = EntitiesManager::getElementName(nearbyEntityName);
+        float nearbyX, nearbyY;
+        if (!elementsManager.getElementPosition(nearbyElementName, nearbyX, nearbyY)) {
+            continue; // Could not get position
+        }
+        
+        // Transform nearby entity collision shape to world coordinates
+        std::vector<std::pair<float, float>> nearbyEntityWorldShapePoints;
+        float nearbyAngleRad = 0.0f; // Entities don't rotate currently
+        float nearbyCosA = cos(nearbyAngleRad);
+        float nearbySinA = sin(nearbyAngleRad);
+        
+        for (const auto& localPoint : nearbyConfig->collisionShapePoints) {
+            float scaledX = localPoint.first;
+            float scaledY = localPoint.second;
             
-            // Fast bounding box intersection test first
-            if (!entityCachedBox.boundingBoxIntersects(otherEntityCachedBox)) {
-                continue; // No intersection possible, skip expensive polygon test
-            }
-              
-            // Perform polygon-polygon collision detection using cached world points
-            // MEMORY SAFETY: Check if both polygons have valid points before collision detection
-            if (!entityCachedBox.worldPoints.empty() && !otherEntityCachedBox.worldPoints.empty() &&
-                entityCachedBox.worldPoints.size() >= 3 && otherEntityCachedBox.worldPoints.size() >= 3) {
-                
-                // Additional safety check: ensure cached vectors are not corrupted
-                bool entityShapeValid = true;
-                bool otherEntityShapeValid = true;
-                
-                for (const auto& point : entityCachedBox.worldPoints) {
-                    if (std::isnan(point.first) || std::isnan(point.second) ||
-                        std::isinf(point.first) || std::isinf(point.second)) {
-                        entityShapeValid = false;
-                        break;
-                    }
-                }
-                
-                if (entityShapeValid) {
-                    for (const auto& point : otherEntityCachedBox.worldPoints) {
-                        if (std::isnan(point.first) || std::isnan(point.second) ||
-                            std::isinf(point.first) || std::isinf(point.second)) {
-                            otherEntityShapeValid = false;
-                            break;
-                        }
-                    }
-                }
-                
-                // Only perform collision detection if both shapes are valid
-                if (entityShapeValid && otherEntityShapeValid) {
-                    try {
-                        if (polygonPolygonCollision(entityCachedBox.worldPoints, otherEntityCachedBox.worldPoints)) {
-                            return true; // Collision detected
-                        }
-                    } catch (const std::exception& e) {
-                        std::cerr << "WARNING: Exception in polygonPolygonCollision: " << e.what() << std::endl;
-                        continue; // Skip this collision check and continue with next entity
-                    } catch (...) {
-                        std::cerr << "WARNING: Unknown exception in polygonPolygonCollision" << std::endl;
-                        continue; // Skip this collision check and continue with next entity
-                    }
-                }
-            }
+            float rotatedX = scaledX * nearbyCosA - scaledY * nearbySinA;
+            float rotatedY = scaledX * nearbySinA + scaledY * nearbyCosA;
+            
+            nearbyEntityWorldShapePoints.push_back({nearbyX + rotatedX, nearbyY + rotatedY});
+        }
+        
+        // Perform polygon-polygon collision detection
+        if (!nearbyEntityWorldShapePoints.empty() && 
+            polygonPolygonCollision(entityWorldShapePoints, nearbyEntityWorldShapePoints)) {
+            return true; // Collision detected
+        }
     }
     
     return false; // No collision detected with specified entity types
 }
 
-// Spatial grid system management
-
-// Get spatial grid cell index for entity positions
-int getEntitySpatialGridIndex(float x, float y) {
-    int gridX = static_cast<int>(x) / ENTITY_SPATIAL_GRID_SIZE;
-    int gridY = static_cast<int>(y) / ENTITY_SPATIAL_GRID_SIZE;
-    return gridX * 1000 + gridY;
+// Reset entity spatial grid for optimization
+void resetEntitySpatialGrid() {
+    entitySpatialGridInitialized = false;
+    entitySpatialGrid.clear();
+    lastEntitySpatialGridUpdateTime = 0.0f;
 }
 
-// Update the entity spatial partitioning grid
+// Update entity spatial grid for collision optimization
 void updateEntitySpatialGrid() {
-    PROFILE_SCOPE("EntitySpatialGrid_Update");
-    
     float currentTime = static_cast<float>(glfwGetTime());
     
-    // Only update periodically to avoid performance impact
-    if (entitySpatialGridInitialized && currentTime - lastEntitySpatialGridUpdateTime < ENTITY_SPATIAL_GRID_UPDATE_INTERVAL) {
+    // Only update every interval to avoid performance impact
+    if (entitySpatialGridInitialized && 
+        currentTime - lastEntitySpatialGridUpdateTime < ENTITY_SPATIAL_GRID_UPDATE_INTERVAL) {
         return;
     }
     
@@ -2888,53 +2553,126 @@ void updateEntitySpatialGrid() {
     entitySpatialGrid.clear();
     
     // Place each entity in the appropriate grid cell
-    const auto& allEntities = entitiesManager.getEntities();
-    for (const auto& pair : allEntities) {
-        const Entity& entity = pair.second;
+    for (const auto& pair : entitiesManager.getEntities()) {
+        const std::string& instanceName = pair.first;
+        std::string elementName = EntitiesManager::getElementName(instanceName);
         
-        // Get entity position
-        std::string elementName = EntitiesManager::getElementName(entity.instanceName);
-        float entityX, entityY;
-        if (elementsManager.getElementPosition(elementName, entityX, entityY)) {
-            int index = getEntitySpatialGridIndex(entityX, entityY);
-            entitySpatialGrid[index].push_back(entity.instanceName);
+        float x, y;
+        if (elementsManager.getElementPosition(elementName, x, y)) {
+            int index = getEntitySpatialGridIndex(x, y);
+            entitySpatialGrid[index].push_back(instanceName);
         }
     }
     
     entitySpatialGridInitialized = true;
 }
 
-// Function to reset entity spatial grid when entities are added/removed
-void resetEntitySpatialGrid() {
-    entitySpatialGridInitialized = false;
-    entitySpatialGrid.clear();
+// Get spatial grid index for entity collision optimization
+int getEntitySpatialGridIndex(float x, float y) {
+    int gridX = static_cast<int>(x) / ENTITY_SPATIAL_GRID_SIZE;
+    int gridY = static_cast<int>(y) / ENTITY_SPATIAL_GRID_SIZE;
+    return gridX * 1000 + gridY;
 }
 
-// Get nearby entities within a radius using spatial grid
+// Get nearby entities within radius for collision detection
 std::vector<std::string> getNearbyEntities(float x, float y, float radius) {
-    std::vector<std::string> result;
-    
-    // Make sure the spatial grid is up to date
     updateEntitySpatialGrid();
     
-    // Calculate the grid cell range that could contain entities within the radius
+    std::vector<std::string> result;
     int cellRadius = static_cast<int>(radius / ENTITY_SPATIAL_GRID_SIZE) + 1;
     int centerCellX = static_cast<int>(x) / ENTITY_SPATIAL_GRID_SIZE;
     int centerCellY = static_cast<int>(y) / ENTITY_SPATIAL_GRID_SIZE;
     
-    // Check all cells in the vicinity
     for (int cellX = centerCellX - cellRadius; cellX <= centerCellX + cellRadius; cellX++) {
         for (int cellY = centerCellY - cellRadius; cellY <= centerCellY + cellRadius; cellY++) {
-            int index = cellX * 1000 + cellY;
+            int index = getEntitySpatialGridIndex(cellX * ENTITY_SPATIAL_GRID_SIZE, cellY * ENTITY_SPATIAL_GRID_SIZE);
             
-            // Get all entities in this grid cell
             auto it = entitySpatialGrid.find(index);
             if (it != entitySpatialGrid.end()) {
-                // Add entities from this cell to the result
                 result.insert(result.end(), it->second.begin(), it->second.end());
             }
         }
     }
     
     return result;
+}
+
+// Handle waypoint arrival for entity movement precision
+bool EntitiesManager::handleWaypointArrival(Entity& entity, const std::string& elementName, const EntityConfiguration& config, float currentX, float currentY) {
+    if (entity.path.empty() || entity.currentPathIndex >= entity.path.size()) {
+        return false; // No path or path completed
+    }
+    
+    const auto& currentWaypoint = entity.path[entity.currentPathIndex];
+    float waypointX = currentWaypoint.first;
+    float waypointY = currentWaypoint.second;
+    
+    // Check if we've reached the current waypoint
+    float distance = std::sqrt((currentX - waypointX) * (currentX - waypointX) + 
+                              (currentY - waypointY) * (currentY - waypointY));
+    
+    const float arrivalThreshold = 0.1f; // Distance threshold for waypoint arrival
+    
+    if (distance <= arrivalThreshold) {
+        // We've reached the waypoint, move to next one
+        entity.currentPathIndex++;
+        
+        // Update sprite direction based on movement to next waypoint
+        if (entity.currentPathIndex < entity.path.size()) {
+            const auto& nextWaypoint = entity.path[entity.currentPathIndex];
+            float nextX = nextWaypoint.first;
+            float nextY = nextWaypoint.second;
+            
+            // Calculate direction to next waypoint
+            float deltaX = nextX - currentX;
+            float deltaY = nextY - currentY;
+            
+            // Determine direction based on largest movement component
+            EntityDirection direction = DIRECTION_NONE;
+            if (std::abs(deltaX) > std::abs(deltaY)) {
+                direction = (deltaX > 0) ? DIRECTION_RIGHT : DIRECTION_LEFT;
+            } else {
+                direction = (deltaY > 0) ? DIRECTION_DOWN : DIRECTION_UP;
+            }
+            
+            // Update sprite phase based on direction
+            int spritePhase = config.defaultSpriteSheetPhase; // Default fallback
+            switch (direction) {
+                case DIRECTION_UP:
+                    spritePhase = config.spritePhaseWalkUp;
+                    break;
+                case DIRECTION_DOWN:
+                    spritePhase = config.spritePhaseWalkDown;
+                    break;
+                case DIRECTION_LEFT:
+                    spritePhase = config.spritePhaseWalkLeft;
+                    break;
+                case DIRECTION_RIGHT:
+                    spritePhase = config.spritePhaseWalkRight;
+                    break;
+                default:
+                    break;
+            }
+            
+            // Apply sprite direction change
+            elementsManager.changeElementSpritePhase(elementName, spritePhase);
+        } else {
+            // Path completed - stop walking
+            entity.isWalking = false;
+            entity.path.clear();
+            entity.currentPathIndex = 0;
+            
+            // Disable animation and reset to default sprite
+            elementsManager.changeElementAnimationStatus(elementName, false);
+            elementsManager.changeElementSpritePhase(elementName, config.defaultSpriteSheetPhase);
+            elementsManager.changeElementSpriteFrame(elementName, config.defaultSpriteSheetFrame);
+            
+            std::cout << "Entity " << entity.instanceName << " completed path and stopped at (" 
+                      << currentX << ", " << currentY << ")" << std::endl;
+        }
+        
+        return true; // Waypoint was processed
+    }
+    
+    return false; // Waypoint not yet reached
 }
