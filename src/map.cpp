@@ -133,12 +133,37 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     water4Info.frameHeight = 16; // Assuming 16px frame height, adjust if different
     water4Info.animationStartRandomFrame = true; // Enable random start frame
     water4Info.randomizedRotation = true; // Enable randomized rotation for WATER_4
-    textureConfigs[BlockName::WATER_4] = water4Info;
+    textureConfigs[BlockName::WATER_4] = water4Info;        
+    BlockInfo ice1Info;
+    ice1Info.path = "../assets/textures/blocks/ice1.png";
+    ice1Info.animType = TextureAnimationType::STATIC;
+    // Configure ICE_1 block transformation
+    ice1Info.hasTransformation = true;
+    ice1Info.savePreviousExistingBlock = true; // Save the water block that was here
+    ice1Info.transformBlockTo = BlockName::ICE_2;
+    ice1Info.transformBlockTimeIntervalStart = 10.0f; // 10 seconds minimum
+    ice1Info.transformBlockTimeIntervalEnd = 15.0f;   // 15 seconds maximum
+    textureConfigs[BlockName::ICE_1] = ice1Info;
 
-    BlockInfo iceInfo;
-    iceInfo.path = "../assets/textures/blocks/ice1.png";
-    iceInfo.animType = TextureAnimationType::STATIC;
-    textureConfigs[BlockName::ICE] = iceInfo;
+    BlockInfo ice2Info;
+    ice2Info.path = "../assets/textures/blocks/ice2.png";
+    ice2Info.animType = TextureAnimationType::STATIC;
+    // Configure ICE_2 block transformation
+    ice2Info.hasTransformation = true;
+    ice2Info.transformBlockTo = BlockName::ICE_3;
+    ice2Info.transformBlockTimeIntervalStart = 10.0f; // 10 seconds minimum
+    ice2Info.transformBlockTimeIntervalEnd = 15.0f;   // 15 seconds maximum
+    textureConfigs[BlockName::ICE_2] = ice2Info;
+
+    BlockInfo ice3Info;
+    ice3Info.path = "../assets/textures/blocks/ice3.png";
+    ice3Info.animType = TextureAnimationType::STATIC;
+    // Configure ICE_3 block transformation - transforms back to the original water block
+    ice3Info.hasTransformation = true;
+    ice3Info.transformBlockToPreviousExistingBlock = true; // Transform back to saved water block
+    ice3Info.transformBlockTimeIntervalStart = 10.0f; // 10 seconds minimum
+    ice3Info.transformBlockTimeIntervalEnd = 15.0f;   // 15 seconds maximum
+    textureConfigs[BlockName::ICE_3] = ice3Info;
 
 
 
@@ -250,12 +275,18 @@ void Map::placeBlock(BlockName name, int x, int y) {
     Block newBlock;
     newBlock.name = name;
     newBlock.x = x;
-    newBlock.y = y;
-
-    // Initialize currentFrame for the block
+    newBlock.y = y;    // Initialize currentFrame for the block
     auto it = textureDetails.find(name);
     if (it != textureDetails.end()) {
         const BlockInfo& texInfo = it->second;
+        
+        // Save previous existing block if requested and a block already exists
+        if (texInfo.savePreviousExistingBlock && blockExists) {
+            BlockName previousBlockName = blocks[existingBlockIndex].name;
+            savedExistingBlocks[{x, y}] = previousBlockName;
+            std::cout << "Saved previous block " << static_cast<int>(previousBlockName) << " at coordinates (" << x << ", " << y << ")" << std::endl;
+        }
+        
         if (texInfo.animType == TextureAnimationType::ANIMATED && texInfo.animationStartRandomFrame && texInfo.frameCount > 0) {
             // Generate a random starting frame for this block instance
             newBlock.currentFrame = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / texInfo.frameCount));
@@ -265,22 +296,49 @@ void Map::placeBlock(BlockName name, int x, int y) {
             }
         } else {
             newBlock.currentFrame = 0.0f; // Default start frame if not random or not animated
-        }
-
-        // Initialize rotationAngle
+        }// Initialize rotationAngle
         if (texInfo.randomizedRotation) {
             int randomRotation = rand() % 4; // 0, 1, 2, or 3
             newBlock.rotationAngle = randomRotation * 90; // 0, 90, 180, or 270
         } else {
             newBlock.rotationAngle = 0;
         }
+        
+        // Initialize transformation parameters
+        newBlock.transformationTimer = 0.0f;
+        newBlock.hasBeenInitializedForTransformation = false;
+        if (texInfo.hasTransformation && texInfo.transformBlockTimeIntervalEnd > texInfo.transformBlockTimeIntervalStart) {
+            // Generate a random transformation time within the specified interval
+            float interval = texInfo.transformBlockTimeIntervalEnd - texInfo.transformBlockTimeIntervalStart;
+            float randomFactor = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+            newBlock.transformationTarget = texInfo.transformBlockTimeIntervalStart + (randomFactor * interval);
+            newBlock.hasBeenInitializedForTransformation = true;
+        } else {
+            newBlock.transformationTarget = -1.0f; // No transformation
+        }
     } else {
         newBlock.currentFrame = 0.0f; // Default if texture info not found (should not happen)
         newBlock.rotationAngle = 0;
+        newBlock.transformationTimer = 0.0f;
+        newBlock.transformationTarget = -1.0f;
+        newBlock.hasBeenInitializedForTransformation = false;
     }    // If a block already exists at these coordinates, replace it instead of adding a new one
     if (blockExists) {
         // Only replace if the texture is different (reduce unnecessary operations)
         if (blocks[existingBlockIndex].name != name) {
+            // Reset transformation parameters when replacing a block
+            newBlock.transformationTimer = 0.0f;
+            newBlock.hasBeenInitializedForTransformation = false;
+            if (it != textureDetails.end() && it->second.hasTransformation && 
+                it->second.transformBlockTimeIntervalEnd > it->second.transformBlockTimeIntervalStart) {
+                float interval = it->second.transformBlockTimeIntervalEnd - it->second.transformBlockTimeIntervalStart;
+                float randomFactor = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+                newBlock.transformationTarget = it->second.transformBlockTimeIntervalStart + (randomFactor * interval);
+                newBlock.hasBeenInitializedForTransformation = true;
+            } else {
+                newBlock.transformationTarget = -1.0f;
+            }
+            
             blocks[existingBlockIndex] = newBlock;
         }
     } else {
@@ -304,12 +362,20 @@ void Map::placeBlocks(const std::map<std::pair<int, int>, BlockName>& blocksToPl
             size_t existingBlockIndex = existingBlockIt->second;
             if (blocks[existingBlockIndex].name != name) {                // Replace with new texture
                 Block& block = blocks[existingBlockIndex];
+                BlockName previousBlockName = block.name; // Save the current block name before replacing
                 block.name = name;
                 
                 // Reset animation parameters
                 auto texIt = textureDetails.find(name);
                 if (texIt != textureDetails.end()) {
                     const BlockInfo& texInfo = texIt->second;
+                    
+                    // Save previous existing block if requested
+                    if (texInfo.savePreviousExistingBlock) {
+                        savedExistingBlocks[coords] = previousBlockName;
+                        std::cout << "Saved previous block " << static_cast<int>(previousBlockName) << " at coordinates (" << coords.first << ", " << coords.second << ")" << std::endl;
+                    }
+                    
                     if (texInfo.animType == TextureAnimationType::ANIMATED && texInfo.animationStartRandomFrame && texInfo.frameCount > 0) {
                         block.currentFrame = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / texInfo.frameCount));
                         if (block.currentFrame >= texInfo.frameCount) {
@@ -318,13 +384,30 @@ void Map::placeBlocks(const std::map<std::pair<int, int>, BlockName>& blocksToPl
                     } else {
                         block.currentFrame = 0.0f;
                     }
-                    
-                    if (texInfo.randomizedRotation) {
+                      if (texInfo.randomizedRotation) {
                         int randomRotation = rand() % 4;
                         block.rotationAngle = randomRotation * 90;
                     } else {
                         block.rotationAngle = 0;
                     }
+                    
+                    // Reset transformation parameters
+                    block.transformationTimer = 0.0f;
+                    block.hasBeenInitializedForTransformation = false;
+                    if (texInfo.hasTransformation && texInfo.transformBlockTimeIntervalEnd > texInfo.transformBlockTimeIntervalStart) {
+                        float interval = texInfo.transformBlockTimeIntervalEnd - texInfo.transformBlockTimeIntervalStart;
+                        float randomFactor = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+                        block.transformationTarget = texInfo.transformBlockTimeIntervalStart + (randomFactor * interval);
+                        block.hasBeenInitializedForTransformation = true;
+                    } else {
+                        block.transformationTarget = -1.0f;
+                    }
+                } else {
+                    block.currentFrame = 0.0f;
+                    block.rotationAngle = 0;
+                    block.transformationTimer = 0.0f;
+                    block.transformationTarget = -1.0f;
+                    block.hasBeenInitializedForTransformation = false;
                 }
             }
         } else {
@@ -346,16 +429,30 @@ void Map::placeBlocks(const std::map<std::pair<int, int>, BlockName>& blocksToPl
                 } else {
                     newBlock.currentFrame = 0.0f;
                 }
-                
-                if (texInfo.randomizedRotation) {
+                  if (texInfo.randomizedRotation) {
                     int randomRotation = rand() % 4;
                     newBlock.rotationAngle = randomRotation * 90;
                 } else {
                     newBlock.rotationAngle = 0;
                 }
+                
+                // Initialize transformation parameters
+                newBlock.transformationTimer = 0.0f;
+                newBlock.hasBeenInitializedForTransformation = false;
+                if (texInfo.hasTransformation && texInfo.transformBlockTimeIntervalEnd > texInfo.transformBlockTimeIntervalStart) {
+                    float interval = texInfo.transformBlockTimeIntervalEnd - texInfo.transformBlockTimeIntervalStart;
+                    float randomFactor = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+                    newBlock.transformationTarget = texInfo.transformBlockTimeIntervalStart + (randomFactor * interval);
+                    newBlock.hasBeenInitializedForTransformation = true;
+                } else {
+                    newBlock.transformationTarget = -1.0f;
+                }
             } else {
                 newBlock.currentFrame = 0.0f;
                 newBlock.rotationAngle = 0;
+                newBlock.transformationTimer = 0.0f;
+                newBlock.transformationTarget = -1.0f;
+                newBlock.hasBeenInitializedForTransformation = false;
             }
             
             // Add the block and update the position map
@@ -497,4 +594,56 @@ void Map::drawBlocks(float startX, float endX, float startY, float endY, float c
     }
     
     glDisable(GL_TEXTURE_2D);
+}
+
+void Map::updateBlockTransformations(double deltaTime) {
+    for (size_t i = 0; i < blocks.size(); ++i) {
+        Block& block = blocks[i];
+        
+        // Skip blocks that don't have transformation enabled
+        if (block.transformationTarget < 0.0f) {
+            continue;
+        }
+        
+        // Update the transformation timer
+        block.transformationTimer += static_cast<float>(deltaTime);
+          // Check if it's time to transform this block
+        if (block.hasBeenInitializedForTransformation && block.transformationTimer >= block.transformationTarget) {
+            // Get the texture info for the current block to find transformation target
+            auto it = textureDetails.find(block.name);
+            if (it != textureDetails.end() && it->second.hasTransformation) {
+                const BlockInfo& currentTexInfo = it->second;
+                BlockName newBlockType;
+                
+                // Check if we should transform to previous existing block
+                if (currentTexInfo.transformBlockToPreviousExistingBlock) {
+                    // Look for saved previous block at these coordinates
+                    auto savedBlockIt = savedExistingBlocks.find({block.x, block.y});
+                    if (savedBlockIt != savedExistingBlocks.end()) {
+                        newBlockType = savedBlockIt->second;
+                        // Remove the saved block since we're using it
+                        savedExistingBlocks.erase(savedBlockIt);
+                        std::cout << "Transforming block at (" << block.x << ", " << block.y << ") from " 
+                                  << static_cast<int>(block.name) << " to previous existing block " << static_cast<int>(newBlockType) << std::endl;
+                    } else {
+                        // No saved block found, fallback to regular transformation
+                        newBlockType = currentTexInfo.transformBlockTo;
+                        std::cout << "No saved block found at (" << block.x << ", " << block.y << "), using fallback transformation from " 
+                                  << static_cast<int>(block.name) << " to " << static_cast<int>(newBlockType) << std::endl;
+                    }
+                } else {
+                    // Regular transformation
+                    newBlockType = currentTexInfo.transformBlockTo;
+                    std::cout << "Transforming block at (" << block.x << ", " << block.y << ") from " 
+                              << static_cast<int>(block.name) << " to " << static_cast<int>(newBlockType) << std::endl;
+                }
+                
+                // Place the new block type at the same coordinates (this will replace the existing block)
+                placeBlock(newBlockType, block.x, block.y);
+                
+                // Note: placeBlock will handle all the initialization of the new block,
+                // including setting up new transformation parameters if the new block type also has transformations
+            }
+        }
+    }
 }

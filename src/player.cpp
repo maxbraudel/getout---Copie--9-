@@ -446,7 +446,7 @@ void placeIceBlockInFront() {
     }
     
     // Place the ICE block
-    gameMap.placeBlock(BlockName::ICE, targetX, targetY);
+    gameMap.placeBlock(BlockName::ICE_1, targetX, targetY);
     
     if (playerDebugMode) {
         std::cout << "ICE block placed at position (" << targetX << ", " << targetY << ") in direction " << direction << " from player at (" << playerX << ", " << playerY << ")" << std::endl;

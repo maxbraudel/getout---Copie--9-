@@ -507,6 +507,8 @@ int main() {
             }
             glEnd();        
         }
+				// Update block transformations
+		gameMap.updateBlockTransformations(gameState.deltaTime);
 		
 		// Draw the blocks (textured squares) on the grid
 		// Now we pass the camera boundaries to drawBlocks instead of the GRID_SIZE
