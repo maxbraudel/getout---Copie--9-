@@ -1,6 +1,7 @@
 #pragma once
 
 #include "entities.h"
+#include "enumDefinitions.h"
 #include <string>
 
 // Forward declaration
@@ -21,3 +22,12 @@ void processEntityDestructions(EntitiesManager& entitiesManager);
 // This should be called when an entity reaches its target during attack state
 void handleAttackDamage(const std::string& attackerInstanceName, const std::string& targetInstanceName,
                        EntitiesManager& entitiesManager);
+
+// Function to get the block name underneath an entity's anchor point
+BlockName giveBlockNameUnderneathEntity(const std::string& instanceName, EntitiesManager& entitiesManager);
+
+// Function to check and apply water damage to the player
+void checkAndApplyWaterDamageToPlayer(EntitiesManager& entitiesManager);
+
+// Function to check if a player is on a specific block position and apply water damage if needed
+void checkPlayerWaterDamageAtPosition(int blockX, int blockY, BlockName blockType, EntitiesManager& entitiesManager);

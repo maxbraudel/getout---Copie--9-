@@ -6,6 +6,7 @@
 #include <string>
 #include <map>
 #include "enumDefinitions.h"
+#include "entitiesStatus.h"
 
 // For cross-platform directory checking
 #ifdef _WIN32
@@ -339,14 +340,17 @@ void Map::placeBlock(BlockName name, int x, int y) {
                 newBlock.transformationTarget = -1.0f;
             }
             
-            blocks[existingBlockIndex] = newBlock;
-        }
+            blocks[existingBlockIndex] = newBlock;        }
     } else {
         // Add the new block
         blocks.push_back(newBlock);
         // Update the position map
         blockPositionMap[{x, y}] = blocks.size() - 1;
     }
+    
+    // Check for water damage if a water block was placed
+    extern EntitiesManager entitiesManager;
+    checkPlayerWaterDamageAtPosition(x, y, name, entitiesManager);
 }
 
 void Map::placeBlocks(const std::map<std::pair<int, int>, BlockName>& blocksToPlace) {
@@ -454,11 +458,18 @@ void Map::placeBlocks(const std::map<std::pair<int, int>, BlockName>& blocksToPl
                 newBlock.transformationTarget = -1.0f;
                 newBlock.hasBeenInitializedForTransformation = false;
             }
-            
-            // Add the block and update the position map
+              // Add the block and update the position map
             blocks.push_back(newBlock);
             blockPositionMap[coords] = blocks.size() - 1;
         }
+    }
+    
+    // Check for water damage for each placed block
+    extern EntitiesManager entitiesManager;
+    for (const auto& pair : blocksToPlace) {
+        const std::pair<int, int>& coords = pair.first;
+        BlockName name = pair.second;
+        checkPlayerWaterDamageAtPosition(coords.first, coords.second, name, entitiesManager);
     }
 }
 

@@ -1,6 +1,8 @@
 #include "entities.h"
 #include "elementsOnMap.h"
 #include "collision.h"
+#include "map.h"
+#include "player.h"
 #include <iostream>
 #include <vector>
 #include <string>
@@ -105,5 +107,108 @@ void handleAttackDamage(const std::string& attackerInstanceName, const std::stri
     // If target was destroyed, handle the destruction immediately
     if (targetDestroyed) {
         destroyEntity(targetInstanceName, entitiesManager);
+    }
+}
+
+// Function to get the block name underneath an entity's anchor point
+BlockName giveBlockNameUnderneathEntity(const std::string& instanceName, EntitiesManager& entitiesManager) {
+    // Get the entity
+    Entity* entity = entitiesManager.getEntity(instanceName);
+    if (!entity) {
+        std::cout << "Warning: Entity " << instanceName << " not found" << std::endl;
+        return BlockName::GRASS_0; // Default return value
+    }
+    
+    // Get entity position
+    float entityX, entityY;
+    std::string elementName = EntitiesManager::getElementName(instanceName);
+    extern ElementsOnMap elementsManager;
+    if (!elementsManager.getElementPosition(elementName, entityX, entityY)) {
+        std::cout << "Warning: Could not get position for entity " << instanceName << std::endl;
+        return BlockName::GRASS_0; // Default return value
+    }
+    
+    // Convert entity position to grid coordinates (entity anchor point)
+    int gridX = static_cast<int>(std::floor(entityX));
+    int gridY = static_cast<int>(std::floor(entityY));
+    
+    // Get the block at the entity's anchor point
+    extern Map gameMap;
+    BlockName blockType = gameMap.getBlockNameByCoordinates(gridX, gridY);
+    
+    return blockType;
+}
+
+// Function to check and apply water damage to the player
+void checkAndApplyWaterDamageToPlayer(EntitiesManager& entitiesManager) {
+    const std::string playerInstanceName = "player1";
+    
+    // Get the block underneath the player
+    BlockName blockUnderPlayer = giveBlockNameUnderneathEntity(playerInstanceName, entitiesManager);
+    
+    // Check if it's a water block
+    if (blockUnderPlayer == BlockName::WATER_0 || 
+        blockUnderPlayer == BlockName::WATER_1 || 
+        blockUnderPlayer == BlockName::WATER_2 || 
+        blockUnderPlayer == BlockName::WATER_3 || 
+        blockUnderPlayer == BlockName::WATER_4) {
+        
+        // Get player entity
+        Entity* player = entitiesManager.getEntity(playerInstanceName);
+        if (player) {
+            // Apply 1000 damage (enough to kill the player)
+            player->lifePoints -= 1000;
+            
+            std::cout << "Player stepped on water block (" << static_cast<int>(blockUnderPlayer) 
+                      << ") and took 1000 damage! Remaining life: " << player->lifePoints << std::endl;
+            
+            // Check if player should be destroyed
+            if (player->lifePoints <= 0) {
+                std::cout << "Player destroyed by water damage!" << std::endl;
+                destroyEntity(playerInstanceName, entitiesManager);
+            }
+        }
+    }
+}
+
+// Function to check if a player is on a specific block position and apply water damage if needed
+void checkPlayerWaterDamageAtPosition(int blockX, int blockY, BlockName blockType, EntitiesManager& entitiesManager) {
+    const std::string playerInstanceName = "player1";
+    
+    // Only check if the new block is a water block
+    if (blockType != BlockName::WATER_0 && 
+        blockType != BlockName::WATER_1 && 
+        blockType != BlockName::WATER_2 && 
+        blockType != BlockName::WATER_3 && 
+        blockType != BlockName::WATER_4) {
+        return; // Not a water block, no damage needed
+    }
+    
+    // Get player position
+    float playerX, playerY;
+    if (!getPlayerPosition(playerX, playerY)) {
+        return; // Player doesn't exist
+    }
+    
+    // Convert player position to grid coordinates
+    int playerGridX = static_cast<int>(std::floor(playerX));
+    int playerGridY = static_cast<int>(std::floor(playerY));
+    
+    // Check if player is on the same grid position as the water block
+    if (playerGridX == blockX && playerGridY == blockY) {
+        // Player is on the water block, apply damage
+        Entity* player = entitiesManager.getEntity(playerInstanceName);
+        if (player) {
+            player->lifePoints -= 1000;
+            
+            std::cout << "Water block (" << static_cast<int>(blockType) 
+                      << ") placed under player! Player took 1000 damage! Remaining life: " << player->lifePoints << std::endl;
+            
+            // Check if player should be destroyed
+            if (player->lifePoints <= 0) {
+                std::cout << "Player destroyed by water damage from placed block!" << std::endl;
+                destroyEntity(playerInstanceName, entitiesManager);
+            }
+        }
     }
 }

@@ -9,6 +9,7 @@
 #include "crashDebug.h"
 #include "camera.h"
 #include "globals.h"
+#include "entitiesStatus.h"
 #include <iostream>
 #include <algorithm>
 
@@ -302,10 +303,14 @@ void PlayerMovementManager::processPlayerMovement(const PlayerInput& input, doub
         canMove = checkPlayerCollision(newX, newY, actualDeltaX, actualDeltaY);
         m_collisionChecksPerformed++;
     }
-    
-    // Update player position if movement is possible
+      // Update player position if movement is possible
     if (canMove) {
         updatePlayerPosition(actualDeltaX, actualDeltaY);
+        
+        // Check for water damage after player movement
+        if (m_entitiesManager) {
+            checkAndApplyWaterDamageToPlayer(*m_entitiesManager);
+        }
     }
     
     // Update movement state
