@@ -299,12 +299,13 @@ static void initializeEntityTypes() {
         };
         
         // Player physically collides with deep water but can walk through shallow water
-        /* player.collisionBlocks = {
+        player.collisionBlocks = {
             BlockName::WATER_0,
             BlockName::WATER_1,
             BlockName::WATER_2,
             BlockName::WATER_3,
-            BlockName::WATER_4 // Only deep water blocks movement        };  */         
+            BlockName::WATER_4 // Only deep water blocks movement        
+        };        
         // Entity collision configuration - Player avoids antagonist for pathfinding and can collide during movement
         /* player.avoidanceEntities = {
             EntityName::ANTAGONIST // Avoid antagonist during pathfinding
@@ -322,6 +323,70 @@ static void initializeEntityTypes() {
 
         // Add to the list
         entityTypes.push_back(player);
+
+
+        // shark entity config
+        EntityInfo shark;
+        shark.type = EntityName::SHARK;
+        shark.elementName = ElementName::SHARK; // Use a test element for now
+        shark.scale = 5.5f;
+        // Default sprite configuration
+        shark.defaultSpriteSheetPhase = 2;
+        shark.defaultSpriteSheetFrame = 0;
+        shark.defaultAnimationSpeed = 11.0f;
+        // Walking animation phases
+        shark.spritePhaseWalkUp = 3;
+        shark.spritePhaseWalkDown = 0;
+        shark.spritePhaseWalkLeft = 2;
+        shark.spritePhaseWalkRight = 1;
+        // Movement speeds
+        shark.normalWalkingSpeed = 1.5f;
+        shark.normalWalkingAnimationSpeed = 4.0f;
+        shark.sprintWalkingSpeed = 4.0f;
+        shark.sprintWalkingAnimationSpeed = 8.0f;    // Collision settings
+        shark.canCollide = true;
+        shark.collisionShapePoints = {
+            {-0.5f, -0.5f}, {0.5f, -0.5f}, {0.5f, 0.5f}, {-0.5f, 0.5f}
+        };    // Granular collision control - shark avoids trees but can move through player
+        // For testing: Leave lists empty to allow movement through all elements
+        shark.collisionBlocks = {
+            BlockName::SAND,
+            BlockName::GRASS_0,
+            BlockName::GRASS_1,
+            BlockName::GRASS_2,
+            BlockName::GRASS_3,
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+        };
+
+        shark.avoidanceBlocks = {
+            BlockName::SAND,
+            BlockName::GRASS_0,
+            BlockName::GRASS_1,
+            BlockName::GRASS_2,
+            BlockName::GRASS_3,
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+        };
+
+
+
+        shark.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
+        shark.offMapCollision = true; // Antagonist collides with map borders// Automatic behavior configuration
+        shark.automaticBehaviors = true; // Enable automatic behaviors for antagonist2
+        shark.passiveState = true; // Enable passive state random walking
+        shark.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
+        shark.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
+        shark.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; 
+
+        entityTypes.push_back(shark); // Add shark to the list
+
+            // Empty - no blocks to avoid for pathfinding
+
+
+          // Block collision configuration - Shark avoids water during pathfinding and movement
 
 
     } catch (const std::exception& e) {

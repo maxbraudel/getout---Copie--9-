@@ -80,6 +80,17 @@ static std::vector<ElementInfo> createElementTexturesToLoad() {
     antagonistTexture.anchorOffsetY = 0.2f; // Y offset
     antagonistTexture.hasCollision = false; // Enable collision for player
     textures.push_back(antagonistTexture);
+
+    ElementInfo shark;
+    shark.name = ElementName::SHARK;
+    shark.path = "../assets/textures/entities/shark.png";
+    shark.type = ElementTextureType::SPRITESHEET;
+    shark.spriteWidth = 148;  // Assuming 64px width for each sprite frame
+    shark.spriteHeight = 141; // Assuming 64px height for each sprite frame
+    shark.anchorPoint = AnchorPoint::CENTER; // Default anchor - can be changed in config
+    shark.anchorOffsetY = 0.2f; // Y offset
+    shark.hasCollision = false; // Enable collision for player
+    textures.push_back(shark);
     
     // Add more texture definitions here as needed
     

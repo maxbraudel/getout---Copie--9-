@@ -7,7 +7,8 @@
 enum class EntityName {
     ANTAGONIST2,
     ANTAGONIST,
-    PLAYER // Add more entity types as needed
+    PLAYER,
+    SHARK
 };
 
 
@@ -18,7 +19,8 @@ enum class ElementName {
     COCONUT_TREE_3,
     CHARACTER1,
     TEST,
-    ANTAGONIST1
+    ANTAGONIST1,
+    SHARK
     // Add more element texture types as needed
 };
 

@@ -331,7 +331,10 @@ int main() {
     entitiesManager.placeEntityByTypeSafely("antagonist52", EntityName::ANTAGONIST, 44.0f, 31.0f);
     entitiesManager.placeEntityByTypeSafely("antagonist53", EntityName::ANTAGONIST, 43.0f, 31.0f);
 
+    entitiesManager.placeEntityByTypeSafely("shark1", EntityName::SHARK, 42.0f, 31.0f);
 
+    entitiesManager.placeEntityByTypeSafely("shark2", EntityName::SHARK, 41.0f, 31.0f);
+    
 
     entitiesManager.placeEntityByTypeSafely("player1", EntityName::PLAYER, 5.0f, 45.0f);
     
