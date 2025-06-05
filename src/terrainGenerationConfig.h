@@ -51,6 +51,8 @@ struct GenerationRuleInfo {    // Basic spawn configuration
     AnchorPoint anchorPoint = AnchorPoint::USE_TEXTURE_DEFAULT;  // Anchor point
     float additionalXAnchorOffset = 0.0f;    // Additional X anchor offset
     float additionalYAnchorOffset = 0.0f;    // Additional Y anchor offset
+      // Placement strategy
+    bool randomPlacement = false;            // Whether to use randomized grid block selection instead of sequential
     
     // Rule identification
     std::string ruleName = "";               // Optional name for debugging

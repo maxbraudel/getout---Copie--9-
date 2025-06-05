@@ -50,9 +50,11 @@ void TerrainGenerationConfig::initializeDefaultRules() {
         BlockName::WATER_0, BlockName::WATER_1, BlockName::WATER_2, 
         BlockName::WATER_3, BlockName::WATER_4
     };
-    
-    // No group spawning for coconut trees
+      // No group spawning for coconut trees
     coconutTreeRule.spawnInGroup = false;
+    
+    // Enable random placement for more organic tree distribution
+    coconutTreeRule.randomPlacement = true;
     
     // Element properties (matching existing logic)
     coconutTreeRule.scaleMin = 0.7f;                     // Random scale variation
@@ -84,23 +86,23 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     };
     
     // Spawn on GRASS_2 blocks only
-    antagonistRule.spawnBlocks = {BlockName::GRASS_2};
-      // Spawn probability and constraints
-    antagonistRule.spawnChance = 30;                    // 1/100 chance for much less frequent spawning
-    antagonistRule.maxSpawns = 2000;                       // Max 50 antagonist entities total
+    antagonistRule.spawnBlocks = {BlockName::GRASS_2};      // Spawn probability and constraints
+    antagonistRule.spawnChance = 100;                   // 1/100 chance for much less frequent spawning
+    antagonistRule.maxSpawns = 50;                      // Max 50 antagonist entities total
     
     // Distance constraints - maintain reasonable spacing between groups
     antagonistRule.minDistanceFromSameRule = 8.0f;      // Min distance between antagonist groups
     antagonistRule.maxDistanceFromBlocks = 0.0f;        // No proximity requirement
     antagonistRule.proximityBlocks = {};                // No specific blocks needed nearby
-    
-    // Group spawning configuration - spawn antagonists in small groups
+      // Group spawning configuration - spawn antagonists in small groups
     antagonistRule.spawnInGroup = true;
     antagonistRule.groupRadius = 3.0f;                  // Spread group members within 3 units
     antagonistRule.groupNumberMin = 2;                  // Min 2 entities per group
     antagonistRule.groupNumberMax = 4;                  // Max 4 entities per group
     
-    // Entity properties (not used for entities, but kept for consistency)
+    // Enable random placement for more organic entity distribution
+    antagonistRule.randomPlacement = true;
+      // Entity properties (not used for entities, but kept for consistency)
     antagonistRule.scaleMin = 1.0f;
     antagonistRule.scaleMax = 1.0f;
     antagonistRule.baseScale = 1.0f;
@@ -108,6 +110,42 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     
     // Add the antagonist rule to the configuration
     addGenerationRule(antagonistRule);
+
+    // Shark entity rule - spawn shark entities in water
+    GenerationRuleInfo sharksRule;
+    sharksRule.ruleName = "SharkEntities";
+    sharksRule.spawnType = SpawnType::ENTITY;
+    
+    // Add shark entity types with equal probability
+    sharksRule.spawnEntities = {
+        EntityName::SHARK,
+    };
+    
+    // Spawn on deep water blocks only
+    sharksRule.spawnBlocks = {BlockName::WATER_4};
+      // Spawn probability and constraints
+    sharksRule.spawnChance = 1000;                   // 1/100 chance for rare spawning
+    sharksRule.maxSpawns = 50;                      // Max 50 shark entities total
+    
+    // Distance constraints - maintain reasonable spacing between groups
+    sharksRule.minDistanceFromSameRule = 8.0f;      // Min distance between shark groups
+    sharksRule.maxDistanceFromBlocks = 0.0f;        // No proximity requirement
+    sharksRule.proximityBlocks = {};                // No specific blocks needed nearby
+    
+    // Group spawning configuration - spawn sharks in small groups
+    sharksRule.spawnInGroup = false;
+    
+    // Enable random placement for more organic shark distribution
+    sharksRule.randomPlacement = true;
+    
+    // Entity properties (not used for entities, but kept for consistency)
+    sharksRule.scaleMin = 1.0f;
+    sharksRule.scaleMax = 1.0f;
+    sharksRule.baseScale = 1.0f;
+    sharksRule.rotation = 0.0f;
+    
+    // Add the shark rule to the configuration
+    addGenerationRule(sharksRule);
 }
 
 // Clear all rules
