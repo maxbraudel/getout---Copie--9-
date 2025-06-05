@@ -99,10 +99,13 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     antagonistRule.groupRadius = 3.0f;                  // Spread group members within 3 units
     antagonistRule.groupNumberMin = 2;                  // Min 2 entities per group
     antagonistRule.groupNumberMax = 4;                  // Max 4 entities per group
-    
-    // Enable random placement for more organic entity distribution
+      // Enable random placement for more organic entity distribution
     antagonistRule.randomPlacement = true;
-      // Entity properties (not used for entities, but kept for consistency)
+    
+    // Sprite sheet properties for entities
+    antagonistRule.randomDefaultSpriteSheetPhase = true;  // Randomize sprite phase for variety
+    
+    // Entity properties (not used for entities, but kept for consistency)
     antagonistRule.scaleMin = 1.0f;
     antagonistRule.scaleMax = 1.0f;
     antagonistRule.baseScale = 1.0f;
@@ -134,9 +137,11 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     
     // Group spawning configuration - spawn sharks in small groups
     sharksRule.spawnInGroup = false;
-    
-    // Enable random placement for more organic shark distribution
+      // Enable random placement for more organic shark distribution
     sharksRule.randomPlacement = true;
+    
+    // Sprite sheet properties for entities
+    sharksRule.randomDefaultSpriteSheetPhase = true;  // Randomize sprite phase for variety
     
     // Entity properties (not used for entities, but kept for consistency)
     sharksRule.scaleMin = 1.0f;

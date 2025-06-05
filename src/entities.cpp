@@ -401,6 +401,39 @@ bool EntitiesManager::placeEntityByType(const std::string& instanceName, const s
     return false;
 }
 
+// Overloaded placeEntityByType method with sprite phase override (enum-based)
+bool EntitiesManager::placeEntityByType(const std::string& instanceName, EntityName entityType, float x, float y, int overrideSpritePhase) {
+    // Find the entity type in our predefined list
+    for (const auto& entityInfo : entityTypes) {
+        if (entityInfo.type == entityType) {
+            // Create configuration from the entity info
+            EntityConfiguration config(entityInfo);
+            // Add the configuration if it doesn't exist yet
+            if (!getConfiguration(entityType)) {
+                addConfiguration(config);
+            }
+            // Place the entity with sprite phase override
+            return placeEntity(instanceName, entityType, x, y, overrideSpritePhase);
+        }
+    }
+    
+    std::cerr << "Entity type not found: " << entityNameToString(entityType) << std::endl;
+    return false;
+}
+
+// String-based placeEntityByType method with sprite phase override for backwards compatibility
+bool EntitiesManager::placeEntityByType(const std::string& instanceName, const std::string& typeName, float x, float y, int overrideSpritePhase) {
+    // Convert string to enum and call the enum-based method
+    if (typeName == "player") {
+        return placeEntityByType(instanceName, EntityName::PLAYER, x, y, overrideSpritePhase);
+    } else if (typeName == "antagonist") {
+        return placeEntityByType(instanceName, EntityName::ANTAGONIST, x, y, overrideSpritePhase);
+    }
+    
+    std::cerr << "Unknown entity type string: " << typeName << std::endl;
+    return false;
+}
+
 // Place entity by type safely - finds safe position first using findNearestSafePlaceFromCoordinatesForEntity
 bool EntitiesManager::placeEntityByTypeSafely(const std::string& instanceName, EntityName entityType, float x, float y) {
     // First, create a temporary entity instance to get its configuration for safe position finding
@@ -560,10 +593,100 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, EntityName en
     
       if (needsSafePosition && (safeX != x || safeY != y)) {
         std::cout << "Entity " << instanceName << " placed with collision resolution - moved from (" 
-                  << x << ", " << y << ") to (" << safeX << ", " << safeY << ")" << std::endl;
-    } else {
+                  << x << ", " << y << ") to (" << safeX << ", " << safeY << ")" << std::endl;    } else {
         std::cout << "Placed entity: " << instanceName << " (type: " << entityNameToString(entityType) << ") at (" 
                 << safeX << ", " << safeY << ")" << std::endl;
+    }
+    return true;
+}
+
+// Overloaded placeEntity method with sprite phase override
+bool EntitiesManager::placeEntity(const std::string& instanceName, EntityName entityType, float x, float y, int overrideSpritePhase) {
+    // Check if the configuration exists
+    const EntityConfiguration* config = getConfiguration(entityType);
+    if (!config) {
+        std::cerr << "Entity configuration not found: " << entityNameToString(entityType) << std::endl;
+        return false;
+    }
+
+    // COLLISION RESOLUTION INTEGRATION
+    // Check if entity spawns in a collision area and resolve it
+    float safeX = x;
+    float safeY = y;
+    bool needsSafePosition = false;
+    
+    // Check if the entity would be stuck at the requested position
+    if (config->canCollide && 
+        (wouldEntityCollideWithElementsGranular(*config, x, y, false) || 
+         wouldEntityCollideWithBlocksGranular(*config, x, y, false))) {
+        
+        std::cout << "Entity " << instanceName << " would spawn inside collision area at (" 
+                  << x << ", " << y << ") - attempting collision resolution..." << std::endl;
+        
+        // Try to find a safe position nearby
+        if (resolveEntityCollisionStuck(instanceName, safeX, safeY, *config, gameMap)) {
+            needsSafePosition = true;
+            std::cout << "Found safe spawn position for " << instanceName 
+                      << " at (" << safeX << ", " << safeY << ")" << std::endl;
+        } else {
+            std::cout << "Warning: Could not find safe spawn position for " << instanceName 
+                      << " - placing at requested coordinates (" << x << ", " << y << ")" << std::endl;
+            safeX = x;
+            safeY = y;
+        }
+    }
+
+    // Generate the element name
+    std::string elementName = getElementName(instanceName);
+    
+    // Create an Entity object
+    Entity entity;
+    entity.instanceName = instanceName;
+    entity.type = entityType;
+    entity.lifePoints = config->lifePoints;  // Initialize entity's life points from config
+    entity.damagePoints = config->damagePoints;  // Initialize entity's damage points from config
+    
+    // Place the element on the map using ElementsOnMap with sprite phase override
+    elementsManager.placeElement(
+        elementName,
+        config->elementName,
+        config->scale,
+        safeX, safeY,  // Use the requested position (no automatic adjustment)
+        0.0f,  // rotation
+        overrideSpritePhase,  // Use the provided override instead of config->defaultSpriteSheetPhase
+        config->defaultSpriteSheetFrame,
+        false,  // not animated initially
+        config->defaultAnimationSpeed,
+        AnchorPoint::USE_TEXTURE_DEFAULT
+    );
+
+    // Add the entity to our entities map
+    entities[instanceName] = entity;
+    
+    // Reset spatial grid since we added a new entity
+    resetEntitySpatialGrid();
+    
+    // Initialize entity behaviors
+    Entity& createdEntity = entities[instanceName];
+    entityBehaviorManager.initializeEntityBehavior(createdEntity, *config);
+    
+    // Register entity with hierarchical entity grid for optimized collision detection
+    {
+        std::lock_guard<std::mutex> lock(g_hierarchicalEntityGridMutex);
+        // Initialize hierarchical entity grid if needed
+        if (!g_hierarchicalEntityGrid.isInitializedState()) {
+            g_hierarchicalEntityGrid.initialize();
+        }
+        // Register the newly placed entity
+        g_hierarchicalEntityGrid.addEntity(instanceName, safeX, safeY);
+    }
+    
+    if (needsSafePosition && (safeX != x || safeY != y)) {
+        std::cout << "Entity " << instanceName << " placed with collision resolution - moved from (" 
+                  << x << ", " << y << ") to (" << safeX << ", " << safeY << ") with sprite phase override: " << overrideSpritePhase << std::endl;
+    } else {
+        std::cout << "Placed entity: " << instanceName << " (type: " << entityNameToString(entityType) << ") at (" 
+                << safeX << ", " << safeY << ") with sprite phase override: " << overrideSpritePhase << std::endl;
     }
     return true;
 }

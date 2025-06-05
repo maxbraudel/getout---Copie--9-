@@ -40,10 +40,10 @@ struct GenerationRuleInfo {    // Basic spawn configuration
     float scaleMax = 1.0f;                   // Maximum scale multiplier
     float baseScale = 7.0f;                  // Base scale before random variation
     float rotation = 0.0f;                   // Rotation in degrees (0 = no rotation, -1 = random)
-    
-    // Sprite sheet properties
+      // Sprite sheet properties
     int defaultSpriteSheetPhase = 0;         // Default sprite sheet phase
     int defaultSpriteSheetFrame = 0;         // Default sprite sheet frame
+    bool randomDefaultSpriteSheetPhase = false;  // Whether to randomize sprite sheet phase for entities
     bool isAnimated = false;                 // Whether the element is animated
     float animationSpeed = 10.0f;            // Animation speed
     

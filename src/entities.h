@@ -319,11 +319,13 @@ public:
       // Place a new entity on the map
     bool placeEntity(const std::string& instanceName, const std::string& typeName, float x, float y);
     bool placeEntity(const std::string& instanceName, EntityName entityType, float x, float y);
+    bool placeEntity(const std::string& instanceName, EntityName entityType, float x, float y, int overrideSpritePhase);
       // Helper method to get element name from entity instance name
-    static std::string getElementName(const std::string& instanceName);
-      // Place a predefined entity by type
+    static std::string getElementName(const std::string& instanceName);      // Place a predefined entity by type
     bool placeEntityByType(const std::string& instanceName, const std::string& typeName, float x, float y);
     bool placeEntityByType(const std::string& instanceName, EntityName entityType, float x, float y);
+    bool placeEntityByType(const std::string& instanceName, const std::string& typeName, float x, float y, int overrideSpritePhase);
+    bool placeEntityByType(const std::string& instanceName, EntityName entityType, float x, float y, int overrideSpritePhase);
     
     // Place a predefined entity by type safely (finds safe position first)
     bool placeEntityByTypeSafely(const std::string& instanceName, const std::string& typeName, float x, float y);
