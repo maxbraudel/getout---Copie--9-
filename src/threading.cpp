@@ -9,6 +9,7 @@
 #include "inputs.h"
 #include "debug.h"
 #include "crashDebug.h"
+#include "performanceProfiler.h"
 #include <iostream>
 #include "enumDefinitions.h"
 
@@ -216,6 +217,8 @@ void GameThreadManager::renderThread()
 
 void GameThreadManager::updateGameLogic(double deltaTime)
 {
+    PROFILE_SCOPE("GameLogic_Total");
+    
     // CRASH FIX: Add null pointer validation and memory monitoring
     DEBUG_VALIDATE_PTR(m_gameMap);
     DEBUG_VALIDATE_PTR(m_elementsManager);
@@ -239,6 +242,7 @@ void GameThreadManager::updateGameLogic(double deltaTime)
     // Get current input state
     InputState currentInput;
     {
+        PROFILE_SCOPE("InputState_Copy");
         std::lock_guard<std::mutex> lock(m_inputStateMutex);
         currentInput = m_inputState;
         m_inputState.stateUpdated = false;
@@ -252,8 +256,10 @@ void GameThreadManager::updateGameLogic(double deltaTime)
     // Update game time
     static double gameTime = 0.0;
     gameTime += deltaTime;
-      // Process input if updated (debug keys and camera controls only - player movement handled separately)
+      
+    // Process input if updated (debug keys and camera controls only - player movement handled separately)
     if (currentInput.stateUpdated) {
+        PROFILE_SCOPE("Input_Processing");
         // Process debug keys
         processDebugKeys(*m_elementsManager);
         
@@ -262,23 +268,37 @@ void GameThreadManager::updateGameLogic(double deltaTime)
     }
     
     // Sync player position from the dedicated player movement thread
-    if (g_playerMovementManager != nullptr) {
-        g_playerMovementManager->syncWithGameState();
+    {
+        PROFILE_SCOPE("PlayerMovement_Sync");
+        if (g_playerMovementManager != nullptr) {
+            g_playerMovementManager->syncWithGameState();
+        }
     }
-      // Update entities (handle movement and animations) - this is now the main focus of the game logic thread
+      
+    // Update entities (handle movement and animations) - this is now the main focus of the game logic thread
     // CRASH FIX: Add try-catch around entities update to prevent crashes
     try {
         // Get camera bounds for view frustum culling
-        float cameraLeft = gameCamera.getLeft();
-        float cameraRight = gameCamera.getRight();
-        float cameraBottom = gameCamera.getBottom();
-        float cameraTop = gameCamera.getTop();
+        float cameraLeft, cameraRight, cameraBottom, cameraTop;
+        {
+            PROFILE_SCOPE("Camera_Bounds_Get");
+            cameraLeft = gameCamera.getLeft();
+            cameraRight = gameCamera.getRight();
+            cameraBottom = gameCamera.getBottom();
+            cameraTop = gameCamera.getTop();
+        }
         
         // Update entities with view frustum culling
-        m_entitiesManager->update(deltaTime, cameraLeft, cameraRight, cameraBottom, cameraTop);
+        {
+            PROFILE_SCOPE("Entities_Update");
+            m_entitiesManager->update(deltaTime, cameraLeft, cameraRight, cameraBottom, cameraTop);
+        }
         
         // Update entity behaviors with view frustum culling (automatic behaviors like passive random walking)
-        entityBehaviorManager.update(deltaTime, *m_entitiesManager, cameraLeft, cameraRight, cameraBottom, cameraTop);
+        {
+            PROFILE_SCOPE("EntityBehaviors_Update");
+            entityBehaviorManager.update(deltaTime, *m_entitiesManager, cameraLeft, cameraRight, cameraBottom, cameraTop);
+        }
         
         // Update player slip functionality
     } catch (const std::exception& e) {
@@ -297,8 +317,10 @@ void GameThreadManager::updateGameLogic(double deltaTime)
         m_entitiesManager->walkEntityWithPathFindingToRandomRadiusTarget("antagonist3", 30.0f, WalkType::NORMAL);
         m_lastAntagonistMoveTime = gameTime;
     } */
-      // Update game state for rendering
+      
+    // Update game state for rendering
     {
+        PROFILE_SCOPE("GameState_Update");
         std::lock_guard<std::mutex> lock(m_gameStateMutex);
         
         // Get player position and movement state from the dedicated player movement manager
@@ -315,11 +337,20 @@ void GameThreadManager::updateGameLogic(double deltaTime)
                 m_currentGameState.playerMoving = false;
             }
         }
-          m_currentGameState.currentTime = gameTime;
+          
+        m_currentGameState.currentTime = gameTime;
         m_currentGameState.deltaTime = deltaTime;
         
         // Camera updates are now handled in the player movement thread at 120Hz
         // for smoother camera following synchronized with player movement
+    }
+    
+    // Print performance report every 5 seconds (300 frames at 60Hz)
+    static int frameCounter = 0;
+    frameCounter++;
+    if (frameCounter >= 300) {
+        PerformanceProfiler::getInstance().printReport();
+        frameCounter = 0;
     }
     
     // Notify render thread that game state has been updated

@@ -7,6 +7,8 @@
 #include "globals.h" // For GRID_SIZE
 #include "debug.h" // For isShowingCollisionBoxes function
 #include "asyncPathfinding.h"
+#include "performanceProfiler.h"
+#include "camera.h" // For camera culling optimization
 #include <iostream>
 #include <cmath>
 #include <limits>
@@ -152,106 +154,6 @@ static void initializeEntityTypes() {
 
 
 
-        EntityInfo antagonist2;
-        antagonist2.type = EntityName::ANTAGONIST2;
-        antagonist2.elementName = ElementName::ANTAGONIST1;
-        antagonist2.scale = 1.5f;
-        
-        // Default sprite configuration
-        antagonist2.defaultSpriteSheetPhase = 2;
-        antagonist2.defaultSpriteSheetFrame = 0;
-        antagonist2.defaultAnimationSpeed = 11.0f;
-        
-        // Walking animation phases
-        antagonist2.spritePhaseWalkUp = 3;
-        antagonist2.spritePhaseWalkDown = 0;
-        antagonist2.spritePhaseWalkLeft = 2;
-        antagonist2.spritePhaseWalkRight = 1;
-        
-        // Movement speeds
-        antagonist2.normalWalkingSpeed = 1.5f;
-        antagonist2.normalWalkingAnimationSpeed = 4.0f;
-        antagonist2.sprintWalkingSpeed = 4.0f;
-        antagonist2.sprintWalkingAnimationSpeed = 8.0f;    // Collision settings
-        antagonist2.canCollide = true;
-        antagonist2.collisionShapePoints = {
-            {-0.2f, -0.1f}, {0.2f, -0.1f}, {0.2f, 0.1f}, {-0.2f, 0.1f}
-        };    // Granular collision control - antagonist2 avoids trees but can move through player
-        // For testing: Leave lists empty to allow movement through all elements
-        antagonist2.avoidanceElements = {
-            // Empty - no elements to avoid for pathfinding
-            ElementName::COCONUT_TREE_1,
-            ElementName::COCONUT_TREE_2,
-            ElementName::COCONUT_TREE_3,
-        };    
-        antagonist2.collisionElements = {
-            // Empty - no elements to collide with during movement
-            ElementName::COCONUT_TREE_1,
-            ElementName::COCONUT_TREE_2,
-            ElementName::COCONUT_TREE_3,
-        };
-          // Block collision configuration - Antagonist avoids water during pathfinding and movement
-        antagonist2.avoidanceBlocks = {
-            BlockName::WATER_0,
-            BlockName::WATER_1,
-            BlockName::WATER_2,
-            BlockName::WATER_3,
-            BlockName::WATER_4
-        };
-        
-        antagonist2.collisionBlocks = {
-            BlockName::WATER_0,
-            BlockName::WATER_1,
-            BlockName::WATER_2,
-            BlockName::WATER_3,
-            BlockName::WATER_4        
-        };
-        
-        // Entity collision configuration - Antagonist avoids player for pathfinding but can collide during movement
-        /* antagonist2.avoidanceEntities = {
-            EntityName::ANTAGONIST
-            // EntityName::ANTAGONIST,
-        }; */
-        
-        /* antagonist2.collisionEntities = {
-            EntityName::PLAYER,
-            EntityName::ANTAGONIST // Antagonist collides with itself
-            // Empty - allow overlapping with player during movement/attacks
-        }; */
-          // Map boundary control settings
-        antagonist2.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
-        antagonist2.offMapCollision = true; // Antagonist collides with map borders// Automatic behavior configuration
-        antagonist2.automaticBehaviors = true; // Enable automatic behaviors for antagonist2
-        antagonist2.passiveState = true; // Enable passive state random walking
-        antagonist2.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
-        antagonist2.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
-        antagonist2.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)
-          // Alert state configuration - antagonist2 becomes alert when player is nearby
-        antagonist2.alertState = true; // Enable alert state behavior
-        antagonist2.alertStateStartRadius = 9.0f; // Start becoming alert when player is 3 units away
-        antagonist2.alertStateEndRadius = 11.0f; // Stop being alert when player is 8+ units away
-        antagonist2.alertStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers alert state
-          // Flee state configuration - antagonist2 flees when player gets too close
-        antagonist2.fleeState = false; // Enable flee state behavior
-        antagonist2.fleeStateRunning = true; // Run when fleeing
-        antagonist2.fleeStateStartRadius = 0.0f; // Start fleeing when player is 2 units away
-        antagonist2.fleeStateEndRadius = 8.0f; // Stop fleeing when player is 4+ units away
-        antagonist2.fleeStateMinDistance = 6.0f; // Maintain at least 6 units distance from player
-        antagonist2.fleeStateMaxDistance = 10.0f; // Flee up to 10 units away
-        antagonist2.fleeStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers flee state
-        
-        // Attack state configuration - antagonist2 attacks when player is in range
-        antagonist2.attackState = true; // Enable attack state behavior
-        antagonist2.attackStateRunning = true; // Run when attacking
-        antagonist2.attackStateStartRadius = 0.0f; // Start attacking when player is 5 units away
-        antagonist2.attackStateEndRadius = 8.0f; // Stop attacking when player is 10+ units away        antagonist2.attackStateWaitBeforeChargeMin = 0.5f; // Wait 1-3 seconds before charging again
-        antagonist2.attackStateWaitBeforeChargeMax = 1.0f;
-        antagonist2.attackStateTriggerEntitiesList = { EntityName::ANTAGONIST }; // Player triggers attack state
-          // Health settings
-        antagonist2.lifePoints = 20; // Antagonist has 20 life points
-        antagonist2.damagePoints = 5; // Antagonist deals 5 damage points
-
-        entityTypes.push_back(antagonist2); // Add antagonist to the list
         
         // Add to the list
         entityTypes.push_back(antagonist);EntityInfo player;
@@ -295,6 +197,11 @@ static void initializeEntityTypes() {
         // Player can walk through sand but avoids water for pathfinding
         // This shows how entities can have different block interaction behaviors
         player.avoidanceBlocks = {
+            BlockName::WATER_0, // Player avoids water for pathfinding
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4 // Player avoids deep water blocks for pathfinding
 
         };
         
@@ -1009,74 +916,85 @@ void EntitiesManager::update(double deltaTime) {
 }
 
 void EntitiesManager::update(double deltaTime, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop) {
+    PROFILE_SCOPE("EntitiesManager_Update_Total");
+    
     // CRASH FIX: Add comprehensive protection for entity updates with view frustum culling
     try {
         // Process async pathfinding results first
-        processAsyncPathfindingResults();
+        {
+            PROFILE_SCOPE("Entities_AsyncPathfinding");
+            processAsyncPathfindingResults();
+        }
         
         // CRASH FIX: Collect entity names first to avoid iterator invalidation
         std::vector<std::string> walkingEntityNames;
-        walkingEntityNames.reserve(entities.size());
-        
-        for (const auto& pair : entities) {
-            if (pair.second.isWalking) {
-                walkingEntityNames.push_back(pair.first);
+        {
+            PROFILE_SCOPE("Entities_CollectWalkingNames");
+            walkingEntityNames.reserve(entities.size());
+            
+            for (const auto& pair : entities) {
+                if (pair.second.isWalking) {
+                    walkingEntityNames.push_back(pair.first);
+                }
             }
         }
         
         // Update all walking entities using safe name-based iteration with view frustum culling
-        for (const std::string& instanceName : walkingEntityNames) {
-            // CRASH FIX: Verify entity still exists
-            auto entityIt = entities.find(instanceName);
-            if (entityIt == entities.end()) {
-                std::cout << "WARNING: Walking entity " << instanceName << " no longer exists during update" << std::endl;
-                continue;
-            }
-            
-            Entity& entity = entityIt->second;
-            
-            // Skip if entity is no longer walking (state might have changed)
-            if (!entity.isWalking) {
-                continue;
-            }
-            
-            // View frustum culling: Check if entity is within camera bounds
-            std::string elementName = getElementName(entity.instanceName);
-            float entityX, entityY;
-            if (elementsManager.getElementPosition(elementName, entityX, entityY)) {
-                // Get entity configuration to access scale for culling bounds
-                const EntityConfiguration* config = getConfiguration(entity.type);
-                if (config) {
-                    float entityScale = config->scale;
-                    
-                    // Check if entity is outside camera view (with buffer for scale)
-                    if (entityX < cameraLeft - entityScale || entityX > cameraRight + entityScale || 
-                        entityY < cameraBottom - entityScale || entityY > cameraTop + entityScale) {
-                        // Entity is outside camera view, skip update to improve performance
-                        continue;
+        {
+            PROFILE_SCOPE("Entities_UpdateWalking");
+            for (const std::string& instanceName : walkingEntityNames) {
+                // CRASH FIX: Verify entity still exists
+                auto entityIt = entities.find(instanceName);
+                if (entityIt == entities.end()) {
+                    std::cout << "WARNING: Walking entity " << instanceName << " no longer exists during update" << std::endl;
+                    continue;
+                }
+                
+                Entity& entity = entityIt->second;
+                
+                // Skip if entity is no longer walking (state might have changed)
+                if (!entity.isWalking) {
+                    continue;
+                }
+                
+                // View frustum culling: Check if entity is within camera bounds
+                std::string elementName = getElementName(entity.instanceName);
+                float entityX, entityY;
+                if (elementsManager.getElementPosition(elementName, entityX, entityY)) {
+                    // Get entity configuration to access scale for culling bounds
+                    const EntityConfiguration* config = getConfiguration(entity.type);
+                    if (config) {
+                        float entityScale = config->scale;
+                        
+                        // Check if entity is outside camera view (with buffer for scale)
+                        if (entityX < cameraLeft - entityScale || entityX > cameraRight + entityScale || 
+                            entityY < cameraBottom - entityScale || entityY > cameraTop + entityScale) {
+                            // Entity is outside camera view, skip update to improve performance
+                            continue;
+                        }
                     }
                 }
-            }
-            
-            // Get the configuration for this entity
-            const EntityConfiguration* config = getConfiguration(entity.type);
-            if (!config) {
-                std::cerr << "Error: Cannot find configuration for entity: " << entity.instanceName << std::endl;
-                stopEntityMovement(entity.instanceName); // Stop walking due to error
-                continue;
-            }
-            
-            // Update the entity's walking animation with additional safety
-            try {
-                updateEntityWalking(entity, *config, deltaTime);
-            } catch (const std::exception& e) {
-                std::cerr << "CRITICAL: Exception updating entity " << instanceName << ": " << e.what() << std::endl;
-                // Stop entity to prevent further crashes
-                stopEntityMovement(instanceName);
-            } catch (...) {
-                std::cerr << "CRITICAL: Unknown exception updating entity " << instanceName << std::endl;
-                // Stop entity to prevent further crashes
-                stopEntityMovement(instanceName);
+                
+                // Get the configuration for this entity
+                const EntityConfiguration* config = getConfiguration(entity.type);
+                if (!config) {
+                    std::cerr << "Error: Cannot find configuration for entity: " << entity.instanceName << std::endl;
+                    stopEntityMovement(entity.instanceName); // Stop walking due to error
+                    continue;
+                }
+                
+                // Update the entity's walking animation with additional safety
+                try {
+                    updateEntityWalking(entity, *config, deltaTime);
+                } catch (const std::exception& e) {
+                    std::cerr << "CRITICAL: Exception updating entity " << instanceName << ": " << e.what() << std::endl;
+                    // Stop entity to prevent further crashes
+                    stopEntityMovement(instanceName);
+                } catch (...) {
+                    std::cerr << "CRITICAL: Unknown exception updating entity " << instanceName << std::endl;
+                    // Stop entity to prevent further crashes
+                    stopEntityMovement(instanceName);
+                }
             }
         }
     } catch (const std::exception& e) {
@@ -1740,7 +1658,11 @@ bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, f
         elementsToCheckSet.reserve(elementsToCheck.size()); // Pre-allocate
         elementsToCheckSet.insert(elementsToCheck.begin(), elementsToCheck.end());
         elementSetCached = true;
-    }
+    }    // CAMERA CULLING OPTIMIZATION: Get current camera bounds to avoid processing elements outside view
+    float cameraLeft = gameCamera.getLeft();
+    float cameraRight = gameCamera.getRight();
+    float cameraBottom = gameCamera.getBottom();
+    float cameraTop = gameCamera.getTop();
     
     // Check collision only with elements that match the specified texture types
     for (const auto& elementName : nearbyElements) {
@@ -1758,7 +1680,25 @@ bool wouldEntityCollideWithElementsGranular(const EntityConfiguration& config, f
         // PERFORMANCE FIX: Use set lookup instead of linear search
         if (elementsToCheckSet.find(currentElement.elementName) == elementsToCheckSet.end()) {
             continue; // Skip elements not in our collision/avoidance list
-        }        // Perform the actual collision check for this specific element
+        }
+          // CAMERA CULLING: Skip elements that are outside the camera view with generous buffer
+        // Only apply culling when entity is also outside camera view to prevent edge cases
+        const float cameraBuffer = 10.0f; // Buffer to prevent culling elements near camera edges
+        if (currentElement.x < cameraLeft - currentElement.scale - cameraBuffer || 
+            currentElement.x > cameraRight + currentElement.scale + cameraBuffer || 
+            currentElement.y < cameraBottom - currentElement.scale - cameraBuffer || 
+            currentElement.y > cameraTop + currentElement.scale + cameraBuffer) {
+            
+            // Also check if the entity itself is outside camera view before culling
+            if (x < cameraLeft - searchRadius - cameraBuffer || 
+                x > cameraRight + searchRadius + cameraBuffer || 
+                y < cameraBottom - searchRadius - cameraBuffer || 
+                y > cameraTop + searchRadius + cameraBuffer) {
+                continue; // Skip element collision check when both element and entity are outside camera view
+            }
+        }
+
+        // Perform the actual collision check for this specific element
         if (!config.collisionShapePoints.empty() && !currentElement.collisionShapePoints.empty()) {
             // MEMORY SAFETY: Validate collision shape data integrity
             if (config.collisionShapePoints.size() > 1000 || currentElement.collisionShapePoints.size() > 1000) {
@@ -2719,6 +2659,8 @@ int getEntitySpatialGridIndex(float x, float y) {
 
 // Update the entity spatial partitioning grid
 void updateEntitySpatialGrid() {
+    PROFILE_SCOPE("EntitySpatialGrid_Update");
+    
     float currentTime = static_cast<float>(glfwGetTime());
     
     // Only update periodically to avoid performance impact

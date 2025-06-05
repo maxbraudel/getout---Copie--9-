@@ -9,7 +9,7 @@
 const double FRAMERATE_IN_SECONDS = 1. / 60.; // 60 FPS
 
 // Grid properties
-const int GRID_SIZE = 400;
+const int GRID_SIZE = 200;
 // Player speeds are defined in entity configuration in entities.cpp
 const float PLAYER_BASE_SPEED = 3.0f;   // DEPRECATED: Use playerConfig->normalWalkingSpeed instead
 const float PLAYER_SPRINT_SPEED = 6.0f; // DEPRECATED: Use playerConfig->sprintWalkingSpeed instead

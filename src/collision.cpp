@@ -15,6 +15,7 @@
 #include <limits> // Added for std::numeric_limits
 #include <mutex>          // Added for thread safety
 #include "enumDefinitions.h"
+#include "performanceProfiler.h"
 
 
 // Forward declaration for entitiesManager from entities.cpp
@@ -153,6 +154,8 @@ int getSpatialGridIndex(float x, float y) {
 
 // Update the spatial partitioning grid
 void updateSpatialGrid() {
+    PROFILE_SCOPE("CollisionSpatialGrid_Update");
+    
     float currentTime = static_cast<float>(glfwGetTime());
     
     // Only update every 0.5 seconds to avoid performance impact
@@ -719,7 +722,10 @@ void HierarchicalSpatialGrid::initialize() {
     }
 }
 
-void HierarchicalSpatialGrid::updateGrid(bool forceUpdate) {    float currentTime = static_cast<float>(glfwGetTime());
+void HierarchicalSpatialGrid::updateGrid(bool forceUpdate) {
+    PROFILE_SCOPE("HierarchicalSpatialGrid_UpdateGrid");
+    
+    float currentTime = static_cast<float>(glfwGetTime());
     
     bool shouldUpdateStatic = forceUpdate || (currentTime - lastCoarseUpdateTime > HierarchicalSpatialGrid::STATIC_UPDATE_INTERVAL);
     bool shouldUpdateDynamic = forceUpdate || (currentTime - lastFineUpdateTime > HierarchicalSpatialGrid::DYNAMIC_UPDATE_INTERVAL);
@@ -736,37 +742,53 @@ void HierarchicalSpatialGrid::updateGrid(bool forceUpdate) {    float currentTim
 }
 
 void HierarchicalSpatialGrid::updateStaticElements() {
+    PROFILE_SCOPE("HierarchicalSpatialGrid_UpdateStaticElements");
+    
     // Clear static elements from both grids
-    for (auto& [index, cell] : coarseGrid) {
-        cell.staticElements.clear();
-    }
-    for (auto& [index, cell] : fineGrid) {
-        cell.staticElements.clear();
+    {
+        PROFILE_SCOPE("HierarchicalSpatialGrid_ClearStaticGrids");
+        for (auto& [index, cell] : coarseGrid) {
+            cell.staticElements.clear();
+        }
+        for (auto& [index, cell] : fineGrid) {
+            cell.staticElements.clear();
+        }
     }
     
     // Re-add static elements to both grids
-    for (const auto& elementName : staticElementNames) {
-        float x, y;
-        if (elementsManager.getElementPosition(elementName, x, y)) {
-            addElementToGrid(elementName, x, y, true);
+    {
+        PROFILE_SCOPE("HierarchicalSpatialGrid_ReaddStaticElements");
+        for (const auto& elementName : staticElementNames) {
+            float x, y;
+            if (elementsManager.getElementPosition(elementName, x, y)) {
+                addElementToGrid(elementName, x, y, true);
+            }
         }
     }
 }
 
 void HierarchicalSpatialGrid::updateDynamicElements() {
+    PROFILE_SCOPE("HierarchicalSpatialGrid_UpdateDynamicElements");
+    
     // Clear dynamic elements from both grids
-    for (auto& [index, cell] : coarseGrid) {
-        cell.dynamicElements.clear();
-    }
-    for (auto& [index, cell] : fineGrid) {
-        cell.dynamicElements.clear();
+    {
+        PROFILE_SCOPE("HierarchicalSpatialGrid_ClearDynamicGrids");
+        for (auto& [index, cell] : coarseGrid) {
+            cell.dynamicElements.clear();
+        }
+        for (auto& [index, cell] : fineGrid) {
+            cell.dynamicElements.clear();
+        }
     }
     
     // Re-add dynamic elements to both grids
-    for (const auto& elementName : dynamicElementNames) {
-        float x, y;
-        if (elementsManager.getElementPosition(elementName, x, y)) {
-            addElementToGrid(elementName, x, y, false);
+    {
+        PROFILE_SCOPE("HierarchicalSpatialGrid_ReaddDynamicElements");
+        for (const auto& elementName : dynamicElementNames) {
+            float x, y;
+            if (elementsManager.getElementPosition(elementName, x, y)) {
+                addElementToGrid(elementName, x, y, false);
+            }
         }
     }
 }
@@ -782,6 +804,7 @@ void HierarchicalSpatialGrid::markElementAsStatic(const std::string& elementName
 }
 
 std::vector<std::string> HierarchicalSpatialGrid::getBroadPhaseElements(float x, float y, float radius) {
+    PROFILE_SCOPE("HierarchicalSpatialGrid_GetBroadPhaseElements");
     std::vector<std::string> result;
     g_collisionStats.broadPhaseChecks++;
     
@@ -807,6 +830,7 @@ std::vector<std::string> HierarchicalSpatialGrid::getBroadPhaseElements(float x,
 }
 
 std::vector<std::string> HierarchicalSpatialGrid::getNarrowPhaseElements(float x, float y, float radius) {
+    PROFILE_SCOPE("HierarchicalSpatialGrid_GetNarrowPhaseElements");
     std::vector<std::string> result;
     g_collisionStats.narrowPhaseChecks++;
     
@@ -832,6 +856,7 @@ std::vector<std::string> HierarchicalSpatialGrid::getNarrowPhaseElements(float x
 }
 
 std::vector<std::string> HierarchicalSpatialGrid::getElementsHierarchical(float x, float y, float radius) {
+    PROFILE_SCOPE("HierarchicalSpatialGrid_GetElementsHierarchical");
     auto startTime = std::chrono::high_resolution_clock::now();
     g_collisionStats.totalCollisionQueries++;
     
@@ -1012,6 +1037,8 @@ void HierarchicalEntityGrid::initialize() {
 }
 
 void HierarchicalEntityGrid::updateGrid(bool forceUpdate) {
+    PROFILE_SCOPE("HierarchicalEntityGrid_UpdateGrid");
+    
     float currentTime = static_cast<float>(glfwGetTime());
     
     bool shouldUpdate = forceUpdate || (currentTime - lastFineUpdateTime > DYNAMIC_UPDATE_INTERVAL);
@@ -1023,6 +1050,8 @@ void HierarchicalEntityGrid::updateGrid(bool forceUpdate) {
 }
 
 void HierarchicalEntityGrid::updateEntityPositions() {
+    PROFILE_SCOPE("HierarchicalEntityGrid_UpdatePositions");
+    
     // Clear both grids
     coarseGrid.clear();
     fineGrid.clear();
@@ -1041,6 +1070,7 @@ void HierarchicalEntityGrid::updateEntityPositions() {
 }
 
 std::vector<std::string> HierarchicalEntityGrid::getBroadPhaseEntities(float x, float y, float radius) {
+    PROFILE_SCOPE("HierarchicalEntityGrid_GetBroadPhaseEntities");
     std::vector<std::string> result;
     
     // Use coarse grid for broad phase
@@ -1065,6 +1095,7 @@ std::vector<std::string> HierarchicalEntityGrid::getBroadPhaseEntities(float x, 
 }
 
 std::vector<std::string> HierarchicalEntityGrid::getNarrowPhaseEntities(float x, float y, float radius) {
+    PROFILE_SCOPE("HierarchicalEntityGrid_GetNarrowPhaseEntities");
     std::vector<std::string> result;
     
     // Use fine grid for narrow phase
@@ -1089,6 +1120,7 @@ std::vector<std::string> HierarchicalEntityGrid::getNarrowPhaseEntities(float x,
 }
 
 std::vector<std::string> HierarchicalEntityGrid::getEntitiesHierarchical(float x, float y, float radius) {
+    PROFILE_SCOPE("HierarchicalEntityGrid_GetEntitiesHierarchical");
     std::vector<std::string> result;
     
     // Use broad phase for large radius queries
