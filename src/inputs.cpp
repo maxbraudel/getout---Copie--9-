@@ -10,6 +10,7 @@
 #include "collision.h"
 #include "terrainGeneration.h"
 #include "enumDefinitions.h"
+#include "threading.h"
 #include <iostream>
 #include <cmath>
 #include <algorithm>
@@ -29,11 +30,22 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     // Update key state arrays
     if (action == GLFW_PRESS) {
         keyPressedStates[key] = true;
-        
-        // Handle immediate keyboard actions
+          // Handle immediate keyboard actions
         if (key == GLFW_KEY_ESCAPE) {
             glfwSetWindowShouldClose(window, GLFW_TRUE); // Exit on ESC press
-        } 
+        }
+        // Pause/Resume game with Tab key
+        else if (key == GLFW_KEY_TAB) {
+            if (g_threadManager) {
+                if (g_threadManager->isPaused()) {
+                    g_threadManager->resumeGame();
+                    std::cout << "Game resumed with Tab key" << std::endl;
+                } else {
+                    g_threadManager->pauseGame();
+                    std::cout << "Game paused with Tab key" << std::endl;
+                }
+            }
+        }
         // Reset player position
         else if (key == GLFW_KEY_R) {
             teleportPlayer(10.0f, 10.0f);

@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include "enumDefinitions.h"
+#include "threading.h"
 
 
 // Static instance for callback access
@@ -94,10 +95,20 @@ void InputManager::processKeyInput(int key, int action) {
             case GLFW_KEY_L: // Camera right
                 m_currentInput.cameraControls[3] = true;
                 m_currentInput.stateUpdated = true;
-                break;
-            case GLFW_KEY_R: // Camera reset
+                break;            case GLFW_KEY_R: // Camera reset
                 m_currentInput.cameraControls[4] = true;
                 m_currentInput.stateUpdated = true;
+                break;
+            case GLFW_KEY_TAB: // Pause/Resume game
+                if (g_threadManager) {
+                    if (g_threadManager->isPaused()) {
+                        g_threadManager->resumeGame();
+                        std::cout << "Game resumed with Tab key" << std::endl;
+                    } else {
+                        g_threadManager->pauseGame();
+                        std::cout << "Game paused with Tab key" << std::endl;
+                    }
+                }
                 break;
         }
     }

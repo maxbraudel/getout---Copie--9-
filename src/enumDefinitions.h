@@ -20,7 +20,8 @@ enum class ElementName {
     CHARACTER1,
     TEST,
     ANTAGONIST1,
-    SHARK
+    SHARK,
+    COCONUT
     // Add more element texture types as needed
 };
 

@@ -74,6 +74,57 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     coconutTreeRule.additionalYAnchorOffset = 0.0f;
       // Add the rule to the configuration
     addGenerationRule(coconutTreeRule);
+
+
+    GenerationRuleInfo coconut;
+    coconut.ruleName = "coconut";
+    coconut.spawnType = SpawnType::ELEMENT;
+    
+    // Add all three coconut tree variants with equal probability
+    coconut.spawnElements = {
+        ElementName::COCONUT
+    };
+    
+    // Spawn on sand blocks only
+    coconut.spawnBlocks = {BlockName::SAND};
+    
+    // Spawn probability and constraints (matching existing logic)
+    coconut.spawnChance = 1;                    // 1/50 chance
+    coconut.maxSpawns = 3;                    // Max 1000 trees
+    
+    // Distance constraints (matching existing MIN_COCONUT_TREE_DISTANCE and MAX_WATER_DISTANCE)
+    coconut.minDistanceFromSameRule = 10.0f;     // MIN_COCONUT_TREE_DISTANCE
+    coconut.maxDistanceFromBlocks = 4.0f;       // MAX_WATER_DISTANCE
+    coconut.proximityBlocks = {                 // Must be near water
+        BlockName::WATER_0, BlockName::WATER_1, BlockName::WATER_2, 
+        BlockName::WATER_3, BlockName::WATER_4
+    };
+      // No group spawning for coconut trees
+    coconut.spawnInGroup = false;
+    
+    // Enable random placement for more organic tree distribution
+    coconut.randomPlacement = true;
+    
+    // Element properties (matching existing logic)
+    coconut.scaleMin = 1.0f;                     // Random scale variation
+    coconut.scaleMax = 1.3f;
+    coconut.baseScale = 4.0f;                    // Base scale
+    coconut.rotation = 0.0f;                     // No rotation
+    
+    // Sprite sheet properties (matching existing logic)
+    coconut.defaultSpriteSheetPhase = 0;
+    coconut.defaultSpriteSheetFrame = 0;
+    coconut.isAnimated = false;
+    coconut.animationSpeed = 10.0f;
+    
+    // Anchor and positioning (matching existing logic)
+    coconut.anchorPoint = AnchorPoint::USE_TEXTURE_DEFAULT;
+    coconut.additionalXAnchorOffset = 0.0f;
+    coconut.additionalYAnchorOffset = 0.0f;
+      // Add the rule to the configuration
+    addGenerationRule(coconut);
+
+
     
     // Antagonist entity rule - spawn antagonist entities in groups on GRASS_2 blocks
     GenerationRuleInfo antagonistRule;

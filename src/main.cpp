@@ -93,6 +93,17 @@ void onWindowResize(GLFWwindow* window, int width, int height) {
         myEngine.set2DProjection(projLeft, projRight, projBottom, projTop);
     }
     
+    // Update camera to adapt to new window size (works even when game is paused)
+    // This ensures the camera view adjusts properly during window resize regardless of pause state
+    float playerX, playerY;
+    if (getPlayerPosition(playerX, playerY)) {
+        // Player exists - update camera with current player position
+        gameCamera.updateCameraPosition(playerX, playerY, width, height);
+    } else {
+        // Player doesn't exist - update camera with center position to maintain proper aspect ratio
+        gameCamera.updateCameraPosition(GRID_SIZE / 2.0f, GRID_SIZE / 2.0f, width, height);
+    }
+    
     // Keep grid rendering parameters for coordinate conversion covering the full NDC space
     g_startX = -1.0f;
     g_endX = 1.0f;

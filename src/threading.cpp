@@ -20,6 +20,7 @@ GameThreadManager* g_threadManager = nullptr;
 GameThreadManager::GameThreadManager()
     : m_running(false)
     , m_threadsStarted(false)
+    , m_paused(false)
     , m_gameMap(nullptr)
     , m_elementsManager(nullptr)
     , m_entitiesManager(nullptr)
@@ -176,6 +177,18 @@ void GameThreadManager::gameLogicThread()
     double accumulatedTime = 0.0;
     
     while (m_running.load()) {
+        // Check if paused - if so, wait for resume
+        if (m_paused.load()) {
+            std::unique_lock<std::mutex> lock(m_gameStateMutex);
+            m_pauseCondition.wait(lock, [this] { return !m_paused.load() || !m_running.load(); });
+            
+            // Reset timing when resuming to avoid catching up on missed frames
+            lastTime = std::chrono::high_resolution_clock::now();
+            accumulatedTime = 0.0;
+            
+            if (!m_running.load()) break;
+        }
+        
         auto currentTime = std::chrono::high_resolution_clock::now();
         auto elapsed = std::chrono::duration<double>(currentTime - lastTime).count();
         lastTime = currentTime;
@@ -355,6 +368,31 @@ void GameThreadManager::updateGameLogic(double deltaTime)
     
     // Notify render thread that game state has been updated
     m_gameStateChanged.notify_one();
+}
+
+void GameThreadManager::pauseGame()
+{
+    std::cout << "Pausing game..." << std::endl;
+    m_paused.store(true);
+    
+    // Also pause player movement
+    if (g_playerMovementManager != nullptr) {
+        g_playerMovementManager->pauseMovement();
+    }
+}
+
+void GameThreadManager::resumeGame()
+{
+    std::cout << "Resuming game..." << std::endl;
+    m_paused.store(false);
+    
+    // Also resume player movement
+    if (g_playerMovementManager != nullptr) {
+        g_playerMovementManager->resumeMovement();
+    }
+    
+    // Wake up any waiting threads
+    m_pauseCondition.notify_all();
 }
 
 // Convenience functions implementation

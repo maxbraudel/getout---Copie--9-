@@ -41,6 +41,11 @@ public:
     // Stop all threads and cleanup
     void stopThreads();
     
+    // Pause/Resume functionality
+    void pauseGame();
+    void resumeGame();
+    bool isPaused() const { return m_paused.load(); }
+    
     // Check if threads should continue running
     bool isRunning() const { return m_running.load(); }
     
@@ -77,11 +82,13 @@ private:
     std::thread m_renderThread;
     std::atomic<bool> m_running;
     std::atomic<bool> m_threadsStarted;
+    std::atomic<bool> m_paused;
     
     // Synchronization
     mutable std::mutex m_gameStateMutex;
     mutable std::mutex m_inputStateMutex;
     std::condition_variable m_gameStateChanged;
+    std::condition_variable m_pauseCondition;
     
     // Game objects (not owned by this class)
     Map* m_gameMap;

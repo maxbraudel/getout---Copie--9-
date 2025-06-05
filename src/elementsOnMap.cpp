@@ -91,6 +91,19 @@ static std::vector<ElementInfo> createElementTexturesToLoad() {
     shark.anchorOffsetY = 0.2f; // Y offset
     shark.hasCollision = false; // Enable collision for player
     textures.push_back(shark);
+
+    ElementInfo coconut;
+    coconut.name = ElementName::COCONUT;
+    coconut.path = "../assets/textures/items/coconut_1.png";
+    coconut.type = ElementTextureType::STATIC;
+    coconut.anchorPoint = AnchorPoint::CENTER; // Default anchor - can be changed in config
+    coconut.anchorOffsetX = 0.0f; // No offset
+    coconut.anchorOffsetY = 0.0f; // No offset
+    coconut.hasCollision = true;  // Enable collision for this item
+    coconut.collisionShapePoints = {
+        {-0.05f, 0.0f}, {-0.05f, 0.1f}, {0.05f, 0.1f}, {0.05f, 0.0f}
+    };  
+    textures.push_back(coconut);
     
     // Add more texture definitions here as needed
     

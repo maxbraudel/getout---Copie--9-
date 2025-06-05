@@ -19,6 +19,7 @@ PlayerMovementManager* g_playerMovementManager = nullptr;
 PlayerMovementManager::PlayerMovementManager()
     : m_running(false)
     , m_threadStarted(false)
+    , m_paused(false)
     , m_gameMap(nullptr)
     , m_elementsManager(nullptr)
     , m_entitiesManager(nullptr)
@@ -85,19 +86,12 @@ void PlayerMovementManager::startThread()
 
 void PlayerMovementManager::stopThread()
 {
-    if (!m_threadStarted.load()) {
-        return;
-    }
-    
-    std::cout << "Stopping player movement thread..." << std::endl;
-    
-    // Signal thread to stop
     m_running.store(false);
     
     // Wake up the thread if it's waiting
     m_inputAvailable.notify_all();
+    m_pauseCondition.notify_all();
     
-    // Wait for thread to finish
     if (m_movementThread.joinable()) {
         m_movementThread.join();
     }
@@ -177,7 +171,16 @@ void PlayerMovementManager::playerMovementThread()
     auto lastTime = std::chrono::high_resolution_clock::now();
     double accumulatedTime = 0.0;
     
-    while (m_running.load()) {
+    while (m_running.load()) {        // Check if paused and wait if necessary
+        std::unique_lock<std::mutex> pauseLock(m_stateMutex);
+        m_pauseCondition.wait(pauseLock, [this] { return !m_paused.load() || !m_running.load(); });
+        pauseLock.unlock();
+        
+        // If we're no longer running after waiting, exit
+        if (!m_running.load()) {
+            break;
+        }
+        
         auto currentTime = std::chrono::high_resolution_clock::now();
         auto elapsed = std::chrono::duration<double>(currentTime - lastTime).count();
         lastTime = currentTime;
@@ -219,6 +222,11 @@ void PlayerMovementManager::playerMovementThread()
         
         // Sleep for a short time to prevent 100% CPU usage
         std::this_thread::sleep_for(std::chrono::microseconds(100));
+          // Respect pause state
+        {
+            std::unique_lock<std::mutex> lock(m_stateMutex);
+            m_pauseCondition.wait(lock, [this]() { return !m_paused.load() || !m_running.load(); });
+        }
     }
     
     std::cout << "Player movement thread ended. Processed " << m_movementUpdatesProcessed.load() << " updates" << std::endl;
@@ -432,6 +440,18 @@ void PlayerMovementManager::updateCamera(double deltaTime)
     // Update camera position based on current player position at 120Hz for smooth following
     extern int windowWidth, windowHeight; // From globals.h
     m_camera->updateCameraPosition(playerX, playerY, windowWidth, windowHeight);
+}
+
+void PlayerMovementManager::pauseMovement()
+{
+    m_paused.store(true);
+    std::cout << "Player movement paused" << std::endl;
+}
+
+void PlayerMovementManager::resumeMovement()
+{
+    m_paused.store(false);
+    m_pauseCondition.notify_all();    std::cout << "Player movement resumed" << std::endl;
 }
 
 // Convenience functions implementation

@@ -49,6 +49,11 @@ public:
     // Stop the player movement thread
     void stopThread();
 
+    // Pause/Resume functionality
+    void pauseMovement();
+    void resumeMovement();
+    bool isMovementPaused() const { return m_paused.load(); }
+
     // Set player input (called from input thread)
     void setPlayerInput(float moveX, float moveY, bool sprint);
 
@@ -79,11 +84,15 @@ private:
     std::thread m_movementThread;
     std::atomic<bool> m_running;
     std::atomic<bool> m_threadStarted;
+    std::atomic<bool> m_paused;
 
     // Synchronization
     mutable std::mutex m_inputMutex;
     mutable std::mutex m_stateMutex;
-    std::condition_variable m_inputAvailable;    // Game objects (not owned)
+    std::condition_variable m_inputAvailable;
+    std::condition_variable m_pauseCondition;
+
+    // Game objects (not owned)
     Map* m_gameMap;
     ElementsOnMap* m_elementsManager;
     EntitiesManager* m_entitiesManager;
@@ -97,9 +106,7 @@ private:
     // Timing constants
     static constexpr double PLAYER_UPDATE_FPS = 120.0; // Higher frequency for responsive movement
     static constexpr double PLAYER_UPDATE_TIMESTEP = 1.0 / PLAYER_UPDATE_FPS;
-    static constexpr int MAX_INPUT_QUEUE_SIZE = 10; // Prevent input lag accumulation
-
-    // Performance tracking
+    static constexpr int MAX_INPUT_QUEUE_SIZE = 10; // Prevent input lag accumulation    // Performance tracking
     std::atomic<uint64_t> m_movementUpdatesProcessed{0};
     std::atomic<uint64_t> m_collisionChecksPerformed{0};
     std::atomic<double> m_averageUpdateTime{0.0};
