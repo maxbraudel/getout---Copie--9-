@@ -202,6 +202,46 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     
     // Add the shark rule to the configuration
     addGenerationRule(sharksRule);
+
+
+
+
+    // Spawn on deep water blocks only
+    GenerationRuleInfo giraffesRule;
+    giraffesRule.ruleName = "GiraffeEntities";
+    giraffesRule.spawnType = SpawnType::ENTITY;
+    
+    // Add shark entity types with equal probability
+    giraffesRule.spawnEntities = {
+        EntityName::GIRAFFE,
+    };
+
+    giraffesRule.spawnBlocks = {BlockName::GRASS_2};
+      // Spawn probability and constraints
+    giraffesRule.spawnChance = 100;                   // 1/100 chance for rare spawning
+    giraffesRule.maxSpawns = 1000;                      // Max 50 shark entities total
+    
+    // Distance constraints - maintain reasonable spacing between groups
+    giraffesRule.minDistanceFromSameRule = 8.0f;      // Min distance between shark groups
+    giraffesRule.maxDistanceFromBlocks = 0.0f;        // No proximity requirement
+    giraffesRule.proximityBlocks = {};                // No specific blocks needed nearby
+    
+    // Group spawning configuration - spawn sharks in small groups
+    giraffesRule.spawnInGroup = false;
+      // Enable random placement for more organic shark distribution
+    giraffesRule.randomPlacement = true;
+    
+    // Sprite sheet properties for entities
+    giraffesRule.randomDefaultSpriteSheetPhase = true;  // Randomize sprite phase for variety
+    
+    // Entity properties (not used for entities, but kept for consistency)
+    giraffesRule.scaleMin = 1.0f;
+    giraffesRule.scaleMax = 1.0f;
+    giraffesRule.baseScale = 1.0f;
+    giraffesRule.rotation = 0.0f;
+    
+    // Add the shark rule to the configuration
+    addGenerationRule(giraffesRule);
 }
 
 // Clear all rules

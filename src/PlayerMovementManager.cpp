@@ -104,6 +104,19 @@ void PlayerMovementManager::setPlayerInput(float moveX, float moveY, bool sprint
 {
     std::lock_guard<std::mutex> lock(m_inputMutex);
     
+    // Don't accept movement input when paused - this prevents input accumulation
+    if (m_paused.load()) {
+        // Clear current input when paused to ensure no movement
+        PlayerInput clearInput;
+        clearInput.moveX = 0.0f;
+        clearInput.moveY = 0.0f;
+        clearInput.sprint = false;
+        clearInput.timestamp = std::chrono::high_resolution_clock::now();
+        clearInput.valid = false;
+        m_currentInput = clearInput;
+        return;
+    }
+    
     // Create new input
     PlayerInput newInput;
     newInput.moveX = moveX;
@@ -451,7 +464,27 @@ void PlayerMovementManager::pauseMovement()
 void PlayerMovementManager::resumeMovement()
 {
     m_paused.store(false);
-    m_pauseCondition.notify_all();    std::cout << "Player movement resumed" << std::endl;
+    
+    // Clear any accumulated inputs when resuming to prevent teleportation
+    {
+        std::lock_guard<std::mutex> lock(m_inputMutex);
+        
+        // Clear the input queue
+        std::queue<PlayerInput> empty;
+        std::swap(m_inputQueue, empty);
+        
+        // Clear current input
+        PlayerInput clearInput;
+        clearInput.moveX = 0.0f;
+        clearInput.moveY = 0.0f;
+        clearInput.sprint = false;
+        clearInput.timestamp = std::chrono::high_resolution_clock::now();
+        clearInput.valid = false;
+        m_currentInput = clearInput;
+    }
+    
+    m_pauseCondition.notify_all();
+    std::cout << "Player movement resumed" << std::endl;
 }
 
 // Convenience functions implementation

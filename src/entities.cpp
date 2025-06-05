@@ -164,7 +164,7 @@ static void initializeEntityTypes() {
         entityTypes.push_back(antagonist);
 
 
-        
+
         
         EntityInfo player;
         player.type = EntityName::PLAYER;
@@ -317,6 +317,69 @@ static void initializeEntityTypes() {
         shark.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; 
 
         entityTypes.push_back(shark); // Add shark to the list
+
+
+
+
+         // shark entity config
+        EntityInfo girafe;
+        girafe.type = EntityName::GIRAFFE;
+        girafe.elementName = ElementName::GIRAFFE; // Use a test element for now
+        girafe.scale = 3.0f;
+        // Default sprite configuration
+        girafe.defaultSpriteSheetPhase = 2;
+        girafe.defaultSpriteSheetFrame = 0;
+        girafe.defaultAnimationSpeed = 11.0f;
+        // Walking animation phases
+        girafe.spritePhaseWalkUp = 3;
+        girafe.spritePhaseWalkDown = 0;
+        girafe.spritePhaseWalkLeft = 2;
+        girafe.spritePhaseWalkRight = 1;
+        // Movement speeds
+        girafe.normalWalkingSpeed = 0.8f;
+        girafe.normalWalkingAnimationSpeed = 4.0f;
+        girafe.sprintWalkingSpeed = 4.0f;
+        girafe.sprintWalkingAnimationSpeed = 8.0f;    // Collision settings
+        girafe.canCollide = true;
+        girafe.collisionShapePoints = {
+            {-0.7f, 0.0f}, {0.7f, 0.0f}, {0.7f, 0.5f}, {-0.7f, 0.5f}
+        };    // Granular collision control - girafe avoids trees but can move through player
+        // For testing: Leave lists empty to allow movement through all elements
+        girafe.collisionBlocks = {
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4,
+        };
+        girafe.avoidanceBlocks = {
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4,
+        };
+
+        // Damage blocks configuration - girafe doesn't take damage from any blocks (lives in water)
+        girafe.damageBlocks = {
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4,
+        };
+
+
+
+        girafe.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
+        girafe.offMapCollision = true; // Antagonist collides with map borders// Automatic behavior configuration
+        girafe.automaticBehaviors = true; // Enable automatic behaviors for antagonist2
+        girafe.passiveState = true; // Enable passive state random walking
+        girafe.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
+        girafe.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
+        girafe.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; 
+
+        entityTypes.push_back(girafe); // Add shark to the list
 
             // Empty - no blocks to avoid for pathfinding
 

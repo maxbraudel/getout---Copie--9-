@@ -92,6 +92,17 @@ static std::vector<ElementInfo> createElementTexturesToLoad() {
     shark.hasCollision = false; // Enable collision for player
     textures.push_back(shark);
 
+    ElementInfo giraffe;
+    giraffe.name = ElementName::GIRAFFE;
+    giraffe.path = "../assets/textures/entities/giraffe.png";
+    giraffe.type = ElementTextureType::SPRITESHEET;
+    giraffe.spriteWidth = 55;  // Assuming 64px width for each sprite frame
+    giraffe.spriteHeight = 78; // Assuming 64px height for each sprite frame
+    giraffe.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Default anchor - can be changed in config
+    giraffe.anchorOffsetY = 0.2f; // Y offset
+    giraffe.hasCollision = false; // Enable collision for player
+    textures.push_back(giraffe);
+
     ElementInfo coconut;
     coconut.name = ElementName::COCONUT;
     coconut.path = "../assets/textures/items/coconut_1.png";

@@ -126,6 +126,15 @@ void InputManager::updateMovementInput() {
     m_currentInput.moveX = 0.0f;
     m_currentInput.moveY = 0.0f;
     
+    // Don't collect movement input when game is paused
+    if (g_threadManager && g_threadManager->isPaused()) {
+        // Check if movement state changed (should be reset to 0 when paused)
+        if (oldMoveX != m_currentInput.moveX || oldMoveY != m_currentInput.moveY) {
+            m_currentInput.stateUpdated = true;
+        }
+        return;
+    }
+    
     // Check movement keys
     if (glfwGetKey(m_window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_UP) == GLFW_PRESS) {
         m_currentInput.moveY = 1.0f;
