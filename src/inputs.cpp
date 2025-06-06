@@ -11,6 +11,7 @@
 #include "terrainGeneration.h"
 #include "enumDefinitions.h"
 #include "threading.h"
+#include "gameMenus.h" // Added include for game menu system
 #include "glbasimac/glbi_engine.hpp"
 #include <iostream>
 #include <cmath>
@@ -19,12 +20,14 @@
 #include <string>
 #include "enumDefinitions.h"
 
+// Using namespace for MenuState is no longer needed since we're using the qualified name
 
 // External references to global variables and objects
 extern Map gameMap;
 extern ElementsOnMap elementsManager;
 extern EntitiesManager entitiesManager;
 extern Camera gameCamera;
+extern GameMenus gameMenus;
 
 // Keyboard callback function
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -186,12 +189,14 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             extern bool gameplayActive;
             extern glbasimac::GLBI_Engine myEngine;
             bool startGameplay(glbasimac::GLBI_Engine& engine, GLFWwindow* window);
-            void endGameplay();
-            
-            if (gameplayActive) {
+            void endGameplay();            if (gameplayActive) {
                 endGameplay();
+                // Show start menu when gameplay ends
+                gameMenus.showMenu(MenuState::START_MENU);
             } else {
                 startGameplay(myEngine, window);
+                // Hide menu when gameplay starts
+                gameMenus.hideMenu();
             }
         }
     } else if (action == GLFW_RELEASE) {
