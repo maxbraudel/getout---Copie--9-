@@ -44,6 +44,9 @@ extern int COCONUT_COUNTER; // Tracks the number of coconuts collected by the pl
 // Game state tracking
 extern GameState GAME_STATE; // Tracks the current game state (START, DEFEAT, PAUSE, WIN)
 
+// Win condition flags
+extern bool SHOULD_SHOW_WIN_MENU; // Flag to indicate WIN menu should be displayed
+
 // Game timing for win/loss conditions
 extern const float WAIT_BEFORE_WINNING_OR_LOSING; // Time to wait before showing win/loss screen
 

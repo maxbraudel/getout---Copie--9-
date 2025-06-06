@@ -103,6 +103,11 @@ void endGameplay() {
 
     gameMenus.removeUIElement(UIElementName::HEALTH_BAR);
     gameMenus.removeUIElement(UIElementName::COCONUTS);
+    gameMenus.removeUIElement(UIElementName::PAUSE_MENU);
+    gameMenus.removeUIElement(UIElementName::GAME_OVER);
+    gameMenus.removeUIElement(UIElementName::WIN_MENU);
+
+    gameMenus.placeUIElement(UIElementName::START_MENU, UIElementPosition::CENTER);
     
     // Set game state back to START
     GAME_STATE = GameState::START;
@@ -421,9 +426,16 @@ int main() {
 				// Gameplay not active - just show black screen and handle escape key
 				if (keyPressedStates[GLFW_KEY_ESCAPE]) {
 					glfwSetWindowShouldClose(window, GLFW_TRUE);
-				}
+				}			}
+			
+			// Check if WIN menu should be displayed (from main thread for proper OpenGL context)
+			if (SHOULD_SHOW_WIN_MENU) {
+				gameMenus.placeUIElement(UIElementName::WIN_MENU, UIElementPosition::CENTER);
+				SHOULD_SHOW_WIN_MENU = false; // Reset flag to prevent repeated calls
+				std::cout << "WIN menu displayed from main thread" << std::endl;
 			}
-					// Always render the UI/menus on top of everything else
+			
+			// Always render the UI/menus on top of everything else
 			// This ensures menus are visible regardless of gameplay state
 			gameMenus.render();
 			

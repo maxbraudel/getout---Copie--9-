@@ -533,28 +533,34 @@ void PlayerMovementManager::processWinCondition(double deltaTime)
     
     if (m_winConditionTriggered) {
         m_winDelayTimer += deltaTime;
-        
-        if (m_winDelayTimer >= WAIT_BEFORE_WINNING_OR_LOSING) {
+          if (m_winDelayTimer >= WAIT_BEFORE_WINNING_OR_LOSING) {
             // Time's up - trigger the win state
             std::cout << "WIN! Player collected 3 coconuts - game won!" << std::endl;
-              // Set game state to WIN
-            GAME_STATE = ::GameState::WIN;
+            
+            // Set game state to WIN immediately
+            GAME_STATE = GameState::WIN;
             std::cout << "Game state set to: " << gameStateToString(GAME_STATE) << std::endl;
             
-            // Force pause the game (player cannot resume)
-            if (g_threadManager) {
-                g_threadManager->pauseGame();
-                std::cout << "Game forcibly paused for win condition" << std::endl;
+            // Signal main thread to show WIN menu (avoid OpenGL context issues)
+            SHOULD_SHOW_WIN_MENU = true;
+            std::cout << "WIN menu display requested" << std::endl;
+            
+            // Wait additional time to allow UI to render properly before pausing
+            if (m_winDelayTimer >= WAIT_BEFORE_WINNING_OR_LOSING + 0.5) {
+                // Force pause the game AFTER giving UI time to render
+                if (g_threadManager) {
+                    g_threadManager->pauseGame();
+                    std::cout << "Game forcibly paused for win condition" << std::endl;
+                }
+                
+                // Reset win condition state (prevent retriggering)
+                m_winConditionTriggered = false;
+                m_winDelayTimer = 0.0;
+            } else {
+                // Still waiting for UI to stabilize
+                float remainingTime = (WAIT_BEFORE_WINNING_OR_LOSING + 0.5) - m_winDelayTimer;
+                std::cout << "WIN menu stabilizing... " << remainingTime << " seconds before pause..." << std::endl;
             }
-            
-            // Show WIN menu
-            extern GameMenus gameMenus;
-            gameMenus.placeUIElement(UIElementName::WIN_MENU, UIElementPosition::CENTER);
-            std::cout << "WIN menu displayed" << std::endl;
-            
-            // Reset win condition state (prevent retriggering)
-            m_winConditionTriggered = false;
-            m_winDelayTimer = 0.0;
         } else {
             // Still counting down
             float remainingTime = WAIT_BEFORE_WINNING_OR_LOSING - m_winDelayTimer;
