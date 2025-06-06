@@ -16,7 +16,7 @@ static std::vector<UIElementInfo> createUIElementsToLoad() {
     UIElementInfo startMenu;
     startMenu.name = UIElementName::START_MENU;
     startMenu.texturePath = "../assets/textures/ui/startMenu.png";
-    startMenu.scale = 1.0f;
+    startMenu.scale = 2.0f;
     uiElements.push_back(startMenu);
     
     // Pause Menu  
@@ -108,10 +108,6 @@ bool GameMenus::initialize(glbasimac::GLBI_Engine& engine) {
         std::cerr << "Failed to place START_MENU UI element!" << std::endl;
         return false;
     }
-
-    placeUIElement(UIElementName::HEALTH_BAR, UIElementPosition::TOP_LEFT_CORNER);
-
-    placeUIElement(UIElementName::COCONUTS, UIElementPosition::TOP_RIGHT_CORNER);
     
     std::cout << "Game UI system initialized successfully" << std::endl;
     return true;

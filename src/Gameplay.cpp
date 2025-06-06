@@ -16,6 +16,8 @@
 #include <ctime>
 #include <thread>
 #include <chrono>
+#include "gameMenus.h" // Include for game menu system
+#include "enumDefinitions.h"
 
 // Initialize static members
 bool Gameplay::s_mapInitialized = false;

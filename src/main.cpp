@@ -71,6 +71,9 @@ bool startGameplay(GLBI_Engine& engine, GLFWwindow* window) {
         Gameplay::cleanup();
         return false;
     }
+
+    gameMenus.placeUIElement(UIElementName::HEALTH_BAR, UIElementPosition::TOP_LEFT_CORNER);
+    gameMenus.placeUIElement(UIElementName::COCONUTS, UIElementPosition::TOP_RIGHT_CORNER);
     
     gameplayActive = true;
     std::cout << "Gameplay started successfully" << std::endl;
@@ -92,6 +95,9 @@ void endGameplay() {
     
     // Cleanup gameplay systems (threads, entities, etc.)
     Gameplay::cleanup();
+
+    gameMenus.removeUIElement(UIElementName::HEALTH_BAR);
+    gameMenus.removeUIElement(UIElementName::COCONUTS);
     
     gameplayActive = false;
     std::cout << "Gameplay stopped" << std::endl;

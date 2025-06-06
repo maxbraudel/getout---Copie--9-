@@ -158,8 +158,8 @@ static void initializeEntityTypes() {
         antagonist.attackStateWaitBeforeChargeMax = 1.0f;
         antagonist.attackStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers attack state
           // Health settings
-        antagonist.lifePoints = 20; // Antagonist has 20 life points
-        antagonist.damagePoints = 5; // Antagonist deals 5 damage points
+        antagonist.lifePoints = 5; // Antagonist has 20 life points
+        antagonist.damagePoints = 2; // Antagonist deals 5 damage points
         
         // Add to the list
         entityTypes.push_back(antagonist);
@@ -245,7 +245,7 @@ static void initializeEntityTypes() {
         player.offMapCollision = true; // Player collides with map borders
         
         // Health settings
-        player.lifePoints = 100; // Player has 100 life points
+        player.lifePoints = 5; // Player has 100 life points
 
         // Add to the list
         entityTypes.push_back(player);
