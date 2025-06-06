@@ -127,43 +127,46 @@ void TerrainGenerationConfig::initializeDefaultRules() {
 
     
     // Antagonist entity rule - spawn antagonist entities in groups on GRASS_2 blocks
-    GenerationRuleInfo antagonistRule;
-    antagonistRule.ruleName = "AntagonistEntities";
-    antagonistRule.spawnType = SpawnType::ENTITY;
+    GenerationRuleInfo pirateRule;
+    pirateRule.ruleName = "AntagonistEntities";
+    pirateRule.spawnType = SpawnType::ENTITY;
     
     // Add antagonist entity types with equal probability
-    antagonistRule.spawnEntities = {
-        EntityName::ANTAGONIST,
+    pirateRule.spawnEntities = {
+        EntityName::PIRATE_WOMAN,
+        EntityName::PIRATE_MAN,
     };
     
     // Spawn on GRASS_2 blocks only
-    antagonistRule.spawnBlocks = {BlockName::GRASS_2};      // Spawn probability and constraints
-    antagonistRule.spawnChance = 70;                   // 1/100 chance for much less frequent spawning
-    antagonistRule.maxSpawns = 50;                      // Max 50 antagonist entities total
+    pirateRule.spawnBlocks = {BlockName::GRASS_2};      // Spawn probability and constraints
+    pirateRule.spawnChance = 80;                   // 1/100 chance for much less frequent spawning
+    pirateRule.maxSpawns = 100;                      // Max 50 antagonist entities total
     
     // Distance constraints - maintain reasonable spacing between groups
-    antagonistRule.minDistanceFromSameRule = 8.0f;      // Min distance between antagonist groups
-    antagonistRule.maxDistanceFromBlocks = 0.0f;        // No proximity requirement
-    antagonistRule.proximityBlocks = {};                // No specific blocks needed nearby
+    pirateRule.minDistanceFromSameRule = 8.0f;      // Min distance between antagonist groups
+    pirateRule.maxDistanceFromBlocks = 0.0f;        // No proximity requirement
+    pirateRule.proximityBlocks = {};                // No specific blocks needed nearby
       // Group spawning configuration - spawn antagonists in small groups
-    antagonistRule.spawnInGroup = true;
-    antagonistRule.groupRadius = 3.0f;                  // Spread group members within 3 units
-    antagonistRule.groupNumberMin = 2;                  // Min 2 entities per group
-    antagonistRule.groupNumberMax = 4;                  // Max 4 entities per group
+    pirateRule.spawnInGroup = true;
+    pirateRule.groupRadius = 3.0f;                  // Spread group members within 3 units
+    pirateRule.groupNumberMin = 2;                  // Min 2 entities per group
+    pirateRule.groupNumberMax = 4;                  // Max 4 entities per group
       // Enable random placement for more organic entity distribution
-    antagonistRule.randomPlacement = true;
+    pirateRule.randomPlacement = true;
     
     // Sprite sheet properties for entities
-    antagonistRule.randomDefaultSpriteSheetPhase = true;  // Randomize sprite phase for variety
+    pirateRule.randomDefaultSpriteSheetPhase = true;  // Randomize sprite phase for variety
     
     // Entity properties (not used for entities, but kept for consistency)
-    antagonistRule.scaleMin = 1.0f;
-    antagonistRule.scaleMax = 1.0f;
-    antagonistRule.baseScale = 1.0f;
-    antagonistRule.rotation = 0.0f;
+    pirateRule.scaleMin = 1.0f;
+    pirateRule.scaleMax = 1.0f;
+    pirateRule.baseScale = 1.0f;
+    pirateRule.rotation = 0.0f;
     
     // Add the antagonist rule to the configuration
-    addGenerationRule(antagonistRule);
+    addGenerationRule(pirateRule);
+
+
 
     // Shark entity rule - spawn shark entities in water
     GenerationRuleInfo sharksRule;
@@ -206,7 +209,6 @@ void TerrainGenerationConfig::initializeDefaultRules() {
 
 
 
-    // Spawn on deep water blocks only
     GenerationRuleInfo giraffesRule;
     giraffesRule.ruleName = "GiraffeEntities";
     giraffesRule.spawnType = SpawnType::ENTITY;
@@ -242,6 +244,43 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     
     // Add the shark rule to the configuration
     addGenerationRule(giraffesRule);
+
+
+
+
+    GenerationRuleInfo armadillosRule;
+    armadillosRule.ruleName = "ArmadilloEntities";
+    armadillosRule.spawnType = SpawnType::ENTITY;
+    
+    // Add shark entity types with equal probability
+    armadillosRule.spawnEntities = {
+        EntityName::ARMADILLO,
+    };
+
+    armadillosRule.spawnBlocks = {BlockName::GRASS_2};
+      // Spawn probability and constraints
+    armadillosRule.spawnChance = 120;                   // 1/100 chance for rare spawning
+    armadillosRule.maxSpawns = 1000;                      // Max 50 shark entities total
+    
+    // Distance constraints - maintain reasonable spacing between groups
+    armadillosRule.minDistanceFromSameRule = 8.0f;      // Min distance between shark groups
+    armadillosRule.maxDistanceFromBlocks = 0.0f;        // No proximity requirement
+    armadillosRule.proximityBlocks = {};                // No specific blocks needed nearby
+    
+    // Group spawning configuration - spawn sharks in small groups
+    armadillosRule.spawnInGroup = true;
+    giraffesRule.groupRadius = 5.0f;                  // Spread group members within 3 units
+    giraffesRule.groupNumberMin = 2;                  // Min 2 entities per group
+    giraffesRule.groupNumberMax = 6;   
+      // Enable random placement for more organic shark distribution
+    armadillosRule.randomPlacement = true;
+    
+    // Sprite sheet properties for entities
+    armadillosRule.randomDefaultSpriteSheetPhase = true;  // Randomize sprite phase for variety
+   
+    
+    // Add the shark rule to the configuration
+    addGenerationRule(armadillosRule);
 }
 
 // Clear all rules

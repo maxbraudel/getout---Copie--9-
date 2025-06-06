@@ -5,11 +5,12 @@
 
 // Forward declaration from entities.h
 enum class EntityName {
-    ANTAGONIST2,
-    ANTAGONIST,
     PLAYER,
     SHARK,
     GIRAFFE,
+    ARMADILLO,
+    PIRATE_MAN,
+    PIRATE_WOMAN
 };
 
 
@@ -20,10 +21,12 @@ enum class ElementName {
     COCONUT_TREE_3,
     CHARACTER1,
     TEST,
-    ANTAGONIST1,
     SHARK,
     COCONUT,
-    GIRAFFE
+    GIRAFFE,
+    ARMADILLO,
+    PIRATE_MAN,
+    PIRATE_WOMAN
     // Add more element texture types as needed
 };
 

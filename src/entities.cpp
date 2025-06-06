@@ -54,53 +54,55 @@ static void initializeEntityTypes() {
     entityTypes.reserve(10); // Reasonable initial capacity
     
     try {        // Antagonist entity configuration
-        EntityInfo antagonist;
-        antagonist.type = EntityName::ANTAGONIST;
-        antagonist.elementName = ElementName::ANTAGONIST1;
-        antagonist.scale = 1.5f;
+
+
+        EntityInfo pirateMan;
+        pirateMan.type = EntityName::PIRATE_MAN;
+        pirateMan.elementName = ElementName::PIRATE_MAN;
+        pirateMan.scale = 1.5f;
         
         // Default sprite configuration
-        antagonist.defaultSpriteSheetPhase = 2;
-        antagonist.defaultSpriteSheetFrame = 0;
-        antagonist.defaultAnimationSpeed = 11.0f;
+        pirateMan.defaultSpriteSheetPhase = 2;
+        pirateMan.defaultSpriteSheetFrame = 0;
+        pirateMan.defaultAnimationSpeed = 11.0f;
         
         // Walking animation phases
-        antagonist.spritePhaseWalkUp = 3;
-        antagonist.spritePhaseWalkDown = 0;
-        antagonist.spritePhaseWalkLeft = 2;
-        antagonist.spritePhaseWalkRight = 1;
+        pirateMan.spritePhaseWalkUp = 3;
+        pirateMan.spritePhaseWalkDown = 0;
+        pirateMan.spritePhaseWalkLeft = 2;
+        pirateMan.spritePhaseWalkRight = 1;
         
         // Movement speeds
-        antagonist.normalWalkingSpeed = 1.5f;
-        antagonist.normalWalkingAnimationSpeed = 4.0f;
-        antagonist.sprintWalkingSpeed = 4.0f;
-        antagonist.sprintWalkingAnimationSpeed = 8.0f;    // Collision settings
-        antagonist.canCollide = true;
-        antagonist.collisionShapePoints = {
+        pirateMan.normalWalkingSpeed = 1.5f;
+        pirateMan.normalWalkingAnimationSpeed = 4.0f;
+        pirateMan.sprintWalkingSpeed = 4.0f;
+        pirateMan.sprintWalkingAnimationSpeed = 8.0f;    // Collision settings
+        pirateMan.canCollide = true;
+        pirateMan.collisionShapePoints = {
             {-0.2f, -0.1f}, {0.2f, -0.1f}, {0.2f, 0.1f}, {-0.2f, 0.1f}
         };    // Granular collision control - antagonist avoids trees but can move through player
         // For testing: Leave lists empty to allow movement through all elements
-        antagonist.avoidanceElements = {
+        pirateMan.avoidanceElements = {
             // Empty - no elements to avoid for pathfinding
             ElementName::COCONUT_TREE_1,
             ElementName::COCONUT_TREE_2,
             ElementName::COCONUT_TREE_3,
         };    
-        antagonist.collisionElements = {
+        pirateMan.collisionElements = {
             // Empty - no elements to collide with during movement
             ElementName::COCONUT_TREE_1,
             ElementName::COCONUT_TREE_2,
             ElementName::COCONUT_TREE_3,
         };
           // Block collision configuration - Antagonist avoids water during pathfinding and movement
-        antagonist.avoidanceBlocks = {
+        pirateMan.avoidanceBlocks = {
             BlockName::WATER_0,
             BlockName::WATER_1,
             BlockName::WATER_2,
             BlockName::WATER_3,
             BlockName::WATER_4
         };
-          antagonist.collisionBlocks = {
+          pirateMan.collisionBlocks = {
             BlockName::WATER_0,
             BlockName::WATER_1,
             BlockName::WATER_2,
@@ -109,7 +111,7 @@ static void initializeEntityTypes() {
         };
         
         // Damage blocks configuration - Antagonist takes damage when stepping on these blocks
-        antagonist.damageBlocks = {
+        pirateMan.damageBlocks = {
             BlockName::WATER_0, // Water blocks deal 1000 damage to antagonist
             BlockName::WATER_1,
             BlockName::WATER_2,
@@ -129,40 +131,153 @@ static void initializeEntityTypes() {
             // Empty - allow overlapping with player during movement/attacks
         }; */
           // Map boundary control settings
-        antagonist.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
-        antagonist.offMapCollision = true; // Antagonist collides with map borders// Automatic behavior configuration
-        antagonist.automaticBehaviors = true; // Enable automatic behaviors for antagonist
-        antagonist.passiveState = true; // Enable passive state random walking
-        antagonist.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
-        antagonist.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
-        antagonist.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)
+        pirateMan.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
+        pirateMan.offMapCollision = true; // Antagonist collides with map borders// Automatic behavior configuration
+        pirateMan.automaticBehaviors = true; // Enable automatic behaviors for antagonist
+        pirateMan.passiveState = true; // Enable passive state random walking
+        pirateMan.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
+        pirateMan.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
+        pirateMan.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)
           // Alert state configuration - antagonist becomes alert when player is nearby
-        antagonist.alertState = true; // Enable alert state behavior
-        antagonist.alertStateStartRadius = 12.0f; // Start becoming alert when player is 3 units away
-        antagonist.alertStateEndRadius = 14.0f; // Stop being alert when player is 8+ units away
-        antagonist.alertStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers alert state
+        pirateMan.alertState = true; // Enable alert state behavior
+        pirateMan.alertStateStartRadius = 12.0f; // Start becoming alert when player is 3 units away
+        pirateMan.alertStateEndRadius = 14.0f; // Stop being alert when player is 8+ units away
+        pirateMan.alertStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers alert state
           // Flee state configuration - antagonist flees when player gets too close
-        antagonist.fleeState = false; // Enable flee state behavior
-        antagonist.fleeStateRunning = true; // Run when fleeing
-        antagonist.fleeStateStartRadius = 0.0f; // Start fleeing when player is 2 units away
-        antagonist.fleeStateEndRadius = 8.0f; // Stop fleeing when player is 4+ units away
-        antagonist.fleeStateMinDistance = 6.0f; // Maintain at least 6 units distance from player
-        antagonist.fleeStateMaxDistance = 10.0f; // Flee up to 10 units away
-        antagonist.fleeStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers flee state
+        pirateMan.fleeState = false; // Enable flee state behavior
+        pirateMan.fleeStateRunning = true; // Run when fleeing
+        pirateMan.fleeStateStartRadius = 0.0f; // Start fleeing when player is 2 units away
+        pirateMan.fleeStateEndRadius = 8.0f; // Stop fleeing when player is 4+ units away
+        pirateMan.fleeStateMinDistance = 6.0f; // Maintain at least 6 units distance from player
+        pirateMan.fleeStateMaxDistance = 10.0f; // Flee up to 10 units away
+        pirateMan.fleeStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers flee state
         
         // Attack state configuration - antagonist attacks when player is in range
-        antagonist.attackState = true; // Enable attack state behavior
-        antagonist.attackStateRunning = true; // Run when attacking
-        antagonist.attackStateStartRadius = 0.0f; // Start attacking when player is 5 units away
-        antagonist.attackStateEndRadius = 11.0f; // Stop attacking when player is 10+ units away        antagonist.attackStateWaitBeforeChargeMin = 0.5f; // Wait 1-3 seconds before charging again
-        antagonist.attackStateWaitBeforeChargeMax = 1.0f;
-        antagonist.attackStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers attack state
+        pirateMan.attackState = true; // Enable attack state behavior
+        pirateMan.attackStateRunning = true; // Run when attacking
+        pirateMan.attackStateStartRadius = 0.0f; // Start attacking when player is 5 units away
+        pirateMan.attackStateEndRadius = 11.0f; // Stop attacking when player is 10+ units away        antagonist.attackStateWaitBeforeChargeMin = 0.5f; // Wait 1-3 seconds before charging again
+        pirateMan.attackStateWaitBeforeChargeMax = 1.0f;
+        pirateMan.attackStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers attack state
           // Health settings
-        antagonist.lifePoints = 5; // Antagonist has 20 life points
-        antagonist.damagePoints = 2; // Antagonist deals 5 damage points
+        pirateMan.lifePoints = 5; // Antagonist has 20 life points
+        pirateMan.damagePoints = 2; // Antagonist deals 5 damage points
         
         // Add to the list
-        entityTypes.push_back(antagonist);
+        entityTypes.push_back(pirateMan);
+
+
+
+
+        EntityInfo pirateWoman;
+        pirateWoman.type = EntityName::PIRATE_WOMAN;
+        pirateWoman.elementName = ElementName::PIRATE_WOMAN;
+        pirateWoman.scale = 1.5f;
+        
+        // Default sprite configuration
+        pirateWoman.defaultSpriteSheetPhase = 2;
+        pirateWoman.defaultSpriteSheetFrame = 0;
+        pirateWoman.defaultAnimationSpeed = 11.0f;
+        
+        // Walking animation phases
+        pirateWoman.spritePhaseWalkUp = 3;
+        pirateWoman.spritePhaseWalkDown = 0;
+        pirateWoman.spritePhaseWalkLeft = 2;
+        pirateWoman.spritePhaseWalkRight = 1;
+        
+        // Movement speeds
+        pirateWoman.normalWalkingSpeed = 1.5f;
+        pirateWoman.normalWalkingAnimationSpeed = 4.0f;
+        pirateWoman.sprintWalkingSpeed = 4.0f;
+        pirateWoman.sprintWalkingAnimationSpeed = 8.0f;    // Collision settings
+        pirateWoman.canCollide = true;
+        pirateWoman.collisionShapePoints = {
+            {-0.2f, -0.1f}, {0.2f, -0.1f}, {0.2f, 0.1f}, {-0.2f, 0.1f}
+        };    // Granular collision control - antagonist avoids trees but can move through player
+        // For testing: Leave lists empty to allow movement through all elements
+        pirateWoman.avoidanceElements = {
+            // Empty - no elements to avoid for pathfinding
+            ElementName::COCONUT_TREE_1,
+            ElementName::COCONUT_TREE_2,
+            ElementName::COCONUT_TREE_3,
+        };    
+        pirateWoman.collisionElements = {
+            // Empty - no elements to collide with during movement
+            ElementName::COCONUT_TREE_1,
+            ElementName::COCONUT_TREE_2,
+            ElementName::COCONUT_TREE_3,
+        };
+          // Block collision configuration - Antagonist avoids water during pathfinding and movement
+        pirateWoman.avoidanceBlocks = {
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4
+        };
+          pirateWoman.collisionBlocks = {
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4        
+        };
+        
+        // Damage blocks configuration - Antagonist takes damage when stepping on these blocks
+        pirateWoman.damageBlocks = {
+            BlockName::WATER_0, // Water blocks deal 1000 damage to antagonist
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4
+        };
+        
+        // Entity collision configuration - Antagonist avoids player for pathfinding but can collide during movement
+        /* antagonist.avoidanceEntities = {
+            EntityName::ANTAGONIST
+            // EntityName::ANTAGONIST,
+        }; */
+        
+        /* antagonist.collisionEntities = {
+            EntityName::PLAYER,
+            EntityName::ANTAGONIST // Antagonist collides with itself
+            // Empty - allow overlapping with player during movement/attacks
+        }; */
+          // Map boundary control settings
+        pirateWoman.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
+        pirateWoman.offMapCollision = true; // Antagonist collides with map borders// Automatic behavior configuration
+        pirateWoman.automaticBehaviors = true; // Enable automatic behaviors for antagonist
+        pirateWoman.passiveState = true; // Enable passive state random walking
+        pirateWoman.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
+        pirateWoman.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
+        pirateWoman.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)
+          // Alert state configuration - antagonist becomes alert when player is nearby
+        pirateWoman.alertState = true; // Enable alert state behavior
+        pirateWoman.alertStateStartRadius = 12.0f; // Start becoming alert when player is 3 units away
+        pirateWoman.alertStateEndRadius = 14.0f; // Stop being alert when player is 8+ units away
+        pirateWoman.alertStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers alert state
+          // Flee state configuration - antagonist flees when player gets too close
+        pirateWoman.fleeState = false; // Enable flee state behavior
+        pirateWoman.fleeStateRunning = true; // Run when fleeing
+        pirateWoman.fleeStateStartRadius = 0.0f; // Start fleeing when player is 2 units away
+        pirateWoman.fleeStateEndRadius = 8.0f; // Stop fleeing when player is 4+ units away
+        pirateWoman.fleeStateMinDistance = 6.0f; // Maintain at least 6 units distance from player
+        pirateWoman.fleeStateMaxDistance = 10.0f; // Flee up to 10 units away
+        pirateWoman.fleeStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers flee state
+        
+        // Attack state configuration - antagonist attacks when player is in range
+        pirateWoman.attackState = true; // Enable attack state behavior
+        pirateWoman.attackStateRunning = true; // Run when attacking
+        pirateWoman.attackStateStartRadius = 0.0f; // Start attacking when player is 5 units away
+        pirateWoman.attackStateEndRadius = 11.0f; // Stop attacking when player is 10+ units away        antagonist.attackStateWaitBeforeChargeMin = 0.5f; // Wait 1-3 seconds before charging again
+        pirateWoman.attackStateWaitBeforeChargeMax = 1.0f;
+        pirateWoman.attackStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers attack state
+          // Health settings
+        pirateWoman.lifePoints = 5; // Antagonist has 20 life points
+        pirateWoman.damagePoints = 2; // Antagonist deals 5 damage points
+        
+        // Add to the list
+        entityTypes.push_back(pirateWoman);
 
 
 
@@ -322,7 +437,6 @@ static void initializeEntityTypes() {
 
 
 
-         // shark entity config
         EntityInfo girafe;
         girafe.type = EntityName::GIRAFFE;
         girafe.elementName = ElementName::GIRAFFE; // Use a test element for now
@@ -379,6 +493,80 @@ static void initializeEntityTypes() {
         girafe.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; 
 
         entityTypes.push_back(girafe); // Add shark to the list
+
+
+
+
+        EntityInfo armadillo;
+        armadillo.type = EntityName::ARMADILLO;
+        armadillo.elementName = ElementName::ARMADILLO; // Use a test element for now
+        armadillo.scale = 2.0f;
+        // Default sprite configuration
+        armadillo.defaultSpriteSheetPhase = 2;
+        armadillo.defaultSpriteSheetFrame = 0;
+        armadillo.defaultAnimationSpeed = 7.0f;
+        // Walking animation phases
+        armadillo.spritePhaseWalkUp = 3;
+        armadillo.spritePhaseWalkDown = 0;
+        armadillo.spritePhaseWalkLeft = 2;
+        armadillo.spritePhaseWalkRight = 1;
+        // Movement speeds
+        armadillo.normalWalkingSpeed = 0.8f;
+        armadillo.normalWalkingAnimationSpeed = 4.0f;
+        armadillo.sprintWalkingSpeed = 3.5f;
+        armadillo.sprintWalkingAnimationSpeed = 20.0f;
+        armadillo.canCollide = true;
+        armadillo.collisionShapePoints = {
+            {-0.7f, 0.0f}, {0.7f, 0.0f}, {0.7f, 0.5f}, {-0.7f, 0.5f}
+        };    // Granular collision control - girafe avoids trees but can move through player
+        // For testing: Leave lists empty to allow movement through all elements
+        armadillo.collisionBlocks = {
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4,
+        };
+        armadillo.avoidanceBlocks = {
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4,
+        };
+
+        // Damage blocks configuration - girafe doesn't take damage from any blocks (lives in water)
+        armadillo.damageBlocks = {
+            BlockName::WATER_0,
+            BlockName::WATER_1,
+            BlockName::WATER_2,
+            BlockName::WATER_3,
+            BlockName::WATER_4,
+        };
+
+        armadillo.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
+        armadillo.offMapCollision = true; // Antagonist collides with map borders// Automatic behavior configuration
+        armadillo.automaticBehaviors = true; // Enable automatic behaviors for antagonist2
+        armadillo.passiveState = true; // Enable passive state random walking
+        armadillo.passiveStateWalkingRadius = 8.0f; // Walking radius for random walks
+        armadillo.passiveStateRandomWalkTriggerTimeIntervalMin = 3.0f; // Min time between walks (seconds)
+        armadillo.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; 
+
+          // Alert state configuration - antagonist becomes alert when player is nearby
+        armadillo.alertState = true; // Enable alert state behavior
+        armadillo.alertStateStartRadius = 12.0f; // Start becoming alert when player is 3 units away
+        armadillo.alertStateEndRadius = 14.0f; // Stop being alert when player is 8+ units away
+        armadillo.alertStateTriggerEntitiesList = { EntityName::PLAYER, EntityName::PIRATE_MAN, EntityName::PIRATE_WOMAN }; // Player triggers alert state
+          // Flee state configuration - antagonist flees when player gets too close
+        armadillo.fleeState = true; // Enable flee state behavior
+        armadillo.fleeStateRunning = true; // Run when fleeing
+        armadillo.fleeStateStartRadius = 0.0f; // Start fleeing when player is 2 units away
+        armadillo.fleeStateEndRadius = 10.0f; // Stop fleeing when player is 4+ units away
+        armadillo.fleeStateMinDistance = 6.0f; // Maintain at least 6 units distance from player
+        armadillo.fleeStateMaxDistance = 10.0f; // Flee up to 10 units away
+        armadillo.fleeStateTriggerEntitiesList = { EntityName::PLAYER, EntityName::PIRATE_MAN, EntityName::PIRATE_WOMAN }; // Player triggers flee state
+
+        entityTypes.push_back(armadillo); // Add shark to the list
 
 
 
@@ -439,18 +627,6 @@ const EntityConfiguration* EntitiesManager::getConfiguration(EntityName entityTy
     return nullptr;
 }
 
-// String-based getConfiguration method for backwards compatibility
-const EntityConfiguration* EntitiesManager::getConfiguration(const std::string& typeName) const {
-    // Convert string to enum and call the enum-based method
-    if (typeName == "player") {
-        return getConfiguration(EntityName::PLAYER);
-    } else if (typeName == "antagonist") {
-        return getConfiguration(EntityName::ANTAGONIST);
-    }
-    
-    std::cerr << "Unknown entity type string: " << typeName << std::endl;
-    return nullptr;
-}
 
 void EntitiesManager::addConfiguration(const EntityConfiguration& config) {
     // Add or replace the configuration
@@ -477,19 +653,6 @@ bool EntitiesManager::placeEntityByType(const std::string& instanceName, EntityN
     return false;
 }
 
-// String-based placeEntityByType method for backwards compatibility
-bool EntitiesManager::placeEntityByType(const std::string& instanceName, const std::string& typeName, float x, float y) {
-    // Convert string to enum and call the enum-based method
-    if (typeName == "player") {
-        return placeEntityByType(instanceName, EntityName::PLAYER, x, y);
-    } else if (typeName == "antagonist") {
-        return placeEntityByType(instanceName, EntityName::ANTAGONIST, x, y);
-    }
-    
-    std::cerr << "Unknown entity type string: " << typeName << std::endl;
-    return false;
-}
-
 // Overloaded placeEntityByType method with sprite phase override (enum-based)
 bool EntitiesManager::placeEntityByType(const std::string& instanceName, EntityName entityType, float x, float y, int overrideSpritePhase) {
     // Find the entity type in our predefined list
@@ -507,19 +670,6 @@ bool EntitiesManager::placeEntityByType(const std::string& instanceName, EntityN
     }
     
     std::cerr << "Entity type not found: " << entityNameToString(entityType) << std::endl;
-    return false;
-}
-
-// String-based placeEntityByType method with sprite phase override for backwards compatibility
-bool EntitiesManager::placeEntityByType(const std::string& instanceName, const std::string& typeName, float x, float y, int overrideSpritePhase) {
-    // Convert string to enum and call the enum-based method
-    if (typeName == "player") {
-        return placeEntityByType(instanceName, EntityName::PLAYER, x, y, overrideSpritePhase);
-    } else if (typeName == "antagonist") {
-        return placeEntityByType(instanceName, EntityName::ANTAGONIST, x, y, overrideSpritePhase);
-    }
-    
-    std::cerr << "Unknown entity type string: " << typeName << std::endl;
     return false;
 }
 
@@ -594,18 +744,6 @@ bool EntitiesManager::placeEntityByTypeSafely(const std::string& instanceName, E
     return placeEntityByType(instanceName, entityType, safeX, safeY);
 }
 
-// String-based placeEntityByTypeSafely method for backwards compatibility
-bool EntitiesManager::placeEntityByTypeSafely(const std::string& instanceName, const std::string& typeName, float x, float y) {
-    // Convert string to enum and call the enum-based method
-    if (typeName == "player") {
-        return placeEntityByTypeSafely(instanceName, EntityName::PLAYER, x, y);
-    } else if (typeName == "antagonist") {
-        return placeEntityByTypeSafely(instanceName, EntityName::ANTAGONIST, x, y);
-    }
-    
-    std::cerr << "Unknown entity type string for safe placement: " << typeName << std::endl;
-    return false;
-}
 
 bool EntitiesManager::placeEntity(const std::string& instanceName, EntityName entityType, float x, float y) {
     // Check if the configuration exists
@@ -778,19 +916,6 @@ bool EntitiesManager::placeEntity(const std::string& instanceName, EntityName en
                 << safeX << ", " << safeY << ") with sprite phase override: " << overrideSpritePhase << std::endl;
     }
     return true;
-}
-
-// String-based placeEntity method for backwards compatibility
-bool EntitiesManager::placeEntity(const std::string& instanceName, const std::string& typeName, float x, float y) {
-    // Convert string to enum and call the enum-based method
-    if (typeName == "player") {
-        return placeEntity(instanceName, EntityName::PLAYER, x, y);
-    } else if (typeName == "antagonist") {
-        return placeEntity(instanceName, EntityName::ANTAGONIST, x, y);
-    }
-    
-    std::cerr << "Unknown entity type string: " << typeName << std::endl;
-    return false;
 }
 
 bool EntitiesManager::walkEntityWithPathfinding(const std::string& instanceName, float x, float y, WalkType walkType) {

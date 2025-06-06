@@ -70,16 +70,27 @@ static std::vector<ElementInfo> createElementTexturesToLoad() {
     characterTexture.hasCollision = false; // Enable collision for player
     textures.push_back(characterTexture);
 
-    ElementInfo antagonistTexture;
-    antagonistTexture.name = ElementName::ANTAGONIST1;
-    antagonistTexture.path = "../assets/textures/entities/player3.png";
-    antagonistTexture.type = ElementTextureType::SPRITESHEET;
-    antagonistTexture.spriteWidth = 32;  // Assuming 32px width for each sprite frame
-    antagonistTexture.spriteHeight = 48; // Assuming 48px height for each sprite frame
-    antagonistTexture.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Default anchor - can be changed in config
-    antagonistTexture.anchorOffsetY = 0.2f; // Y offset
-    antagonistTexture.hasCollision = false; // Enable collision for player
-    textures.push_back(antagonistTexture);
+    ElementInfo pirateMan;
+    pirateMan.name = ElementName::PIRATE_MAN;
+    pirateMan.path = "../assets/textures/entities/pirateMan.png";
+    pirateMan.type = ElementTextureType::SPRITESHEET;
+    pirateMan.spriteWidth = 32;  // Assuming 32px width for each sprite frame
+    pirateMan.spriteHeight = 48; // Assuming 48px height for each sprite frame
+    pirateMan.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Default anchor - can be changed in config
+    pirateMan.anchorOffsetY = 0.2f; // Y offset
+    pirateMan.hasCollision = false; // Enable collision for player
+    textures.push_back(pirateMan);
+
+    ElementInfo pirateWoman;
+    pirateWoman.name = ElementName::PIRATE_WOMAN;
+    pirateWoman.path = "../assets/textures/entities/pirateWoman.png";
+    pirateWoman.type = ElementTextureType::SPRITESHEET;
+    pirateWoman.spriteWidth = 32;  // Assuming 32px width for each sprite frame
+    pirateWoman.spriteHeight = 48; // Assuming 48px height for each sprite frame
+    pirateWoman.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Default anchor - can be changed in config
+    pirateWoman.anchorOffsetY = 0.2f; // Y offset
+    pirateWoman.hasCollision = false; // Enable collision for player
+    textures.push_back(pirateWoman);
 
     ElementInfo shark;
     shark.name = ElementName::SHARK;
@@ -102,6 +113,17 @@ static std::vector<ElementInfo> createElementTexturesToLoad() {
     giraffe.anchorOffsetY = 0.2f; // Y offset
     giraffe.hasCollision = false; // Enable collision for player
     textures.push_back(giraffe);
+
+    ElementInfo armadillo;
+    armadillo.name = ElementName::ARMADILLO;
+    armadillo.path = "../assets/textures/entities/armadillo.png";
+    armadillo.type = ElementTextureType::SPRITESHEET;
+    armadillo.spriteWidth = 48;  // Assuming 64px width for each sprite frame
+    armadillo.spriteHeight = 48; // Assuming 64px height for each sprite frame
+    armadillo.anchorPoint = AnchorPoint::BOTTOM_CENTER; // Default anchor - can be changed in config
+    armadillo.anchorOffsetY = 0.2f; // Y offset
+    armadillo.hasCollision = false; // Enable collision for player
+    textures.push_back(armadillo);
 
     ElementInfo coconut;
     coconut.name = ElementName::COCONUT;
