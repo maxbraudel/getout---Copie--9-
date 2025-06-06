@@ -249,6 +249,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 
                 // Now start the gameplay
                 startGameplay(myEngine, window);
+
+                gameMenus.removeUIElement(UIElementName::LOADER);
             }
         }
     } else if (action == GLFW_RELEASE) {

@@ -263,11 +263,10 @@ void GameMenus::render(double deltaTime) {
             }
         }
     }
-    
-    // Save current OpenGL state
+      // Save current OpenGL state
     glPushAttrib(GL_ALL_ATTRIB_BITS);
     
-    // Set up OpenGL state similar to map.cpp
+    // Set up OpenGL state for pixel-perfect UI rendering
     glUseProgram(0); 
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     
@@ -283,6 +282,9 @@ void GameMenus::render(double deltaTime) {
     
     // Set texture environment mode to replace (important!)
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    
+    // Disable texture filtering to ensure pixel-perfect rendering
+    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
     
     // Set up matrices for 2D rendering
     glMatrixMode(GL_PROJECTION);
@@ -334,7 +336,7 @@ bool GameMenus::loadUIElementTexture(const UIElementInfo& elementInfo, GLuint& t
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_2D, textureID);
     
-    // Set texture parameters
+    // Set texture parameters for pixel art - use GL_NEAREST for crisp pixel rendering
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -432,6 +434,10 @@ void GameMenus::renderUIElement(const UIElementInstance& element) const {
     
     // Bind the texture
     glBindTexture(GL_TEXTURE_2D, element.textureID);
+    
+    // Ensure nearest-neighbor filtering is used (for crisp pixel art)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     
     // Calculate UV coordinates based on whether this is a spritesheet
     float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
