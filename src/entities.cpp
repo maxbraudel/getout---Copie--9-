@@ -370,8 +370,6 @@ static void initializeEntityTypes() {
             BlockName::WATER_4,
         };
 
-
-
         girafe.offMapAvoidance = true; // Antagonist pathfinding avoids map borders
         girafe.offMapCollision = true; // Antagonist collides with map borders// Automatic behavior configuration
         girafe.automaticBehaviors = true; // Enable automatic behaviors for antagonist2
@@ -382,7 +380,6 @@ static void initializeEntityTypes() {
 
         entityTypes.push_back(girafe); // Add shark to the list
 
-            // Empty - no blocks to avoid for pathfinding
 
 
           // Block collision configuration - Shark avoids water during pathfinding and movement

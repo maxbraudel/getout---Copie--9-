@@ -90,7 +90,7 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     
     // Spawn probability and constraints (matching existing logic)
     coconut.spawnChance = 1;                    // 1/50 chance
-    coconut.maxSpawns = 30000;                    // Max 1000 trees
+    coconut.maxSpawns = 3;                    // Max 1000 trees
     
     // Distance constraints (matching existing MIN_COCONUT_TREE_DISTANCE and MAX_WATER_DISTANCE)
     coconut.minDistanceFromSameRule = 10.0f;     // MIN_COCONUT_TREE_DISTANCE
@@ -138,7 +138,7 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     
     // Spawn on GRASS_2 blocks only
     antagonistRule.spawnBlocks = {BlockName::GRASS_2};      // Spawn probability and constraints
-    antagonistRule.spawnChance = 80;                   // 1/100 chance for much less frequent spawning
+    antagonistRule.spawnChance = 70;                   // 1/100 chance for much less frequent spawning
     antagonistRule.maxSpawns = 50;                      // Max 50 antagonist entities total
     
     // Distance constraints - maintain reasonable spacing between groups
