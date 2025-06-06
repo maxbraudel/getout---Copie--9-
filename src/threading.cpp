@@ -116,8 +116,9 @@ void GameThreadManager::stopThreads()
     // Stop player movement thread first
     stopPlayerMovementThread();
     
-    // Wake up any waiting threads
+    // Wake up any waiting threads (both pause and game state conditions)
     m_gameStateChanged.notify_all();
+    m_pauseCondition.notify_all();
     
     // Wait for threads to finish
     if (m_gameThread.joinable()) {

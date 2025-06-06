@@ -108,10 +108,16 @@ void InputManager::processKeyInput(int key, int action) {
                             std::cout << "Cannot resume game - player has been defeated!" << std::endl;
                         } else {
                             g_threadManager->resumeGame();
+                            // Remove pause menu when resuming
+                            extern GameMenus gameMenus;
+                            gameMenus.removeUIElement(UIElementName::PAUSE_MENU);
                             std::cout << "Game resumed with Tab key" << std::endl;
                         }
                     } else {
                         g_threadManager->pauseGame();
+                        // Show pause menu when pausing
+                        extern GameMenus gameMenus;
+                        gameMenus.placeUIElement(UIElementName::PAUSE_MENU, UIElementPosition::CENTER);
                         std::cout << "Game paused with Tab key" << std::endl;
                     }
                 }
