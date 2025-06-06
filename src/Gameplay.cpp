@@ -147,7 +147,10 @@ bool Gameplay::placeInitialEntities() {
     entitiesManager.placeEntityByTypeSafely("shark2", EntityName::SHARK, 41.0f, 31.0f);
     
     // Place player
-    entitiesManager.placeEntityByTypeSafely("player1", EntityName::PLAYER, 5.0f, 45.0f);
+    float centerX = GRID_SIZE / 2.0f;
+    float centerY = GRID_SIZE / 2.0f;
+    std::cout << "Placing player at map center: (" << centerX << ", " << centerY << ")" << std::endl;
+    entitiesManager.placeEntityByTypeSafely("player1", EntityName::PLAYER, centerX, centerY);
     
     DEBUG_LOG_MEMORY("entities_placed");
     

@@ -138,7 +138,7 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     
     // Spawn on GRASS_2 blocks only
     antagonistRule.spawnBlocks = {BlockName::GRASS_2};      // Spawn probability and constraints
-    antagonistRule.spawnChance = 100;                   // 1/100 chance for much less frequent spawning
+    antagonistRule.spawnChance = 80;                   // 1/100 chance for much less frequent spawning
     antagonistRule.maxSpawns = 50;                      // Max 50 antagonist entities total
     
     // Distance constraints - maintain reasonable spacing between groups
