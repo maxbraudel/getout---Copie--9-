@@ -37,3 +37,9 @@ void checkPlayerWaterDamageAtPosition(int blockX, int blockY, BlockName blockTyp
 
 // Function to check all entities at a specific position and apply damage if damage blocks are placed
 void checkAllEntitiesDamageAtPosition(int blockX, int blockY, BlockName blockType, EntitiesManager& entitiesManager);
+
+// Function to update health bar when player health changes
+void updatePlayerHealthBar(EntitiesManager& entitiesManager);
+
+// Function to remove life points from an entity and handle health bar updates
+bool removeLifePointsFromEntity(const std::string& instanceName, int lifePointsToRemove, EntitiesManager& entitiesManager);

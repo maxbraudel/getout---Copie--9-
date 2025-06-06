@@ -577,12 +577,43 @@ bool GameMenus::changeUIElementAnimationSpeed(UIElementName elementName, float n
     }
     
     if (newSpeed >= 0.0f) {
-        it->animationSpeed = newSpeed;
-        std::cout << "Changed UI element animation speed: " << static_cast<int>(elementName) 
+        it->animationSpeed = newSpeed;        std::cout << "Changed UI element animation speed: " << static_cast<int>(elementName) 
                   << " to " << newSpeed << " FPS" << std::endl;
         return true;
     } else {
         std::cerr << "Invalid animation speed (must be non-negative): " << newSpeed << std::endl;
         return false;
+    }
+}
+
+void GameMenus::updateHealthBar(int currentHealth) {
+    // Map health values to sprite phases:
+    // 5+ health = phase 4 (full health)
+    // 4 health = phase 3
+    // 3 health = phase 2  
+    // 2 health = phase 1
+    // 1 or below = phase 0 (empty/critical)
+    
+    int targetPhase;
+    if (currentHealth >= 5) {
+        targetPhase = 4;
+    } else if (currentHealth == 4) {
+        targetPhase = 3;
+    } else if (currentHealth == 3) {
+        targetPhase = 2;
+    } else if (currentHealth == 2) {
+        targetPhase = 1;
+    } else { // 1 or below
+        targetPhase = 0;
+    }
+    
+    // Update the health bar sprite phase
+    bool success = changeUIElementSpriteSheetPhase(UIElementName::HEALTH_BAR, targetPhase);
+    
+    if (success) {
+        std::cout << "Health bar updated: health=" << currentHealth 
+                  << " -> phase=" << targetPhase << std::endl;
+    } else {
+        std::cerr << "Failed to update health bar for health value: " << currentHealth << std::endl;
     }
 }

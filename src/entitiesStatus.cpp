@@ -3,10 +3,48 @@
 #include "collision.h"
 #include "map.h"
 #include "player.h"
+#include "gameMenus.h"
 #include <iostream>
 #include <vector>
 #include <string>
 #include <mutex>
+
+// Function to update health bar when player health changes
+void updatePlayerHealthBar(EntitiesManager& entitiesManager) {
+    const std::string playerInstanceName = "player1";
+    
+    // Get player entity
+    Entity* player = entitiesManager.getEntity(playerInstanceName);
+    if (player) {
+        // Update health bar with current health
+        extern GameMenus gameMenus;
+        gameMenus.updateHealthBar(player->lifePoints);
+    }
+}
+
+// Function to remove life points from an entity and handle health bar updates
+bool removeLifePointsFromEntity(const std::string& instanceName, int lifePointsToRemove, EntitiesManager& entitiesManager) {
+    // Get the entity
+    Entity* entity = entitiesManager.getEntity(instanceName);
+    if (!entity) {
+        std::cout << "Warning: Entity " << instanceName << " not found for life point removal" << std::endl;
+        return false;
+    }
+    
+    // Remove life points
+    entity->lifePoints -= lifePointsToRemove;
+    
+    std::cout << "Entity " << instanceName << " lost " << lifePointsToRemove 
+              << " life points! Remaining life: " << entity->lifePoints << std::endl;
+    
+    // Update health bar if this is the player
+    if (instanceName == "player1") {
+        updatePlayerHealthBar(entitiesManager);
+    }
+    
+    // Return true if entity should be destroyed (0 or negative life points)
+    return entity->lifePoints <= 0;
+}
 
 // Function to apply damage from attacker to target entity
 bool applyDamage(const std::string& attackerInstanceName, const std::string& targetInstanceName, 
@@ -24,17 +62,15 @@ bool applyDamage(const std::string& attackerInstanceName, const std::string& tar
         std::cout << "Warning: Target entity " << targetInstanceName << " not found" << std::endl;
         return false;
     }
-    
-    // Apply damage
+      // Apply damage
     int damageDealt = attacker->damagePoints;
-    target->lifePoints -= damageDealt;
+    bool shouldDestroy = removeLifePointsFromEntity(targetInstanceName, damageDealt, entitiesManager);
     
     std::cout << "Entity " << attackerInstanceName << " deals " << damageDealt 
-              << " damage to " << targetInstanceName 
-              << " (remaining life: " << target->lifePoints << ")" << std::endl;
+              << " damage to " << targetInstanceName << std::endl;
     
     // Check if target should be destroyed
-    if (target->lifePoints <= 0) {
+    if (shouldDestroy) {
         std::cout << "Entity " << targetInstanceName << " destroyed!" << std::endl;
         return true; // Indicates target should be destroyed
     }
@@ -155,19 +191,17 @@ void checkAndApplyDamageBlocksToEntity(const std::string& instanceName, Entities
     
     // Get the block underneath the entity
     BlockName blockUnderEntity = giveBlockNameUnderneathEntity(instanceName, entitiesManager);
-    
-    // Check if the block under the entity is in the damage blocks list
+      // Check if the block under the entity is in the damage blocks list
     for (const BlockName& damageBlock : config->damageBlocks) {
         if (blockUnderEntity == damageBlock) {
             // Apply 1000 damage (enough to kill most entities)
-            entity->lifePoints -= 1000;
+            bool shouldDestroy = removeLifePointsFromEntity(instanceName, 1000, entitiesManager);
             
             std::cout << "Entity " << instanceName << " stepped on damage block (" 
-                      << static_cast<int>(blockUnderEntity) << ") and took 1000 damage! Remaining life: " 
-                      << entity->lifePoints << std::endl;
+                      << static_cast<int>(blockUnderEntity) << ") and took 1000 damage!" << std::endl;
             
             // Check if entity should be destroyed
-            if (entity->lifePoints <= 0) {
+            if (shouldDestroy) {
                 std::cout << "Entity " << instanceName << " destroyed by damage block!" << std::endl;
                 destroyEntity(instanceName, entitiesManager);
             }
@@ -184,28 +218,23 @@ void checkAndApplyWaterDamageToPlayer(EntitiesManager& entitiesManager) {
     
     // Get the block underneath the player
     BlockName blockUnderPlayer = giveBlockNameUnderneathEntity(playerInstanceName, entitiesManager);
-    
-    // Check if it's a water block
+      // Check if it's a water block
     if (blockUnderPlayer == BlockName::WATER_0 || 
         blockUnderPlayer == BlockName::WATER_1 || 
         blockUnderPlayer == BlockName::WATER_2 || 
         blockUnderPlayer == BlockName::WATER_3 || 
         blockUnderPlayer == BlockName::WATER_4) {
         
-        // Get player entity
-        Entity* player = entitiesManager.getEntity(playerInstanceName);
-        if (player) {
-            // Apply 1000 damage (enough to kill the player)
-            player->lifePoints -= 1000;
-            
-            std::cout << "Player stepped on water block (" << static_cast<int>(blockUnderPlayer) 
-                      << ") and took 1000 damage! Remaining life: " << player->lifePoints << std::endl;
-            
-            // Check if player should be destroyed
-            if (player->lifePoints <= 0) {
-                std::cout << "Player destroyed by water damage!" << std::endl;
-                destroyEntity(playerInstanceName, entitiesManager);
-            }
+        // Apply 1000 damage (enough to kill the player)
+        bool shouldDestroy = removeLifePointsFromEntity(playerInstanceName, 1000, entitiesManager);
+        
+        std::cout << "Player stepped on water block (" << static_cast<int>(blockUnderPlayer)
+                  << ") and took 1000 damage!" << std::endl;
+        
+        // Check if player should be destroyed
+        if (shouldDestroy) {
+            std::cout << "Player destroyed by water damage!" << std::endl;
+            destroyEntity(playerInstanceName, entitiesManager);
         }
     }
 }
@@ -232,22 +261,18 @@ void checkPlayerWaterDamageAtPosition(int blockX, int blockY, BlockName blockTyp
     // Convert player position to grid coordinates
     int playerGridX = static_cast<int>(std::floor(playerX));
     int playerGridY = static_cast<int>(std::floor(playerY));
-    
-    // Check if player is on the same grid position as the water block
+      // Check if player is on the same grid position as the water block
     if (playerGridX == blockX && playerGridY == blockY) {
         // Player is on the water block, apply damage
-        Entity* player = entitiesManager.getEntity(playerInstanceName);
-        if (player) {
-            player->lifePoints -= 1000;
-            
-            std::cout << "Water block (" << static_cast<int>(blockType) 
-                      << ") placed under player! Player took 1000 damage! Remaining life: " << player->lifePoints << std::endl;
-            
-            // Check if player should be destroyed
-            if (player->lifePoints <= 0) {
-                std::cout << "Player destroyed by water damage from placed block!" << std::endl;
-                destroyEntity(playerInstanceName, entitiesManager);
-            }
+        bool shouldDestroy = removeLifePointsFromEntity(playerInstanceName, 1000, entitiesManager);
+        
+        std::cout << "Water block (" << static_cast<int>(blockType) 
+                  << ") placed under player! Player took 1000 damage!" << std::endl;
+        
+        // Check if player should be destroyed
+        if (shouldDestroy) {
+            std::cout << "Player destroyed by water damage from placed block!" << std::endl;
+            destroyEntity(playerInstanceName, entitiesManager);
         }
     }
 }
@@ -291,24 +316,18 @@ void checkAllEntitiesDamageAtPosition(int blockX, int blockY, BlockName blockTyp
         // Convert entity position to grid coordinates
         int entityGridX = static_cast<int>(std::floor(entityX));
         int entityGridY = static_cast<int>(std::floor(entityY));
-        
-        // Check if entity is on the same grid position as the placed block
+          // Check if entity is on the same grid position as the placed block
         if (entityGridX == blockX && entityGridY == blockY) {
             // Entity is on the damage block, apply damage
-            Entity* mutableEntity = entitiesManager.getEntity(instanceName);
-            if (mutableEntity) {
-                mutableEntity->lifePoints -= 1000;
-                
-                std::cout << "Entity " << instanceName << " was standing on position where damage block (" 
-                          << static_cast<int>(blockType) << ") was placed! Entity took 1000 damage! Remaining life: " 
-                          << mutableEntity->lifePoints << std::endl;
-                
-                // Check if entity should be destroyed
-                if (mutableEntity->lifePoints <= 0) {
-                    std::cout << "Entity " << instanceName << " destroyed by damage block placement!" << std::endl;
-                    destroyEntity(instanceName, entitiesManager);
-                }
-            }
-        }
+            bool shouldDestroy = removeLifePointsFromEntity(instanceName, 1000, entitiesManager);
+            
+            std::cout << "Entity " << instanceName << " was standing on position where damage block (" 
+                      << static_cast<int>(blockType) << ") was placed! Entity took 1000 damage!" << std::endl;
+            
+            // Check if entity should be destroyed
+            if (shouldDestroy) {
+                std::cout << "Entity " << instanceName << " destroyed by damage block placement!" << std::endl;
+                destroyEntity(instanceName, entitiesManager);
+            }        }
     }
 }

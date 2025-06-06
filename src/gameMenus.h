@@ -122,13 +122,16 @@ public:
     void hideUIElement(UIElementName elementName);
       // Check if a UI element is visible
     bool isUIElementVisible(UIElementName elementName) const;
-    
-    // Sprite sheet manipulation functions
+      // Sprite sheet manipulation functions
     bool changeUIElementSpriteSheetPhase(UIElementName elementName, int newPhase);
     bool changeUIElementSpriteSheetFrame(UIElementName elementName, int newFrame);
     bool changeUIElementAnimationStatus(UIElementName elementName, bool isAnimated);
     bool changeUIElementAnimationSpeed(UIElementName elementName, float newSpeed);
-      // Render all visible UI elements
+    
+    // Health bar update function
+    void updateHealthBar(int currentHealth);
+    
+    // Render all visible UI elements
     void render(double deltaTime = 0.0);
     
     // Clear all UI elements
