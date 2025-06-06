@@ -19,7 +19,8 @@ enum class UIElementName {
     BUTTON_START,
     BUTTON_QUIT,
     COCONUTS,
-    LOGO
+    LOGO,
+    LOADER
 };
 
 // UI Element texture types enum

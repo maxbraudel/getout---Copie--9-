@@ -33,10 +33,13 @@ public:
     float getRight() const;
     float getBottom() const;
     float getTop() const;
-    float getWidth() const;
-    float getHeight() const;
+    float getWidth() const;    float getHeight() const;
     
-private:    // Camera properties
+    // Last known player position management
+    void getLastKnownPlayerPosition(float& x, float& y) const;
+    bool hasLastKnownPlayerPosition() const;
+    
+private:// Camera properties
     float m_cameraRegion; // Current applied camera region (may be adjusted for window constraints)
     float m_desiredCameraRegion; // User's desired camera region (preserved during window resize)
     static const float MIN_CAMERA_REGION;
@@ -48,6 +51,11 @@ private:    // Camera properties
     float m_right;
     float m_bottom;
     float m_top;
+    
+    // Last known player position
+    float m_lastKnownPlayerX;
+    float m_lastKnownPlayerY;
+    bool m_hasLastKnownPosition;
     
     // Grid size
     int m_gridSize;

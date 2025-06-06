@@ -164,15 +164,19 @@ void onWindowResize(GLFWwindow* window, int width, int height) {
     if (glfwGetCurrentContext() != nullptr) {
         myEngine.set2DProjection(projLeft, projRight, projBottom, projTop);
     }
-    
-    // Update camera to adapt to new window size (works even when game is paused)
+      // Update camera to adapt to new window size (works even when game is paused)
     // This ensures the camera view adjusts properly during window resize regardless of pause state
     float playerX, playerY;
     if (getPlayerPosition(playerX, playerY)) {
         // Player exists - update camera with current player position
         gameCamera.updateCameraPosition(playerX, playerY, width, height);
+    } else if (gameCamera.hasLastKnownPlayerPosition()) {
+        // Player doesn't exist but we have a last known position - use that
+        gameCamera.getLastKnownPlayerPosition(playerX, playerY);
+        gameCamera.updateCameraPosition(playerX, playerY, width, height);
+        std::cout << "Using last known player position for camera: (" << playerX << ", " << playerY << ")" << std::endl;
     } else {
-        // Player doesn't exist - update camera with center position to maintain proper aspect ratio
+        // No player and no last known position - use center of the map
         gameCamera.updateCameraPosition(GRID_SIZE / 2.0f, GRID_SIZE / 2.0f, width, height);
     }
     

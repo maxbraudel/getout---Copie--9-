@@ -19,6 +19,12 @@ static std::vector<UIElementInfo> createUIElementsToLoad() {
     startMenu.scale = 2.0f;
     uiElements.push_back(startMenu);
 
+    // Loader
+    UIElementInfo loader;
+    loader.name = UIElementName::LOADER;
+    loader.texturePath = "../assets/textures/ui/loader.png";
+    loader.scale = 2.0f;
+    uiElements.push_back(loader);
 
     UIElementInfo winMenu;
     winMenu.name = UIElementName::WIN_MENU;

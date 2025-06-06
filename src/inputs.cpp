@@ -237,6 +237,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             } else {
                 // Remove menu BEFORE starting gameplay to remove it during loading
                 gameMenus.removeUIElement(UIElementName::START_MENU);
+
+                gameMenus.placeUIElement(UIElementName::LOADER, UIElementPosition::CENTER);
                 
                 // Force a single frame render to update the UI before starting gameplay
                 // This ensures the START_MENU disappears before loading begins

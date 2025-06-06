@@ -25,7 +25,10 @@ Camera::Camera(int gridSize)
       m_transitionStartRegion(0.0f),
       m_transitionTargetRegion(0.0f),
       m_transitionDuration(0.0f),
-      m_transitionElapsed(0.0f)
+      m_transitionElapsed(0.0f),
+      m_lastKnownPlayerX(gridSize / 2.0f),
+      m_lastKnownPlayerY(gridSize / 2.0f),
+      m_hasLastKnownPosition(false)
 {
     // Constructor body can be empty as we've initialized everything in the initializer list
 }
@@ -122,6 +125,11 @@ float Camera::getMaxUsableCameraRegion(int windowWidth, int windowHeight) const 
 }
 
 void Camera::updateCameraPosition(float playerX, float playerY, int windowWidth, int windowHeight) {
+    // Store this as the last known player position
+    m_lastKnownPlayerX = playerX;
+    m_lastKnownPlayerY = playerY;
+    m_hasLastKnownPosition = true;
+    
     // Calculate adaptive camera view that matches window aspect ratio
     float windowAspectRatio = static_cast<float>(windowWidth) / static_cast<float>(windowHeight);
     
@@ -288,9 +296,17 @@ void Camera::updateSmoothTransitions(float deltaTime) {
         // Calculate current region
         float currentRegion = m_transitionStartRegion + (m_transitionTargetRegion - m_transitionStartRegion) * t;
         m_desiredCameraRegion = currentRegion;
-        
-        // Apply window constraints to get the actual camera region
+          // Apply window constraints to get the actual camera region
         float maxAllowedRegion = getMaxUsableCameraRegion(windowWidth, windowHeight);
         m_cameraRegion = std::min(m_desiredCameraRegion, maxAllowedRegion);
     }
+}
+
+void Camera::getLastKnownPlayerPosition(float& x, float& y) const {
+    x = m_lastKnownPlayerX;
+    y = m_lastKnownPlayerY;
+}
+
+bool Camera::hasLastKnownPlayerPosition() const {
+    return m_hasLastKnownPosition;
 }
