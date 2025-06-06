@@ -142,8 +142,8 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     ice1Info.hasTransformation = true;
     ice1Info.savePreviousExistingBlock = true; // Save the water block that was here
     ice1Info.transformBlockTo = BlockName::ICE_2;
-    ice1Info.transformBlockTimeIntervalStart = 10.0f; // 10 seconds minimum
-    ice1Info.transformBlockTimeIntervalEnd = 15.0f;   // 15 seconds maximum
+    ice1Info.transformBlockTimeIntervalStart = 5.0f; // 10 seconds minimum
+    ice1Info.transformBlockTimeIntervalEnd = 7.0f;   // 15 seconds maximum
     textureConfigs[BlockName::ICE_1] = ice1Info;
 
     BlockInfo ice2Info;
@@ -152,8 +152,8 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     // Configure ICE_2 block transformation
     ice2Info.hasTransformation = true;
     ice2Info.transformBlockTo = BlockName::ICE_3;
-    ice2Info.transformBlockTimeIntervalStart = 10.0f; // 10 seconds minimum
-    ice2Info.transformBlockTimeIntervalEnd = 15.0f;   // 15 seconds maximum
+    ice2Info.transformBlockTimeIntervalStart = 4.0f; // 10 seconds minimum
+    ice2Info.transformBlockTimeIntervalEnd = 6.0f;   // 15 seconds maximum
     textureConfigs[BlockName::ICE_2] = ice2Info;
 
     BlockInfo ice3Info;
@@ -162,8 +162,8 @@ bool Map::init(glbasimac::GLBI_Engine& engine) {
     // Configure ICE_3 block transformation - transforms back to the original water block
     ice3Info.hasTransformation = true;
     ice3Info.transformBlockToPreviousExistingBlock = true; // Transform back to saved water block
-    ice3Info.transformBlockTimeIntervalStart = 10.0f; // 10 seconds minimum
-    ice3Info.transformBlockTimeIntervalEnd = 15.0f;   // 15 seconds maximum
+    ice3Info.transformBlockTimeIntervalStart = 3.0f; // 10 seconds minimum
+    ice3Info.transformBlockTimeIntervalEnd = 5.0f;   // 15 seconds maximum
     textureConfigs[BlockName::ICE_3] = ice3Info;
 
 
