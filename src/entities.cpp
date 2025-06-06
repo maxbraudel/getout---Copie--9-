@@ -500,7 +500,7 @@ static void initializeEntityTypes() {
         EntityInfo armadillo;
         armadillo.type = EntityName::ARMADILLO;
         armadillo.elementName = ElementName::ARMADILLO; // Use a test element for now
-        armadillo.scale = 2.0f;
+        armadillo.scale = 1.8f;
         // Default sprite configuration
         armadillo.defaultSpriteSheetPhase = 2;
         armadillo.defaultSpriteSheetFrame = 0;

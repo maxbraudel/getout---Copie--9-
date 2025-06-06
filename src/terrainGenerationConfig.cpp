@@ -259,7 +259,7 @@ void TerrainGenerationConfig::initializeDefaultRules() {
 
     armadillosRule.spawnBlocks = {BlockName::GRASS_2};
       // Spawn probability and constraints
-    armadillosRule.spawnChance = 120;                   // 1/100 chance for rare spawning
+    armadillosRule.spawnChance = 200;                   // 1/100 chance for rare spawning
     armadillosRule.maxSpawns = 1000;                      // Max 50 shark entities total
     
     // Distance constraints - maintain reasonable spacing between groups
