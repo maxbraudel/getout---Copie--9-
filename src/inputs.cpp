@@ -208,13 +208,33 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             void endGameplay();
             
             // Prevent stopping gameplay when in active GAMEPLAY state
-            if (GAME_STATE == GameState::GAMEPLAY && gameplayActive) {
+            // But allow it when the game is paused
+            if (GAME_STATE == GameState::GAMEPLAY && gameplayActive && !g_threadManager->isPaused()) {
                 std::cout << "Cannot stop gameplay with Enter key during active gameplay" << std::endl;
                 return;
-            }            if (gameplayActive) {
+            }
+            
+            if (gameplayActive) {
+                // If the game is paused, remove the pause menu first
+                if (g_threadManager && g_threadManager->isPaused()) {
+                    gameMenus.removeUIElement(UIElementName::PAUSE_MENU);
+                }
+                
                 endGameplay();
+                
+                // Force a single frame render to ensure UI updates immediately
+                glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
+                glClear(GL_COLOR_BUFFER_BIT);
+                
                 // Show start menu when gameplay ends
-                gameMenus.placeUIElement(UIElementName::START_MENU, UIElementPosition::CENTER);            } else {
+                gameMenus.placeUIElement(UIElementName::START_MENU, UIElementPosition::CENTER);
+                
+                // Render the frame with the START_MENU
+                gameMenus.render(0.016);
+                glfwSwapBuffers(window);
+                
+                std::cout << "Gameplay ended and START_MENU displayed" << std::endl;
+            } else {
                 // Remove menu BEFORE starting gameplay to remove it during loading
                 gameMenus.removeUIElement(UIElementName::START_MENU);
                 
