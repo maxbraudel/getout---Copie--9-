@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <cmath>
 #include "glbasimac/glbi_texture.hpp"
 // Include stb_image without defining STB_IMAGE_IMPLEMENTATION
 // This avoids duplicate symbols since it's already defined in map.cpp
@@ -38,13 +39,32 @@ static std::vector<UIElementInfo> createUIElementsToLoad() {
     optionsMenu.texturePath = "../assets/textures/ui/options.png";
     optionsMenu.scale = 1.0f;
     uiElements.push_back(optionsMenu);
-    
-    // Health Bar
+      // Health Bar - example sprite sheet UI element
     UIElementInfo healthBar;
     healthBar.name = UIElementName::HEALTH_BAR;
     healthBar.texturePath = "../assets/textures/ui/hearts.png";
     healthBar.scale = 5.0f;
+    healthBar.type = UIElementTextureType::SPRITESHEET;
+    healthBar.spriteWidth = 110;  // Width of each heart sprite
+    healthBar.spriteHeight = 28; // Height of each heart sprite
+    healthBar.defaultSpriteSheetPhase = 4;  // Default to full hearts
+    healthBar.defaultSpriteSheetFrame = 0;  // Default to first frame
+    healthBar.isAnimated = false;            // Animate the hearts
+    healthBar.animationSpeed = 2.0f;        // Slow animation for hearts
     uiElements.push_back(healthBar);
+
+    UIElementInfo coconuts;
+    coconuts.name = UIElementName::COCONUTS;
+    coconuts.texturePath = "../assets/textures/ui/coconuts.png";
+    coconuts.scale = 3.0f;
+    coconuts.type = UIElementTextureType::SPRITESHEET;
+    coconuts.spriteWidth = 80;  // Width of each heart sprite
+    coconuts.spriteHeight = 51; // Height of each heart sprite
+    coconuts.defaultSpriteSheetPhase = 0;  // Default to full hearts
+    coconuts.defaultSpriteSheetFrame = 0;  // Default to first frame
+    coconuts.isAnimated = false;            // Animate the hearts
+    coconuts.animationSpeed = 2.0f;        // Slow animation for hearts
+    uiElements.push_back(coconuts);
     
     return uiElements;
 }
@@ -87,6 +107,8 @@ bool GameMenus::initialize(glbasimac::GLBI_Engine& engine) {
     }
 
     placeUIElement(UIElementName::HEALTH_BAR, UIElementPosition::TOP_LEFT_CORNER);
+
+    placeUIElement(UIElementName::COCONUTS, UIElementPosition::TOP_RIGHT_CORNER);
     
     std::cout << "Game UI system initialized successfully" << std::endl;
     return true;
@@ -120,13 +142,40 @@ bool GameMenus::placeUIElement(UIElementName elementName, UIElementPosition posi
         std::cerr << "Failed to load texture for UI element: " << static_cast<int>(elementName) << std::endl;
         return false;
     }
-    
-    // Create UI element instance
+      // Create UI element instance
     UIElementInstance instance(elementName, position, textureID, width, height, elementInfo.scale);
+    
+    // Set sprite sheet properties if this is a spritesheet texture
+    instance.type = elementInfo.type;
+    instance.spriteWidth = elementInfo.spriteWidth;
+    instance.spriteHeight = elementInfo.spriteHeight;
+    instance.totalWidth = width;
+    instance.totalHeight = height;
+    instance.spriteSheetPhase = elementInfo.defaultSpriteSheetPhase;
+    instance.spriteSheetFrame = elementInfo.defaultSpriteSheetFrame;
+    instance.isAnimated = elementInfo.isAnimated;
+    instance.animationSpeed = elementInfo.animationSpeed;
+    instance.currentFrameTime = 0.0f;
+    
+    // Calculate number of frames in the current phase for sprite sheets
+    if (instance.type == UIElementTextureType::SPRITESHEET && instance.spriteWidth > 0) {
+        instance.numFramesInPhase = instance.totalWidth / instance.spriteWidth;
+    } else {
+        instance.numFramesInPhase = 0;
+    }
+    
     m_activeElements.push_back(instance);
     
     std::cout << "Placed UI element: " << static_cast<int>(elementName) 
-              << " at position: " << static_cast<int>(position) << std::endl;
+              << " at position: " << static_cast<int>(position);
+    if (instance.type == UIElementTextureType::SPRITESHEET) {
+        std::cout << " (sprite sheet: " << instance.spriteWidth << "x" << instance.spriteHeight 
+                  << ", phase: " << instance.spriteSheetPhase 
+                  << ", frame: " << instance.spriteSheetFrame
+                  << ", frames in phase: " << instance.numFramesInPhase
+                  << ", animated: " << (instance.isAnimated ? "yes" : "no") << ")";
+    }
+    std::cout << std::endl;
     return true;
 }
 
@@ -170,13 +219,35 @@ bool GameMenus::isUIElementVisible(UIElementName elementName) const {
     return it != m_activeElements.end() && it->visible;
 }
 
-void GameMenus::render() {
+void GameMenus::render(double deltaTime) {
     if (!m_enginePtr || m_activeElements.empty()) {
         return;
     }
     
     // Update screen dimensions
     glfwGetWindowSize(glfwGetCurrentContext(), &m_screenWidth, &m_screenHeight);
+    
+    // Update animations for sprite sheet elements
+    for (auto& element : m_activeElements) { // Changed to non-const to update animation state
+        if (element.type == UIElementTextureType::SPRITESHEET && 
+            element.isAnimated && 
+            element.numFramesInPhase > 0 && 
+            element.animationSpeed > 0.0f) {
+            
+            // Update animation frame time
+            element.currentFrameTime += static_cast<float>(deltaTime);
+            
+            // Calculate frame time based on animation speed
+            float frameTime = 1.0f / element.animationSpeed; // Time per frame in seconds
+            
+            if (element.currentFrameTime >= frameTime) {
+                // Advance to next frame
+                int advanceFrames = static_cast<int>(element.currentFrameTime / frameTime);
+                element.spriteSheetFrame = (element.spriteSheetFrame + advanceFrames) % element.numFramesInPhase;
+                element.currentFrameTime = fmod(element.currentFrameTime, frameTime); // Keep remainder
+            }
+        }
+    }
     
     // Save current OpenGL state
     glPushAttrib(GL_ALL_ATTRIB_BITS);
@@ -328,28 +399,184 @@ void GameMenus::calculateElementPosition(UIElementPosition position, int element
 void GameMenus::renderUIElement(const UIElementInstance& element) const {
     // Calculate position and size
     float x, y, width, height;
-    calculateElementPosition(element.position, element.width, element.height, 
+    
+    // For sprite sheets, use sprite dimensions instead of full texture dimensions
+    int renderWidth = element.width;
+    int renderHeight = element.height;
+    
+    if (element.type == UIElementTextureType::SPRITESHEET && 
+        element.spriteWidth > 0 && element.spriteHeight > 0) {
+        renderWidth = element.spriteWidth;
+        renderHeight = element.spriteHeight;
+    }
+    
+    calculateElementPosition(element.position, renderWidth, renderHeight, 
                            element.scale, x, y, width, height);
     
     // Bind the texture
     glBindTexture(GL_TEXTURE_2D, element.textureID);
     
+    // Calculate UV coordinates based on whether this is a spritesheet
+    float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
+    
+    if (element.type == UIElementTextureType::SPRITESHEET && 
+        element.spriteWidth > 0 && element.spriteHeight > 0 &&
+        element.totalWidth > 0 && element.totalHeight > 0) {
+        
+        // Calculate UV coordinates for the current frame in the sprite sheet
+        float frameWidthRatio = static_cast<float>(element.spriteWidth) / element.totalWidth;
+        float frameHeightRatio = static_cast<float>(element.spriteHeight) / element.totalHeight;
+        
+        // Calculate horizontal position (frame index)
+        u0 = element.spriteSheetFrame * frameWidthRatio;
+        u1 = u0 + frameWidthRatio;
+        
+        // Calculate vertical position (sprite sheet phase/row)
+        // With stbi_set_flip_vertically_on_load(true), adjust row calculation
+        v0 = element.spriteSheetPhase * frameHeightRatio;
+        v1 = v0 + frameHeightRatio;
+    }
+    
     // Draw the UI element as a quad
     glBegin(GL_QUADS);
     // Bottom-left
-    glTexCoord2f(0.0f, 0.0f);
+    glTexCoord2f(u0, v0);
     glVertex2f(x, y);
     
     // Bottom-right
-    glTexCoord2f(1.0f, 0.0f);
+    glTexCoord2f(u1, v0);
     glVertex2f(x + width, y);
     
     // Top-right
-    glTexCoord2f(1.0f, 1.0f);
+    glTexCoord2f(u1, v1);
     glVertex2f(x + width, y + height);
     
     // Top-left
-    glTexCoord2f(0.0f, 1.0f);
+    glTexCoord2f(u0, v1);
     glVertex2f(x, y + height);
     glEnd();
+}
+
+bool GameMenus::changeUIElementSpriteSheetPhase(UIElementName elementName, int newPhase) {
+    // Find the UI element instance
+    auto it = std::find_if(m_activeElements.begin(), m_activeElements.end(),
+        [elementName](const UIElementInstance& element) {
+            return element.name == elementName;
+        });
+    
+    if (it == m_activeElements.end()) {
+        std::cerr << "UI element not found for changing sprite phase: " << static_cast<int>(elementName) << std::endl;
+        return false;
+    }
+    
+    // Check if this is a spritesheet element
+    if (it->type != UIElementTextureType::SPRITESHEET) {
+        std::cerr << "UI element doesn't support sprite phases: " << static_cast<int>(elementName) << std::endl;
+        return false;
+    }
+    
+    // Check if phase is valid (calculate number of phases based on texture height)
+    if (it->spriteHeight > 0 && it->totalHeight > 0) {
+        int numPhases = it->totalHeight / it->spriteHeight;
+        if (newPhase >= 0 && newPhase < numPhases) {
+            it->spriteSheetPhase = newPhase;
+            std::cout << "Changed UI element sprite phase: " << static_cast<int>(elementName) 
+                      << " to " << newPhase << std::endl;
+            return true;
+        } else {
+            std::cerr << "Invalid sprite phase " << newPhase << " for UI element: " << static_cast<int>(elementName)
+                      << " (valid range: 0-" << (numPhases - 1) << ")" << std::endl;
+            return false;
+        }
+    }
+    
+    std::cerr << "Invalid sprite sheet configuration for UI element: " << static_cast<int>(elementName) << std::endl;
+    return false;
+}
+
+bool GameMenus::changeUIElementSpriteSheetFrame(UIElementName elementName, int newFrame) {
+    // Find the UI element instance
+    auto it = std::find_if(m_activeElements.begin(), m_activeElements.end(),
+        [elementName](const UIElementInstance& element) {
+            return element.name == elementName;
+        });
+    
+    if (it == m_activeElements.end()) {
+        std::cerr << "UI element not found for changing sprite frame: " << static_cast<int>(elementName) << std::endl;
+        return false;
+    }
+    
+    // Check if this is a spritesheet element
+    if (it->type != UIElementTextureType::SPRITESHEET) {
+        std::cerr << "UI element doesn't support sprite frames: " << static_cast<int>(elementName) << std::endl;
+        return false;
+    }
+    
+    // Ensure frame is within valid range
+    if (it->numFramesInPhase > 0) {
+        it->spriteSheetFrame = newFrame % it->numFramesInPhase;
+        std::cout << "Changed UI element sprite frame: " << static_cast<int>(elementName) 
+                  << " to " << it->spriteSheetFrame << std::endl;
+        return true;
+    } else {
+        std::cerr << "UI element doesn't support sprite frames: " << static_cast<int>(elementName) << std::endl;
+        return false;
+    }
+}
+
+bool GameMenus::changeUIElementAnimationStatus(UIElementName elementName, bool isAnimated) {
+    // Find the UI element instance
+    auto it = std::find_if(m_activeElements.begin(), m_activeElements.end(),
+        [elementName](const UIElementInstance& element) {
+            return element.name == elementName;
+        });
+    
+    if (it == m_activeElements.end()) {
+        std::cerr << "UI element not found for changing animation status: " << static_cast<int>(elementName) << std::endl;
+        return false;
+    }
+    
+    // Check if this is a spritesheet element
+    if (it->type != UIElementTextureType::SPRITESHEET) {
+        std::cerr << "UI element doesn't support animation: " << static_cast<int>(elementName) << std::endl;
+        return false;
+    }
+    
+    it->isAnimated = isAnimated;
+    if (isAnimated) {
+        it->currentFrameTime = 0.0f; // Reset animation timer
+    }
+    
+    std::cout << "Changed UI element animation status: " << static_cast<int>(elementName) 
+              << " to " << (isAnimated ? "animated" : "static") << std::endl;
+    return true;
+}
+
+bool GameMenus::changeUIElementAnimationSpeed(UIElementName elementName, float newSpeed) {
+    // Find the UI element instance
+    auto it = std::find_if(m_activeElements.begin(), m_activeElements.end(),
+        [elementName](const UIElementInstance& element) {
+            return element.name == elementName;
+        });
+    
+    if (it == m_activeElements.end()) {
+        std::cerr << "UI element not found for changing animation speed: " << static_cast<int>(elementName) << std::endl;
+        return false;
+    }
+    
+    // Check if this is a spritesheet element
+    if (it->type != UIElementTextureType::SPRITESHEET) {
+        std::cerr << "UI element doesn't support animation: " << static_cast<int>(elementName) << std::endl;
+        return false;
+    }
+    
+    if (newSpeed >= 0.0f) {
+        it->animationSpeed = newSpeed;
+        std::cout << "Changed UI element animation speed: " << static_cast<int>(elementName) 
+                  << " to " << newSpeed << " FPS" << std::endl;
+        return true;
+    } else {
+        std::cerr << "Invalid animation speed (must be non-negative): " << newSpeed << std::endl;
+        return false;
+    }
 }
