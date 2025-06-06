@@ -7,6 +7,51 @@
 // This avoids duplicate symbols since it's already defined in map.cpp
 #include "../third_party/glbasimac/tools/stb_image.h"
 
+// Define UI elements to load - using C++11 compatible initialization syntax
+static std::vector<UIElementInfo> createUIElementsToLoad() {
+    std::vector<UIElementInfo> uiElements;
+    
+    // Start Menu
+    UIElementInfo startMenu;
+    startMenu.name = UIElementName::START_MENU;
+    startMenu.texturePath = "../assets/textures/ui/startMenu.png";
+    startMenu.scale = 1.0f;
+    uiElements.push_back(startMenu);
+    
+    // Pause Menu  
+    UIElementInfo pauseMenu;
+    pauseMenu.name = UIElementName::PAUSE_MENU;
+    pauseMenu.texturePath = "../assets/textures/ui/pauseMenu.png";
+    pauseMenu.scale = 1.0f;
+    uiElements.push_back(pauseMenu);
+    
+    // Game Over
+    UIElementInfo gameOver;
+    gameOver.name = UIElementName::GAME_OVER;
+    gameOver.texturePath = "../assets/textures/ui/gameOver.png";
+    gameOver.scale = 1.0f;
+    uiElements.push_back(gameOver);
+    
+    // Options Menu
+    UIElementInfo optionsMenu;
+    optionsMenu.name = UIElementName::OPTIONS_MENU;
+    optionsMenu.texturePath = "../assets/textures/ui/options.png";
+    optionsMenu.scale = 1.0f;
+    uiElements.push_back(optionsMenu);
+    
+    // Health Bar
+    UIElementInfo healthBar;
+    healthBar.name = UIElementName::HEALTH_BAR;
+    healthBar.texturePath = "../assets/textures/ui/hearts.png";
+    healthBar.scale = 5.0f;
+    uiElements.push_back(healthBar);
+    
+    return uiElements;
+}
+
+// Create UI elements vector using the function
+static const std::vector<UIElementInfo> uiElementsToLoad = createUIElementsToLoad();
+
 // Global instance of the menu system
 GameMenus gameMenus;
 
@@ -21,15 +66,19 @@ GameMenus::~GameMenus() {
     m_activeElements.clear();
 }
 
+std::vector<UIElementInfo> GameMenus::createUIElementsToLoad() {
+    return uiElementsToLoad;
+}
+
 bool GameMenus::initialize(glbasimac::GLBI_Engine& engine) {
     m_enginePtr = &engine;
     
-    // Register UI elements - add paths to your UI textures here
-    registerUIElement(UIElementInfo(UIElementName::START_MENU, "../assets/textures/ui/startMenu.png", 1.0f));
-    registerUIElement(UIElementInfo(UIElementName::PAUSE_MENU, "../assets/textures/ui/pauseMenu.png", 1.0f));
-    registerUIElement(UIElementInfo(UIElementName::GAME_OVER, "../assets/textures/ui/gameOver.png", 1.0f));
-    registerUIElement(UIElementInfo(UIElementName::OPTIONS_MENU, "../assets/textures/ui/options.png", 1.0f));
-    registerUIElement(UIElementInfo(UIElementName::HEALTH_BAR, "../assets/textures/ui/hearts.png", 5.0f));
+    // Load UI elements using vector-based pattern
+    for (const auto& uiElementInfo : uiElementsToLoad) {
+        // Register UI element in map
+        m_registeredElements[uiElementInfo.name] = uiElementInfo;
+        std::cout << "Registered UI element: " << static_cast<int>(uiElementInfo.name) << std::endl;
+    }
     
     // Example: Place START_MENU at CENTER position (as requested)
     if (!placeUIElement(UIElementName::START_MENU, UIElementPosition::CENTER)) {
@@ -41,11 +90,6 @@ bool GameMenus::initialize(glbasimac::GLBI_Engine& engine) {
     
     std::cout << "Game UI system initialized successfully" << std::endl;
     return true;
-}
-
-void GameMenus::registerUIElement(const UIElementInfo& elementInfo) {
-    m_registeredElements[elementInfo.name] = elementInfo;
-    std::cout << "Registered UI element: " << static_cast<int>(elementInfo.name) << std::endl;
 }
 
 bool GameMenus::placeUIElement(UIElementName elementName, UIElementPosition position) {

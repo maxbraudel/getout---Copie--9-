@@ -61,11 +61,11 @@ public:
     GameMenus();
     ~GameMenus();
     
-    // Initialize the menu system and register UI elements
+    // Initialize the menu system and load UI elements
     bool initialize(glbasimac::GLBI_Engine& engine);
     
-    // Register a new UI element type
-    void registerUIElement(const UIElementInfo& elementInfo);
+    // Create the vector of UI elements to load (similar to elementsOnMap pattern)
+    static std::vector<UIElementInfo> createUIElementsToLoad();
     
     // Place a UI element at a specific position (creates an instance)
     bool placeUIElement(UIElementName elementName, UIElementPosition position);
