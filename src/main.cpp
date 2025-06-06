@@ -427,12 +427,18 @@ int main() {
 				if (keyPressedStates[GLFW_KEY_ESCAPE]) {
 					glfwSetWindowShouldClose(window, GLFW_TRUE);
 				}			}
-			
-			// Check if WIN menu should be displayed (from main thread for proper OpenGL context)
+					// Check if WIN menu should be displayed (from main thread for proper OpenGL context)
 			if (SHOULD_SHOW_WIN_MENU) {
 				gameMenus.placeUIElement(UIElementName::WIN_MENU, UIElementPosition::CENTER);
 				SHOULD_SHOW_WIN_MENU = false; // Reset flag to prevent repeated calls
 				std::cout << "WIN menu displayed from main thread" << std::endl;
+			}
+			
+			// Check if GAME_OVER menu should be displayed (from main thread for proper OpenGL context)
+			if (SHOULD_SHOW_GAME_OVER) {
+				gameMenus.placeUIElement(UIElementName::GAME_OVER, UIElementPosition::CENTER);
+				SHOULD_SHOW_GAME_OVER = false; // Reset flag to prevent repeated calls
+				std::cout << "GAME_OVER menu displayed from main thread" << std::endl;
 			}
 			
 			// Always render the UI/menus on top of everything else

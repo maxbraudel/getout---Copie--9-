@@ -6,6 +6,8 @@
 #include "gameMenus.h"
 #include "globals.h"
 #include "enumDefinitions.h"
+#include "PlayerMovementManager.h"
+#include "threading.h"
 #include <iostream>
 #include <vector>
 #include <string>
@@ -112,9 +114,34 @@ void destroyEntity(const std::string& instanceName, EntitiesManager& entitiesMan
     // 4. Remove the element from the map
     extern ElementsOnMap elementsManager;
     elementsManager.removeElement(elementName);
-    
-    // 5. Finally, remove the entity from the entities manager
+      // 5. Finally, remove the entity from the entities manager
     entitiesManager.getEntities().erase(instanceName);
+      // 6. Check if this was the player - if so, trigger defeat condition
+    if (instanceName == "player1") {
+        std::cout << "PLAYER DESTROYED! Triggering defeat condition..." << std::endl;
+        
+        // Access the player movement manager to trigger defeat condition
+        extern PlayerMovementManager* g_playerMovementManager;
+        if (g_playerMovementManager != nullptr) {
+            // Use the proper method to trigger defeat condition
+            g_playerMovementManager->triggerDefeatCondition();
+        } else {
+            // Fallback: set flags directly if player movement manager is not available
+            extern bool SHOULD_SHOW_GAME_OVER;
+            extern GameState GAME_STATE;
+            
+            GAME_STATE = GameState::DEFEAT;
+            SHOULD_SHOW_GAME_OVER = true;
+            std::cout << "Player movement manager not available - using fallback defeat trigger" << std::endl;
+            
+            // Force pause the game immediately
+            extern GameThreadManager* g_threadManager;
+            if (g_threadManager) {
+                g_threadManager->pauseGame();
+                std::cout << "Game forcibly paused for defeat condition (fallback)" << std::endl;
+            }
+        }
+    }
 }
 
 // Function to check and handle entities that should be destroyed

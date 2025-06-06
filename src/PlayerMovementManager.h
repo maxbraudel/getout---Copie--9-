@@ -61,10 +61,11 @@ public:
     PlayerState getPlayerState() const;
 
     // Sync player position with main game state (called from game logic thread)
-    void syncWithGameState();
-
-    // Check if the system is running
+    void syncWithGameState();    // Check if the system is running
     bool isRunning() const { return m_running.load(); }
+    
+    // Trigger defeat condition externally (e.g., when player is destroyed)
+    void triggerDefeatCondition();
 
 private:
     // Player movement thread function
@@ -80,9 +81,11 @@ private:
     // Handle collision detection for player
     bool checkPlayerCollision(float newX, float newY, float& actualDeltaX, float& actualDeltaY) const;    // Check for nearby coconuts and collect them
     void checkAndCollectCoconuts();
-    
-    // Process win condition timing
+      // Process win condition timing
     void processWinCondition(double deltaTime);
+    
+    // Process defeat condition timing
+    void processDefeatCondition(double deltaTime);
 
     // Threading objects
     std::thread m_movementThread;
@@ -114,11 +117,15 @@ private:
     std::atomic<uint64_t> m_movementUpdatesProcessed{0};
     std::atomic<uint64_t> m_collisionChecksPerformed{0};
     std::atomic<double> m_averageUpdateTime{0.0};
-    
-    // Win condition tracking
+      // Win condition tracking
     bool m_winConditionTriggered{false};
     double m_winDelayTimer{0.0};
     mutable std::mutex m_winStateMutex;
+    
+    // Defeat condition tracking
+    bool m_defeatConditionTriggered{false};
+    double m_defeatDelayTimer{0.0};
+    mutable std::mutex m_defeatStateMutex;
 };
 
 // Global instance

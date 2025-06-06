@@ -47,6 +47,9 @@ extern GameState GAME_STATE; // Tracks the current game state (START, DEFEAT, PA
 // Win condition flags
 extern bool SHOULD_SHOW_WIN_MENU; // Flag to indicate WIN menu should be displayed
 
+// Defeat condition flags
+extern bool SHOULD_SHOW_GAME_OVER; // Flag to indicate GAME_OVER menu should be displayed
+
 // Game timing for win/loss conditions
 extern const float WAIT_BEFORE_WINNING_OR_LOSING; // Time to wait before showing win/loss screen
 

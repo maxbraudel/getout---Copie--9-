@@ -229,6 +229,9 @@ void PlayerMovementManager::playerMovementThread()
             // Process win condition timing
             processWinCondition(PLAYER_UPDATE_TIMESTEP);
             
+            // Process defeat condition timing
+            processDefeatCondition(PLAYER_UPDATE_TIMESTEP);
+            
             accumulatedTime -= PLAYER_UPDATE_TIMESTEP;
             m_movementUpdatesProcessed++;
             
@@ -260,6 +263,16 @@ void PlayerMovementManager::processPlayerMovement(const PlayerInput& input, doub
         if (m_playerState.isMoving) {
             m_playerState.isMoving = false;
             std::cout << "Player entity destroyed - disabling movement controls" << std::endl;
+            
+            // Trigger defeat condition if not already triggered
+            if (!m_defeatConditionTriggered) {
+                std::lock_guard<std::mutex> defeatLock(m_defeatStateMutex);
+                if (!m_defeatConditionTriggered) {
+                    m_defeatConditionTriggered = true;
+                    m_defeatDelayTimer = 0.0;
+                    std::cout << "DEFEAT CONDITION TRIGGERED! Player entity no longer exists. Starting " << WAIT_BEFORE_WINNING_OR_LOSING << " second countdown..." << std::endl;
+                }
+            }
         }
         return;
     }
@@ -330,10 +343,19 @@ void PlayerMovementManager::processPlayerMovement(const PlayerInput& input, doub
         m_collisionChecksPerformed++;
     }    // Update player position if movement is possible
     if (canMove) {
-        updatePlayerPosition(actualDeltaX, actualDeltaY);
-          // Check for water damage after player movement
+        updatePlayerPosition(actualDeltaX, actualDeltaY);        // Check for water damage after player movement
         if (m_entitiesManager) {
             checkAndApplyDamageBlocksToEntity("player1", *m_entitiesManager);
+            
+            // Check for defeat condition after damage application
+            Entity* player = m_entitiesManager->getEntity("player1");
+            if (player && player->lifePoints <= 0 && !m_defeatConditionTriggered) {
+                std::lock_guard<std::mutex> defeatLock(m_defeatStateMutex);
+                m_defeatConditionTriggered = true;
+                m_defeatDelayTimer = 0.0;
+                std::cout << "DEFEAT CONDITION TRIGGERED! Player has " << player->lifePoints 
+                          << " life points. Starting " << WAIT_BEFORE_WINNING_OR_LOSING << " second countdown..." << std::endl;
+            }
         }
         
         // Check for coconuts to collect after movement
@@ -566,6 +588,57 @@ void PlayerMovementManager::processWinCondition(double deltaTime)
             float remainingTime = WAIT_BEFORE_WINNING_OR_LOSING - m_winDelayTimer;
             std::cout << "Win countdown: " << remainingTime << " seconds remaining..." << std::endl;
         }
+    }
+}
+
+void PlayerMovementManager::processDefeatCondition(double deltaTime)
+{
+    std::lock_guard<std::mutex> defeatLock(m_defeatStateMutex);
+    
+    if (m_defeatConditionTriggered) {
+        m_defeatDelayTimer += deltaTime;
+          if (m_defeatDelayTimer >= WAIT_BEFORE_WINNING_OR_LOSING) {
+            // Time's up - trigger the defeat state
+            std::cout << "DEFEAT! Player has been defeated - game lost!" << std::endl;
+            
+            // Set game state to DEFEAT immediately
+            GAME_STATE = GameState::DEFEAT;
+            std::cout << "Game state set to: " << gameStateToString(GAME_STATE) << std::endl;
+            
+            // Signal main thread to show GAME_OVER menu (avoid OpenGL context issues)
+            SHOULD_SHOW_GAME_OVER = true;
+            std::cout << "GAME_OVER menu display requested" << std::endl;
+            
+            // Wait additional time to allow UI to render properly before pausing
+            if (m_defeatDelayTimer >= WAIT_BEFORE_WINNING_OR_LOSING + 0.5) {
+                // Force pause the game AFTER giving UI time to render
+                if (g_threadManager) {
+                    g_threadManager->pauseGame();
+                    std::cout << "Game forcibly paused for defeat condition" << std::endl;
+                }
+                
+                // Reset defeat condition state (prevent retriggering)
+                m_defeatConditionTriggered = false;
+                m_defeatDelayTimer = 0.0;
+            } else {
+                // Still waiting for UI to stabilize
+                float remainingTime = (WAIT_BEFORE_WINNING_OR_LOSING + 0.5) - m_defeatDelayTimer;
+                std::cout << "GAME_OVER menu stabilizing... " << remainingTime << " seconds before pause..." << std::endl;
+            }
+        } else {
+            // Still counting down
+            float remainingTime = WAIT_BEFORE_WINNING_OR_LOSING - m_defeatDelayTimer;
+            std::cout << "Defeat countdown: " << remainingTime << " seconds remaining..." << std::endl;
+        }    }
+}
+
+void PlayerMovementManager::triggerDefeatCondition()
+{
+    std::lock_guard<std::mutex> defeatLock(m_defeatStateMutex);
+    if (!m_defeatConditionTriggered) {
+        m_defeatConditionTriggered = true;
+        m_defeatDelayTimer = 0.0;
+        std::cout << "DEFEAT CONDITION TRIGGERED EXTERNALLY! Starting " << WAIT_BEFORE_WINNING_OR_LOSING << " second countdown..." << std::endl;
     }
 }
 
