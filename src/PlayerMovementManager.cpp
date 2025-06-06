@@ -10,6 +10,7 @@
 #include "camera.h"
 #include "globals.h"
 #include "entitiesStatus.h"
+#include "gameMenus.h"
 #include <iostream>
 #include <algorithm>
 #include <cmath>
@@ -486,12 +487,33 @@ void PlayerMovementManager::checkAndCollectCoconuts() {
             }
         }
     }
-    
-    // Remove the coconuts and increment counter
+      // Remove the coconuts and increment counter
     for (const std::string& coconutName : coconutsToRemove) {
         if (m_elementsManager->removeElement(coconutName)) {
             COCONUT_COUNTER++;
             std::cout << "Collected coconut! Total coconuts: " << COCONUT_COUNTER << std::endl;
+            
+            // Update the COCONUTS UI element sprite phase based on counter value
+            int targetPhase;
+            if (COCONUT_COUNTER <= 0) {
+                targetPhase = 3;  // 0 or below = phase 3
+            } else if (COCONUT_COUNTER == 1) {
+                targetPhase = 2;  // 1 = phase 2
+            } else if (COCONUT_COUNTER == 2) {
+                targetPhase = 1;  // 2 = phase 1
+            } else { // 3 or more
+                targetPhase = 0;  // 3+ = phase 0
+            }
+            
+            // Update the UI element
+            extern GameMenus gameMenus;
+            bool success = gameMenus.changeUIElementSpriteSheetPhase(UIElementName::COCONUTS, targetPhase);
+            if (success) {
+                std::cout << "Updated coconuts UI: counter=" << COCONUT_COUNTER 
+                          << " -> phase=" << targetPhase << std::endl;
+            } else {
+                std::cout << "Failed to update coconuts UI for counter value: " << COCONUT_COUNTER << std::endl;
+            }
         }
     }
 }
