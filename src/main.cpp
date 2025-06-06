@@ -65,12 +65,35 @@ bool startGameplay(GLBI_Engine& engine, GLFWwindow* window) {
     std::cout << "Resetting entity movement states..." << std::endl;
     Gameplay::getEntitiesManager().resetAllEntityMovementStates();
     
+    // Ensure camera is properly positioned at player's starting position to prevent flicker
+    float playerX, playerY;
+    if (getPlayerPosition(playerX, playerY)) {
+        std::cout << "Pre-positioning camera at player start position: (" << playerX << ", " << playerY << ")" << std::endl;
+        gameCamera.updateCameraPosition(playerX, playerY, windowWidth, windowHeight);
+    } else {
+        // Use default player position coordinates if player entity not found yet
+        playerX = 5.0f; // Should match the player entity placement in Gameplay::placeInitialEntities
+        playerY = 45.0f;
+        std::cout << "Pre-positioning camera at default player position: (" << playerX << ", " << playerY << ")" << std::endl;
+        gameCamera.updateCameraPosition(playerX, playerY, windowWidth, windowHeight);
+    }
+    
+    // Force a single frame render with the camera correctly positioned before starting threads
+    // This eliminates the camera flicker during gameplay start
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
+    glClear(GL_COLOR_BUFFER_BIT);
+    // Render just the loader animation, camera will be correctly positioned when gameplay appears
+    gameMenus.render(0.016);
+    glfwSwapBuffers(window);
+    
     // Start game threads
     if (!Gameplay::startGameThreads()) {
         std::cerr << "Failed to start game threads!" << std::endl;
         Gameplay::cleanup();
         return false;
-    }    gameMenus.placeUIElement(UIElementName::HEALTH_BAR, UIElementPosition::TOP_LEFT_CORNER);
+    }
+    
+    gameMenus.placeUIElement(UIElementName::HEALTH_BAR, UIElementPosition::TOP_LEFT_CORNER);
     gameMenus.placeUIElement(UIElementName::COCONUTS, UIElementPosition::TOP_RIGHT_CORNER);
 
 

@@ -117,7 +117,12 @@ private:
     std::atomic<uint64_t> m_movementUpdatesProcessed{0};
     std::atomic<uint64_t> m_collisionChecksPerformed{0};
     std::atomic<double> m_averageUpdateTime{0.0};
-      // Win condition tracking
+    
+    // Player position tracking for camera
+    float m_lastKnownPlayerX{0.0f};
+    float m_lastKnownPlayerY{0.0f};
+      
+    // Win condition tracking
     bool m_winConditionTriggered{false};
     double m_winDelayTimer{0.0};
     mutable std::mutex m_winStateMutex;

@@ -27,6 +27,8 @@ PlayerMovementManager::PlayerMovementManager()
     , m_elementsManager(nullptr)
     , m_entitiesManager(nullptr)
     , m_camera(nullptr)
+    , m_lastKnownPlayerX(0.0f)
+    , m_lastKnownPlayerY(0.0f)
 {
     // Initialize player state
     m_playerState = {};
@@ -58,13 +60,28 @@ bool PlayerMovementManager::initialize(Map* gameMap, ElementsOnMap* elementsMana
     m_elementsManager = elementsManager;
     m_entitiesManager = entitiesManager;
     m_camera = camera;
-    
-    // Get initial player position
+      // Get initial player position
     if (!getPlayerPosition(m_playerState.x, m_playerState.y)) {
         std::cerr << "Warning: Could not get initial player position" << std::endl;
-        m_playerState.x = 0.0f;
-        m_playerState.y = 0.0f;
+        // Use default player position coordinates from the entity configuration
+        const EntityConfiguration* playerConfig = m_entitiesManager->getConfiguration(EntityName::PLAYER);
+        if (playerConfig) {
+            m_playerState.x = 5.0f; // These values should match the player entity placement
+            m_playerState.y = 45.0f;
+            std::cout << "Using player initial position from placement coordinates: (" 
+                     << m_playerState.x << ", " << m_playerState.y << ")" << std::endl;
+        } else {
+            m_playerState.x = GRID_SIZE / 2.0f;
+            m_playerState.y = GRID_SIZE / 2.0f;
+            std::cout << "Using map center as initial player position: (" 
+                     << m_playerState.x << ", " << m_playerState.y << ")" << std::endl;
+        }
     }
+    
+    // Pre-position the camera based on player's initial position to prevent flicker
+    // This needs to happen BEFORE threads start to ensure camera is in the correct position
+    extern int windowWidth, windowHeight; // From globals.h
+    m_camera->updateCameraPosition(m_playerState.x, m_playerState.y, windowWidth, windowHeight);
     
     DEBUG_LOG_MEMORY("player_movement_initialized");
     std::cout << "PlayerMovementManager initialized successfully at (" << m_playerState.x << ", " << m_playerState.y << ")" << std::endl;
@@ -462,10 +479,14 @@ void PlayerMovementManager::updateCamera(double deltaTime)
     
     // CRITICAL FIX: Check if player entity exists before updating camera
     float playerX, playerY;
-    if (!getPlayerPosition(playerX, playerY)) {
+    bool playerExists = getPlayerPosition(playerX, playerY);
+    
+    // Always update smooth transitions to maintain visual consistency
+    m_camera->updateSmoothTransitions(static_cast<float>(deltaTime));
+    
+    if (!playerExists) {
         // Player entity doesn't exist - don't update camera position
-        // Only update smooth transitions to maintain visual consistency
-        m_camera->updateSmoothTransitions(static_cast<float>(deltaTime));
+        // Only use the last known position stored in the camera
         return;
     }
     
@@ -474,10 +495,11 @@ void PlayerMovementManager::updateCamera(double deltaTime)
         std::lock_guard<std::mutex> lock(m_stateMutex);
         playerX = m_playerState.x;
         playerY = m_playerState.y;
+        
+        // Update the last known position in thread state
+        m_lastKnownPlayerX = playerX;
+        m_lastKnownPlayerY = playerY;
     }
-    
-    // Update camera smooth transitions at 120Hz for ultra-smooth zoom animations
-    m_camera->updateSmoothTransitions(static_cast<float>(deltaTime));
     
     // Update camera position based on current player position at 120Hz for smooth following
     extern int windowWidth, windowHeight; // From globals.h
