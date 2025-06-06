@@ -35,10 +35,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if (action == GLFW_PRESS) {
         keyPressedStates[key] = true;
           // Handle immediate keyboard actions
-        if (key == GLFW_KEY_ESCAPE) {
+        if (key == GLFW_KEY_X) {
             glfwSetWindowShouldClose(window, GLFW_TRUE); // Exit on ESC press
         }        // Pause/Resume game with Tab key
-        else if (key == GLFW_KEY_TAB) {
+        else if (key == GLFW_KEY_ESCAPE) {
             if (g_threadManager) {
                 if (g_threadManager->isPaused()) {
                     // Check if game is in WIN or DEFEAT state before allowing resume

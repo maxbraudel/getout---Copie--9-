@@ -418,13 +418,13 @@ int main() {
 				}
 				
 				// Check escape key to close the window
-				if (keyPressedStates[GLFW_KEY_ESCAPE]) {
+				if (keyPressedStates[GLFW_KEY_X]) {
 					glfwSetWindowShouldClose(window, GLFW_TRUE);
 					g_threadManager->setRunning(false);
 				}
 			} else {
 				// Gameplay not active - just show black screen and handle escape key
-				if (keyPressedStates[GLFW_KEY_ESCAPE]) {
+				if (keyPressedStates[GLFW_KEY_X]) {
 					glfwSetWindowShouldClose(window, GLFW_TRUE);
 				}			}
 					// Check if WIN menu should be displayed (from main thread for proper OpenGL context)

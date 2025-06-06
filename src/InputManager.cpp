@@ -98,7 +98,7 @@ void InputManager::processKeyInput(int key, int action) {
                 break;            case GLFW_KEY_R: // Camera reset
                 m_currentInput.cameraControls[4] = true;
                 m_currentInput.stateUpdated = true;
-                break;            case GLFW_KEY_TAB: // Pause/Resume game
+                break;            case GLFW_KEY_ESCAPE: // Pause/Resume game
                 if (g_threadManager) {
                     if (g_threadManager->isPaused()) {
                         // Check if game is in WIN or DEFEAT state before allowing resume

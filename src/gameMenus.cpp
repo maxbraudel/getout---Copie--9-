@@ -16,28 +16,28 @@ static std::vector<UIElementInfo> createUIElementsToLoad() {
     UIElementInfo startMenu;
     startMenu.name = UIElementName::START_MENU;
     startMenu.texturePath = "../assets/textures/ui/startMenu.png";
-    startMenu.scale = 2.0f;
+    startMenu.scale = 1.0f;
     uiElements.push_back(startMenu);
 
 
     UIElementInfo winMenu;
     winMenu.name = UIElementName::WIN_MENU;
     winMenu.texturePath = "../assets/textures/ui/winMenu.png";
-    winMenu.scale = 2.0f;
+    winMenu.scale = 1.6f;
     uiElements.push_back(winMenu);
     
     // Pause Menu  
     UIElementInfo pauseMenu;
     pauseMenu.name = UIElementName::PAUSE_MENU;
     pauseMenu.texturePath = "../assets/textures/ui/pauseMenu.png";
-    pauseMenu.scale = 1.0f;
+    pauseMenu.scale = 1.6f;
     uiElements.push_back(pauseMenu);
     
     // Game Over
     UIElementInfo gameOver;
     gameOver.name = UIElementName::GAME_OVER;
     gameOver.texturePath = "../assets/textures/ui/gameOver.png";
-    gameOver.scale = 1.0f;
+    gameOver.scale = 1.6f;
     uiElements.push_back(gameOver);
 
 
