@@ -12,6 +12,7 @@
 #include "entitiesStatus.h"
 #include <iostream>
 #include <algorithm>
+#include <cmath>
 
 // Global player movement manager instance
 PlayerMovementManager* g_playerMovementManager = nullptr;
@@ -323,14 +324,16 @@ void PlayerMovementManager::processPlayerMovement(const PlayerInput& input, doub
         float newY = m_playerState.y + deltaY;
         canMove = checkPlayerCollision(newX, newY, actualDeltaX, actualDeltaY);
         m_collisionChecksPerformed++;
-    }
-      // Update player position if movement is possible
+    }    // Update player position if movement is possible
     if (canMove) {
         updatePlayerPosition(actualDeltaX, actualDeltaY);
           // Check for water damage after player movement
         if (m_entitiesManager) {
             checkAndApplyDamageBlocksToEntity("player1", *m_entitiesManager);
         }
+        
+        // Check for coconuts to collect after movement
+        checkAndCollectCoconuts();
     }
     
     // Update movement state
@@ -453,6 +456,44 @@ void PlayerMovementManager::updateCamera(double deltaTime)
     // Update camera position based on current player position at 120Hz for smooth following
     extern int windowWidth, windowHeight; // From globals.h
     m_camera->updateCameraPosition(playerX, playerY, windowWidth, windowHeight);
+}
+
+void PlayerMovementManager::checkAndCollectCoconuts() {
+    // Get player position
+    float playerX, playerY;
+    if (!getPlayerPosition(playerX, playerY)) {
+        return; // Can't get player position
+    }
+    
+    // Check for coconuts within 1 block radius
+    const float COCONUT_PICKUP_RADIUS = 1.0f;
+    std::vector<std::string> coconutsToRemove;
+    
+    // Get all elements and check for nearby coconuts
+    const auto& elements = m_elementsManager->getElements();
+    
+    for (const auto& element : elements) {
+        // Check if this element is a coconut
+        if (element.elementName == ElementName::COCONUT) {
+            // Calculate distance between player and coconut
+            float dx = playerX - element.x;
+            float dy = playerY - element.y;
+            float distance = std::sqrt(dx * dx + dy * dy);
+            
+            // If coconut is within pickup radius, mark it for removal
+            if (distance <= COCONUT_PICKUP_RADIUS) {
+                coconutsToRemove.push_back(element.instanceName);
+            }
+        }
+    }
+    
+    // Remove the coconuts and increment counter
+    for (const std::string& coconutName : coconutsToRemove) {
+        if (m_elementsManager->removeElement(coconutName)) {
+            COCONUT_COUNTER++;
+            std::cout << "Collected coconut! Total coconuts: " << COCONUT_COUNTER << std::endl;
+        }
+    }
 }
 
 void PlayerMovementManager::pauseMovement()

@@ -38,5 +38,8 @@ extern bool DEBUG_SHOW_PATHS; // When true, displays entity paths
 // Debug logging control
 extern bool DEBUG_LOGS;
 
+// Game counters
+extern int COCONUT_COUNTER; // Tracks the number of coconuts collected by the player
+
 // Input handling
 extern bool keyPressedStates[]; // GLFW_KEY_LAST + 1

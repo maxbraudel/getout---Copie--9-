@@ -45,5 +45,8 @@ bool DEBUG_SHOW_PATHS = false; // Set to true to display entity paths
 // Debug logging control
 bool DEBUG_LOGS = false;
 
+// Game counters
+int COCONUT_COUNTER = 0; // Initialize coconut counter to 0
+
 // Input handling
 bool keyPressedStates[GLFW_KEY_LAST + 1] = { false };

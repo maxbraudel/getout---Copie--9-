@@ -80,6 +80,9 @@ private:
     // Handle collision detection for player
     bool checkPlayerCollision(float newX, float newY, float& actualDeltaX, float& actualDeltaY) const;
 
+    // Check for nearby coconuts and collect them
+    void checkAndCollectCoconuts();
+
     // Threading objects
     std::thread m_movementThread;
     std::atomic<bool> m_running;

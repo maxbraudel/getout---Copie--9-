@@ -2,7 +2,7 @@
 #include "entities.h" // Use entity system instead of direct element management
 #include "collision.h"
 #include "map.h" // For gameMap access
-#include "globals.h" // Added for GRID_SIZE
+#include "globals.h" // Added for GRID_SIZE and COCONUT_COUNTER
 #include <iostream>
 #include <cmath>
 #include "enumDefinitions.h"
@@ -168,10 +168,12 @@ void movePlayer(float deltaX, float deltaY) {
         actualDeltaY = deltaY;
         movedPartially = true;
     }
-    
-    if (movedPartially) {
+      if (movedPartially) {
         // Move the player with the possible movement deltas
         elementsManager.moveElement("player1", actualDeltaX, actualDeltaY);
+        
+        // Check for coconuts to collect after movement
+        checkAndCollectCoconuts();
         
         // Enable animation since player is moving (at least partially)
         elementsManager.changeElementAnimationStatus("player1", true);
@@ -452,6 +454,65 @@ void placeIceBlockInFront() {
         std::cout << "ICE block placed at position (" << targetX << ", " << targetY << ") in direction " << direction << " from player at (" << playerX << ", " << playerY << ")" << std::endl;
     } else {
         std::cout << "ICE block placed!" << std::endl;
+    }
+}
+
+// Function to check for coconuts within 1 block radius and collect them
+void checkAndCollectCoconuts() {
+    // Get player position
+    float playerX, playerY;
+    if (!getPlayerPosition(playerX, playerY)) {
+        std::cout << "DEBUG: Could not get player position for coconut check" << std::endl;
+        return; // Can't get player position
+    }
+    
+    std::cout << "DEBUG: Checking for coconuts near player at (" << playerX << ", " << playerY << ")" << std::endl;
+    
+    // Check for coconuts within 1 block radius
+    const float COCONUT_PICKUP_RADIUS = 1.0f;
+    std::vector<std::string> coconutsToRemove;
+    
+    // Get all elements and check for nearby coconuts
+    const auto& elements = elementsManager.getElements();
+    std::cout << "DEBUG: Total elements to check: " << elements.size() << std::endl;
+    
+    int coconutCount = 0;
+    for (const auto& element : elements) {
+        // Check if this element is a coconut
+        if (element.elementName == ElementName::COCONUT) {
+            coconutCount++;
+            std::cout << "DEBUG: Found coconut " << element.instanceName << " at (" 
+                      << element.x << ", " << element.y << "), hasCollision=" << element.hasCollision << std::endl;
+            
+            // Calculate distance between player and coconut
+            float dx = playerX - element.x;
+            float dy = playerY - element.y;
+            float distance = std::sqrt(dx * dx + dy * dy);
+            
+            std::cout << "DEBUG: Distance to coconut " << element.instanceName << ": " << distance << " blocks" << std::endl;
+            
+            // If coconut is within pickup radius, mark it for removal
+            if (distance <= COCONUT_PICKUP_RADIUS) {
+                coconutsToRemove.push_back(element.instanceName);
+                
+                std::cout << "DEBUG: Coconut " << element.instanceName << " marked for pickup (distance: " 
+                          << distance << " <= " << COCONUT_PICKUP_RADIUS << ")" << std::endl;
+            }
+        }
+    }
+    
+    std::cout << "DEBUG: Found " << coconutCount << " total coconuts, " << coconutsToRemove.size() << " within pickup range" << std::endl;
+    
+    // Remove the coconuts and increment counter
+    for (const std::string& coconutName : coconutsToRemove) {
+        std::cout << "DEBUG: Attempting to remove coconut: " << coconutName << std::endl;
+        if (elementsManager.removeElement(coconutName)) {
+            COCONUT_COUNTER++;
+            
+            std::cout << "Collected coconut: " << coconutName << ". Total coconuts: " << COCONUT_COUNTER << std::endl;
+        } else {
+            std::cout << "DEBUG: Failed to remove coconut: " << coconutName << std::endl;
+        }
     }
 }
 

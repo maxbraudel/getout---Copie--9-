@@ -49,4 +49,7 @@ int getPlayerDirection();
 // Function to place an ICE block in front of the player
 void placeIceBlockInFront();
 
+// Function to check for coconuts within 1 block radius and collect them
+void checkAndCollectCoconuts();
+
 #endif // PLAYER_H
