@@ -66,11 +66,6 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 }
             }
         }
-        // Reset player position
-        else if (key == GLFW_KEY_R) {
-            teleportPlayer(10.0f, 10.0f);
-            std::cout << "Player position reset to (10, 10)" << std::endl;
-        }
         // Test collision handling by attempting to put player in water
         else if (key == GLFW_KEY_F) {
             // Find a water tile in the grid

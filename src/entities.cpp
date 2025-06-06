@@ -138,8 +138,8 @@ static void initializeEntityTypes() {
         antagonist.passiveStateRandomWalkTriggerTimeIntervalMax = 10.0f; // Max time between walks (seconds)
           // Alert state configuration - antagonist becomes alert when player is nearby
         antagonist.alertState = true; // Enable alert state behavior
-        antagonist.alertStateStartRadius = 9.0f; // Start becoming alert when player is 3 units away
-        antagonist.alertStateEndRadius = 11.0f; // Stop being alert when player is 8+ units away
+        antagonist.alertStateStartRadius = 12.0f; // Start becoming alert when player is 3 units away
+        antagonist.alertStateEndRadius = 14.0f; // Stop being alert when player is 8+ units away
         antagonist.alertStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers alert state
           // Flee state configuration - antagonist flees when player gets too close
         antagonist.fleeState = false; // Enable flee state behavior
@@ -154,7 +154,7 @@ static void initializeEntityTypes() {
         antagonist.attackState = true; // Enable attack state behavior
         antagonist.attackStateRunning = true; // Run when attacking
         antagonist.attackStateStartRadius = 0.0f; // Start attacking when player is 5 units away
-        antagonist.attackStateEndRadius = 8.0f; // Stop attacking when player is 10+ units away        antagonist.attackStateWaitBeforeChargeMin = 0.5f; // Wait 1-3 seconds before charging again
+        antagonist.attackStateEndRadius = 11.0f; // Stop attacking when player is 10+ units away        antagonist.attackStateWaitBeforeChargeMin = 0.5f; // Wait 1-3 seconds before charging again
         antagonist.attackStateWaitBeforeChargeMax = 1.0f;
         antagonist.attackStateTriggerEntitiesList = { EntityName::PLAYER }; // Player triggers attack state
           // Health settings

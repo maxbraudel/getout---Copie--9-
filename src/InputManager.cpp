@@ -95,33 +95,7 @@ void InputManager::processKeyInput(int key, int action) {
             case GLFW_KEY_L: // Camera right
                 m_currentInput.cameraControls[3] = true;
                 m_currentInput.stateUpdated = true;
-                break;            case GLFW_KEY_R: // Camera reset
-                m_currentInput.cameraControls[4] = true;
-                m_currentInput.stateUpdated = true;
-                break;            case GLFW_KEY_ESCAPE: // Pause/Resume game
-                if (g_threadManager) {
-                    if (g_threadManager->isPaused()) {
-                        // Check if game is in WIN or DEFEAT state before allowing resume
-                        if (GAME_STATE == GameState::WIN) {
-                            std::cout << "Cannot resume game - player has won!" << std::endl;
-                        } else if (GAME_STATE == GameState::DEFEAT) {
-                            std::cout << "Cannot resume game - player has been defeated!" << std::endl;
-                        } else {
-                            g_threadManager->resumeGame();
-                            // Remove pause menu when resuming
-                            extern GameMenus gameMenus;
-                            gameMenus.removeUIElement(UIElementName::PAUSE_MENU);
-                            std::cout << "Game resumed with Tab key" << std::endl;
-                        }
-                    } else {
-                        g_threadManager->pauseGame();
-                        // Show pause menu when pausing
-                        extern GameMenus gameMenus;
-                        gameMenus.placeUIElement(UIElementName::PAUSE_MENU, UIElementPosition::CENTER);
-                        std::cout << "Game paused with Tab key" << std::endl;
-                    }
-                }
-                break;
+                break;            
         }
     }
 }

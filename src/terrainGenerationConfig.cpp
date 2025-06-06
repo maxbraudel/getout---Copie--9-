@@ -108,7 +108,7 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     // Element properties (matching existing logic)
     coconut.scaleMin = 1.0f;                     // Random scale variation
     coconut.scaleMax = 1.3f;
-    coconut.baseScale = 2.0f;                    // Base scale
+    coconut.baseScale = 1.0f;                    // Base scale
     coconut.rotation = 0.0f;                     // No rotation
     
     // Sprite sheet properties (matching existing logic)
