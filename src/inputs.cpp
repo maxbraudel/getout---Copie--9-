@@ -211,16 +211,22 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             if (GAME_STATE == GameState::GAMEPLAY && gameplayActive) {
                 std::cout << "Cannot stop gameplay with Enter key during active gameplay" << std::endl;
                 return;
-            }
-            
-            if (gameplayActive) {
+            }            if (gameplayActive) {
                 endGameplay();
                 // Show start menu when gameplay ends
-                gameMenus.placeUIElement(UIElementName::START_MENU, UIElementPosition::CENTER);
-            } else {
+                gameMenus.placeUIElement(UIElementName::START_MENU, UIElementPosition::CENTER);            } else {
+                // Remove menu BEFORE starting gameplay to remove it during loading
+                gameMenus.removeUIElement(UIElementName::START_MENU);
+                
+                // Force a single frame render to update the UI before starting gameplay
+                // This ensures the START_MENU disappears before loading begins
+                glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
+                glClear(GL_COLOR_BUFFER_BIT);
+                gameMenus.render(0.016); // Render UI with a small delta time (~60fps)
+                glfwSwapBuffers(window); // Show the frame without the menu
+                
+                // Now start the gameplay
                 startGameplay(myEngine, window);
-                // Hide menu when gameplay starts
-                gameMenus.hideUIElement(UIElementName::START_MENU);
             }
         }
     } else if (action == GLFW_RELEASE) {

@@ -52,8 +52,6 @@ bool startGameplay(GLBI_Engine& engine, GLFWwindow* window) {
     if (gameplayActive) {
         return true; // Already active
     }
-
-    gameMenus.removeUIElement(UIElementName::START_MENU);
     
     std::cout << "Starting gameplay..." << std::endl;
     
