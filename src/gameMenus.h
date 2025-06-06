@@ -50,6 +50,12 @@ struct UIElementInfo {
     bool isAnimated = false;          // Whether the UI element should animate
     float animationSpeed = 10.0f;     // Animation speed in frames per second
     
+    // Margin parameters for positioning offset
+    float marginTop = 0.0f;           // Top margin offset in pixels
+    float marginBottom = 0.0f;        // Bottom margin offset in pixels
+    float marginLeft = 0.0f;          // Left margin offset in pixels
+    float marginRight = 0.0f;         // Right margin offset in pixels
+    
     // Default constructor for std::map usage
     UIElementInfo() : name(UIElementName::START_MENU), texturePath(""), scale(1.0f) {}
     
@@ -80,11 +86,18 @@ struct UIElementInstance {
     float currentFrameTime;      // Time accumulator for animation
     int numFramesInPhase;        // Number of frames in current phase
     
+    // Margin parameters for positioning offset
+    float marginTop;             // Top margin offset in pixels
+    float marginBottom;          // Bottom margin offset in pixels
+    float marginLeft;            // Left margin offset in pixels
+    float marginRight;           // Right margin offset in pixels
+    
     UIElementInstance(UIElementName n, UIElementPosition pos, GLuint tex, int w, int h, float s)
         : name(n), position(pos), textureID(tex), width(w), height(h), scale(s), visible(true),
           type(UIElementTextureType::STATIC), spriteWidth(0), spriteHeight(0), 
           totalWidth(w), totalHeight(h), spriteSheetPhase(0), spriteSheetFrame(0),
-          isAnimated(false), animationSpeed(10.0f), currentFrameTime(0.0f), numFramesInPhase(0) {}
+          isAnimated(false), animationSpeed(10.0f), currentFrameTime(0.0f), numFramesInPhase(0),
+          marginTop(0.0f), marginBottom(0.0f), marginLeft(0.0f), marginRight(0.0f) {}
 };
 
 class GameMenus {
@@ -124,10 +137,11 @@ public:
 private:
     // Load a texture for a UI element
     bool loadUIElementTexture(const UIElementInfo& elementInfo, GLuint& textureID, int& width, int& height);
-    
-    // Calculate position coordinates for a UI element
+      // Calculate position coordinates for a UI element (with margin support)
     void calculateElementPosition(UIElementPosition position, int elementWidth, int elementHeight, 
-                                float scale, float& x, float& y, float& width, float& height) const;
+                                float scale, float marginTop, float marginBottom, 
+                                float marginLeft, float marginRight,
+                                float& x, float& y, float& width, float& height) const;
     
     // Render a single UI element
     void renderUIElement(const UIElementInstance& element) const;

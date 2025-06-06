@@ -38,8 +38,7 @@ static std::vector<UIElementInfo> createUIElementsToLoad() {
     optionsMenu.name = UIElementName::OPTIONS_MENU;
     optionsMenu.texturePath = "../assets/textures/ui/options.png";
     optionsMenu.scale = 1.0f;
-    uiElements.push_back(optionsMenu);
-      // Health Bar - example sprite sheet UI element
+    uiElements.push_back(optionsMenu);    // Health Bar - example sprite sheet UI element
     UIElementInfo healthBar;
     healthBar.name = UIElementName::HEALTH_BAR;
     healthBar.texturePath = "../assets/textures/ui/hearts.png";
@@ -51,6 +50,7 @@ static std::vector<UIElementInfo> createUIElementsToLoad() {
     healthBar.defaultSpriteSheetFrame = 0;  // Default to first frame
     healthBar.isAnimated = false;            // Animate the hearts
     healthBar.animationSpeed = 2.0f;        // Slow animation for hearts
+    // Add margins for positioning offset
     uiElements.push_back(healthBar);
 
     UIElementInfo coconuts;
@@ -60,10 +60,13 @@ static std::vector<UIElementInfo> createUIElementsToLoad() {
     coconuts.type = UIElementTextureType::SPRITESHEET;
     coconuts.spriteWidth = 80;  // Width of each heart sprite
     coconuts.spriteHeight = 51; // Height of each heart sprite
-    coconuts.defaultSpriteSheetPhase = 0;  // Default to full hearts
+    coconuts.defaultSpriteSheetPhase = 3;  // Default to full hearts
     coconuts.defaultSpriteSheetFrame = 0;  // Default to first frame
     coconuts.isAnimated = false;            // Animate the hearts
     coconuts.animationSpeed = 2.0f;        // Slow animation for hearts
+    // Add margins for positioning offset
+    coconuts.marginTop = 10.0f;     // 30 pixels from top
+    coconuts.marginRight = 10.0f;   // 30 pixels from right
     uiElements.push_back(coconuts);
     
     return uiElements;
@@ -144,8 +147,7 @@ bool GameMenus::placeUIElement(UIElementName elementName, UIElementPosition posi
     }
       // Create UI element instance
     UIElementInstance instance(elementName, position, textureID, width, height, elementInfo.scale);
-    
-    // Set sprite sheet properties if this is a spritesheet texture
+      // Set sprite sheet properties if this is a spritesheet texture
     instance.type = elementInfo.type;
     instance.spriteWidth = elementInfo.spriteWidth;
     instance.spriteHeight = elementInfo.spriteHeight;
@@ -156,6 +158,12 @@ bool GameMenus::placeUIElement(UIElementName elementName, UIElementPosition posi
     instance.isAnimated = elementInfo.isAnimated;
     instance.animationSpeed = elementInfo.animationSpeed;
     instance.currentFrameTime = 0.0f;
+    
+    // Set margin parameters
+    instance.marginTop = elementInfo.marginTop;
+    instance.marginBottom = elementInfo.marginBottom;
+    instance.marginLeft = elementInfo.marginLeft;
+    instance.marginRight = elementInfo.marginRight;
     
     // Calculate number of frames in the current phase for sprite sheets
     if (instance.type == UIElementTextureType::SPRITESHEET && instance.spriteWidth > 0) {
@@ -361,37 +369,39 @@ bool GameMenus::loadUIElementTexture(const UIElementInfo& elementInfo, GLuint& t
 }
 
 void GameMenus::calculateElementPosition(UIElementPosition position, int elementWidth, int elementHeight, 
-                                        float scale, float& x, float& y, float& width, float& height) const {
+                                        float scale, float marginTop, float marginBottom, 
+                                        float marginLeft, float marginRight,
+                                        float& x, float& y, float& width, float& height) const {
     // Apply scaling
     width = elementWidth * scale;
     height = elementHeight * scale;
     
-    // Calculate position based on enum
+    // Calculate base position based on enum
     switch (position) {
         case UIElementPosition::TOP_LEFT_CORNER:
-            x = 0;
-            y = m_screenHeight - height;
+            x = 0 + marginLeft;
+            y = m_screenHeight - height - marginTop;
             break;
             
         case UIElementPosition::TOP_RIGHT_CORNER:
-            x = m_screenWidth - width;
-            y = m_screenHeight - height;
+            x = m_screenWidth - width - marginRight;
+            y = m_screenHeight - height - marginTop;
             break;
             
         case UIElementPosition::BOTTOM_LEFT_CORNER:
-            x = 0;
-            y = 0;
+            x = 0 + marginLeft;
+            y = 0 + marginBottom;
             break;
             
         case UIElementPosition::BOTTOM_RIGHT_CORNER:
-            x = m_screenWidth - width;
-            y = 0;
+            x = m_screenWidth - width - marginRight;
+            y = 0 + marginBottom;
             break;
             
         case UIElementPosition::CENTER:
         default:
-            x = (m_screenWidth - width) / 2.0f;
-            y = (m_screenHeight - height) / 2.0f;
+            x = (m_screenWidth - width) / 2.0f + marginLeft - marginRight;
+            y = (m_screenHeight - height) / 2.0f + marginBottom - marginTop;
             break;
     }
 }
@@ -409,9 +419,9 @@ void GameMenus::renderUIElement(const UIElementInstance& element) const {
         renderWidth = element.spriteWidth;
         renderHeight = element.spriteHeight;
     }
-    
-    calculateElementPosition(element.position, renderWidth, renderHeight, 
-                           element.scale, x, y, width, height);
+      calculateElementPosition(element.position, renderWidth, renderHeight, 
+                           element.scale, element.marginTop, element.marginBottom,
+                           element.marginLeft, element.marginRight, x, y, width, height);
     
     // Bind the texture
     glBindTexture(GL_TEXTURE_2D, element.textureID);
