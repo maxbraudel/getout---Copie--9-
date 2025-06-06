@@ -1,6 +1,7 @@
 #include "gameMenus.h"
 #include <iostream>
 #include <string>
+#include <algorithm>
 #include "glbasimac/glbi_texture.hpp"
 // Include stb_image without defining STB_IMAGE_IMPLEMENTATION
 // This avoids duplicate symbols since it's already defined in map.cpp
@@ -9,36 +10,195 @@
 // Global instance of the menu system
 GameMenus gameMenus;
 
-GameMenus::GameMenus() : m_currentMenuState(MenuState::NONE), m_enginePtr(nullptr) {
+GameMenus::GameMenus() : m_enginePtr(nullptr), m_screenWidth(800), m_screenHeight(600) {
 }
 
 GameMenus::~GameMenus() {
-    // Clean up textures
-    for (const auto& texture : m_menuTextures) {
-        glDeleteTextures(1, &texture.second);
+    // Clean up textures from active elements
+    for (const auto& element : m_activeElements) {
+        glDeleteTextures(1, &element.textureID);
     }
-    m_menuTextures.clear();
+    m_activeElements.clear();
 }
 
 bool GameMenus::initialize(glbasimac::GLBI_Engine& engine) {
     m_enginePtr = &engine;
     
-    // Load all menu textures
-    if (!loadMenuTexture("../assets/textures/ui/startMenu.png", MenuState::START_MENU)) {
-        std::cerr << "Failed to load start menu texture!" << std::endl;
+    // Register UI elements - add paths to your UI textures here
+    registerUIElement(UIElementInfo(UIElementName::START_MENU, "../assets/textures/ui/startMenu.png", 1.0f));
+    registerUIElement(UIElementInfo(UIElementName::PAUSE_MENU, "../assets/textures/ui/pauseMenu.png", 1.0f));
+    registerUIElement(UIElementInfo(UIElementName::GAME_OVER, "../assets/textures/ui/gameOver.png", 1.0f));
+    registerUIElement(UIElementInfo(UIElementName::OPTIONS_MENU, "../assets/textures/ui/options.png", 1.0f));
+    registerUIElement(UIElementInfo(UIElementName::HEALTH_BAR, "../assets/textures/ui/hearts.png", 5.0f));
+    
+    // Example: Place START_MENU at CENTER position (as requested)
+    if (!placeUIElement(UIElementName::START_MENU, UIElementPosition::CENTER)) {
+        std::cerr << "Failed to place START_MENU UI element!" << std::endl;
         return false;
     }
+
+    placeUIElement(UIElementName::HEALTH_BAR, UIElementPosition::TOP_LEFT_CORNER);
     
-    // By default, show the start menu at initialization
-    showMenu(MenuState::START_MENU);
-    
-    std::cout << "Game menu system initialized successfully" << std::endl;
+    std::cout << "Game UI system initialized successfully" << std::endl;
     return true;
 }
 
-bool GameMenus::loadMenuTexture(const std::string& path, MenuState menuType) {
-    GLuint textureID = 0;
-    int width = 0, height = 0;
+void GameMenus::registerUIElement(const UIElementInfo& elementInfo) {
+    m_registeredElements[elementInfo.name] = elementInfo;
+    std::cout << "Registered UI element: " << static_cast<int>(elementInfo.name) << std::endl;
+}
+
+bool GameMenus::placeUIElement(UIElementName elementName, UIElementPosition position) {
+    // Check if element is already active
+    auto existingIt = std::find_if(m_activeElements.begin(), m_activeElements.end(),
+        [elementName](const UIElementInstance& element) {
+            return element.name == elementName;
+        });
+    
+    if (existingIt != m_activeElements.end()) {
+        std::cerr << "UI element already active: " << static_cast<int>(elementName) << std::endl;
+        return false;
+    }
+    
+    // Find the registered element
+    auto it = m_registeredElements.find(elementName);
+    if (it == m_registeredElements.end()) {
+        std::cerr << "UI element not registered: " << static_cast<int>(elementName) << std::endl;
+        return false;
+    }
+    
+    const UIElementInfo& elementInfo = it->second;
+    
+    // Load texture
+    GLuint textureID;
+    int width, height;
+    if (!loadUIElementTexture(elementInfo, textureID, width, height)) {
+        std::cerr << "Failed to load texture for UI element: " << static_cast<int>(elementName) << std::endl;
+        return false;
+    }
+    
+    // Create UI element instance
+    UIElementInstance instance(elementName, position, textureID, width, height, elementInfo.scale);
+    m_activeElements.push_back(instance);
+    
+    std::cout << "Placed UI element: " << static_cast<int>(elementName) 
+              << " at position: " << static_cast<int>(position) << std::endl;
+    return true;
+}
+
+void GameMenus::removeUIElement(UIElementName elementName) {
+    auto it = std::find_if(m_activeElements.begin(), m_activeElements.end(),
+        [elementName](const UIElementInstance& element) {
+            return element.name == elementName;
+        });
+    
+    if (it != m_activeElements.end()) {
+        // Clean up texture
+        glDeleteTextures(1, &it->textureID);
+        m_activeElements.erase(it);
+        std::cout << "Removed UI element: " << static_cast<int>(elementName) << std::endl;
+    }
+}
+
+void GameMenus::showUIElement(UIElementName elementName, bool visible) {
+    auto it = std::find_if(m_activeElements.begin(), m_activeElements.end(),
+        [elementName](UIElementInstance& element) {
+            return element.name == elementName;
+        });
+    
+    if (it != m_activeElements.end()) {
+        it->visible = visible;
+        std::cout << "UI element " << static_cast<int>(elementName) 
+                  << " visibility set to: " << visible << std::endl;
+    }
+}
+
+void GameMenus::hideUIElement(UIElementName elementName) {
+    showUIElement(elementName, false);
+}
+
+bool GameMenus::isUIElementVisible(UIElementName elementName) const {
+    auto it = std::find_if(m_activeElements.begin(), m_activeElements.end(),
+        [elementName](const UIElementInstance& element) {
+            return element.name == elementName;
+        });
+    
+    return it != m_activeElements.end() && it->visible;
+}
+
+void GameMenus::render() {
+    if (!m_enginePtr || m_activeElements.empty()) {
+        return;
+    }
+    
+    // Update screen dimensions
+    glfwGetWindowSize(glfwGetCurrentContext(), &m_screenWidth, &m_screenHeight);
+    
+    // Save current OpenGL state
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    
+    // Set up OpenGL state similar to map.cpp
+    glUseProgram(0); 
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    
+    // Disable depth testing to ensure UI renders on top
+    glDisable(GL_DEPTH_TEST);
+    
+    // Enable blending for transparent parts
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    // Enable texturing directly with OpenGL
+    glEnable(GL_TEXTURE_2D);
+    
+    // Set texture environment mode to replace (important!)
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    
+    // Set up matrices for 2D rendering
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, m_screenWidth, 0, m_screenHeight, -1.0, 1.0);  // Use screen coordinates
+    
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    
+    // Render all visible UI elements
+    for (const auto& element : m_activeElements) {
+        if (element.visible) {
+            renderUIElement(element);
+        }
+    }
+    
+    // Restore matrices
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+    
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    
+    // Unbind texture
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_TEXTURE_2D);
+    
+    // Restore previous OpenGL state
+    glPopAttrib();
+}
+
+void GameMenus::clearAllUIElements() {
+    // Clean up all textures
+    for (const auto& element : m_activeElements) {
+        glDeleteTextures(1, &element.textureID);
+    }
+    m_activeElements.clear();
+    std::cout << "Cleared all UI elements" << std::endl;
+}
+
+bool GameMenus::loadUIElementTexture(const UIElementInfo& elementInfo, GLuint& textureID, int& width, int& height) {
+    textureID = 0;
+    width = 0;
+    height = 0;
     
     // Generate texture
     glGenTextures(1, &textureID);
@@ -55,7 +215,7 @@ bool GameMenus::loadMenuTexture(const std::string& path, MenuState menuType) {
     
     // Load image using stb_image
     int nrChannels;
-    unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
+    unsigned char* data = stbi_load(elementInfo.texturePath.c_str(), &width, &height, &nrChannels, 0);
     
     if (data) {
         GLenum format;
@@ -73,112 +233,79 @@ bool GameMenus::loadMenuTexture(const std::string& path, MenuState menuType) {
         
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         
-        std::cout << "Menu texture loaded successfully: " << path << std::endl;
+        std::cout << "UI texture loaded successfully: " << elementInfo.texturePath << std::endl;
         std::cout << "Dimensions: " << width << "x" << height << ", Channels: " << nrChannels << std::endl;
-        
-        m_menuTextures[menuType] = textureID;
-        m_textureInfo[menuType] = {width, height};
         
         stbi_image_free(data);
         return true;
     } else {
-        std::cerr << "Failed to load menu texture: " << path << std::endl;
+        std::cerr << "Failed to load UI texture: " << elementInfo.texturePath << std::endl;
         std::cerr << "Reason: " << stbi_failure_reason() << std::endl;
         return false;
     }
 }
 
-void GameMenus::showMenu(MenuState menuType) {
-    // Ensure we have a texture for this menu type
-    if (m_menuTextures.find(menuType) == m_menuTextures.end()) {
-        std::cerr << "No texture loaded for menu type: " << static_cast<int>(menuType) << std::endl;
-        return;
-    }
+void GameMenus::calculateElementPosition(UIElementPosition position, int elementWidth, int elementHeight, 
+                                        float scale, float& x, float& y, float& width, float& height) const {
+    // Apply scaling
+    width = elementWidth * scale;
+    height = elementHeight * scale;
     
-    m_currentMenuState = menuType;
-    std::cout << "Showing menu: " << static_cast<int>(menuType) << std::endl;
+    // Calculate position based on enum
+    switch (position) {
+        case UIElementPosition::TOP_LEFT_CORNER:
+            x = 0;
+            y = m_screenHeight - height;
+            break;
+            
+        case UIElementPosition::TOP_RIGHT_CORNER:
+            x = m_screenWidth - width;
+            y = m_screenHeight - height;
+            break;
+            
+        case UIElementPosition::BOTTOM_LEFT_CORNER:
+            x = 0;
+            y = 0;
+            break;
+            
+        case UIElementPosition::BOTTOM_RIGHT_CORNER:
+            x = m_screenWidth - width;
+            y = 0;
+            break;
+            
+        case UIElementPosition::CENTER:
+        default:
+            x = (m_screenWidth - width) / 2.0f;
+            y = (m_screenHeight - height) / 2.0f;
+            break;
+    }
 }
 
-void GameMenus::hideMenu() {
-    m_currentMenuState = MenuState::NONE;
-    std::cout << "Menu hidden" << std::endl;
-}
-
-void GameMenus::render(float startX, float endX, float startY, float endY) {
-    // Only render if a menu is active
-    if (m_currentMenuState == MenuState::NONE || !m_enginePtr) {
-        return;
-    }
+void GameMenus::renderUIElement(const UIElementInstance& element) const {
+    // Calculate position and size
+    float x, y, width, height;
+    calculateElementPosition(element.position, element.width, element.height, 
+                           element.scale, x, y, width, height);
     
-    // Get the texture for the current menu
-    auto it = m_menuTextures.find(m_currentMenuState);
-    if (it == m_menuTextures.end()) {
-        return;
-    }
+    // Bind the texture
+    glBindTexture(GL_TEXTURE_2D, element.textureID);
     
-    // Save current OpenGL state
-    glPushAttrib(GL_ALL_ATTRIB_BITS);
-    
-    // Set up OpenGL state similar to map.cpp
-    glUseProgram(0); 
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-    
-    // Disable depth testing to ensure menu renders on top
-    glDisable(GL_DEPTH_TEST);
-    
-    // Enable blending for transparent parts of the menu
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
-    // Enable texturing directly with OpenGL
-    glEnable(GL_TEXTURE_2D);
-    
-    // Set texture environment mode to replace (important!)
-    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-    
-    // Bind the menu texture
-    glBindTexture(GL_TEXTURE_2D, it->second);
-    
-    // Set up matrices for 2D rendering
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    glOrtho(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);  // Set up orthographic projection
-    
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    
-    // Draw the menu texture as a quad
+    // Draw the UI element as a quad
     glBegin(GL_QUADS);
     // Bottom-left
     glTexCoord2f(0.0f, 0.0f);
-    glVertex2f(startX, startY);
+    glVertex2f(x, y);
     
     // Bottom-right
     glTexCoord2f(1.0f, 0.0f);
-    glVertex2f(endX, startY);
+    glVertex2f(x + width, y);
     
     // Top-right
     glTexCoord2f(1.0f, 1.0f);
-    glVertex2f(endX, endY);
+    glVertex2f(x + width, y + height);
     
     // Top-left
     glTexCoord2f(0.0f, 1.0f);
-    glVertex2f(startX, endY);
+    glVertex2f(x, y + height);
     glEnd();
-    
-    // Restore matrices
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
-    
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    
-    // Unbind texture
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glDisable(GL_TEXTURE_2D);
-    
-    // Restore previous OpenGL state
-    glPopAttrib();
 }

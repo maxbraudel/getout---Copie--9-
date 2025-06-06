@@ -189,14 +189,16 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             extern bool gameplayActive;
             extern glbasimac::GLBI_Engine myEngine;
             bool startGameplay(glbasimac::GLBI_Engine& engine, GLFWwindow* window);
-            void endGameplay();            if (gameplayActive) {
+            void endGameplay();
+            
+            if (gameplayActive) {
                 endGameplay();
                 // Show start menu when gameplay ends
-                gameMenus.showMenu(MenuState::START_MENU);
+                gameMenus.placeUIElement(UIElementName::START_MENU, UIElementPosition::CENTER);
             } else {
                 startGameplay(myEngine, window);
                 // Hide menu when gameplay starts
-                gameMenus.hideMenu();
+                gameMenus.hideUIElement(UIElementName::START_MENU);
             }
         }
     } else if (action == GLFW_RELEASE) {

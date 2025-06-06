@@ -219,14 +219,11 @@ int main() {
 	myEngine.initGL();
 		// Then call the resize callback to set up the correct projection based on window size
     onWindowResize(window, windowWidth, windowHeight);
-	
-	// Initialize the menu system
+		// Initialize the menu system
 	if (!gameMenus.initialize(myEngine)) {
 		std::cerr << "Failed to initialize game menu system!" << std::endl;
 		return -1;
 	}
-	// Show the start menu by default
-	gameMenus.showMenu(MenuState::START_MENU);
 	
 	std::cout << "Game engine initialization complete - press Enter to start gameplay" << std::endl;
 	/* Main render loop - runs until user closes the window */
@@ -411,10 +408,9 @@ int main() {
 					glfwSetWindowShouldClose(window, GLFW_TRUE);
 				}
 			}
-			
-			// Always render the UI/menus on top of everything else
+					// Always render the UI/menus on top of everything else
 			// This ensures menus are visible regardless of gameplay state
-			gameMenus.render(g_startX, g_endX, g_startY, g_endY);
+			gameMenus.render();
 			
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
