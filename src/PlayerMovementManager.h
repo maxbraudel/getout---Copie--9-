@@ -78,10 +78,11 @@ private:
     void updatePlayerPosition(float deltaX, float deltaY);
 
     // Handle collision detection for player
-    bool checkPlayerCollision(float newX, float newY, float& actualDeltaX, float& actualDeltaY) const;
-
-    // Check for nearby coconuts and collect them
+    bool checkPlayerCollision(float newX, float newY, float& actualDeltaX, float& actualDeltaY) const;    // Check for nearby coconuts and collect them
     void checkAndCollectCoconuts();
+    
+    // Process win condition timing
+    void processWinCondition(double deltaTime);
 
     // Threading objects
     std::thread m_movementThread;
@@ -113,6 +114,11 @@ private:
     std::atomic<uint64_t> m_movementUpdatesProcessed{0};
     std::atomic<uint64_t> m_collisionChecksPerformed{0};
     std::atomic<double> m_averageUpdateTime{0.0};
+    
+    // Win condition tracking
+    bool m_winConditionTriggered{false};
+    double m_winDelayTimer{0.0};
+    mutable std::mutex m_winStateMutex;
 };
 
 // Global instance

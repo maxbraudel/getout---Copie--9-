@@ -48,5 +48,11 @@ bool DEBUG_LOGS = false;
 // Game counters
 int COCONUT_COUNTER = 0; // Initialize coconut counter to 0
 
+// Game state tracking
+GameState GAME_STATE = GameState::START; // Initialize game state to START
+
+// Game timing for win/loss conditions
+const float WAIT_BEFORE_WINNING_OR_LOSING = 2.0f; // Wait 2 seconds before showing win/loss screen
+
 // Input handling
 bool keyPressedStates[GLFW_KEY_LAST + 1] = { false };

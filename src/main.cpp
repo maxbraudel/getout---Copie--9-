@@ -52,6 +52,8 @@ bool startGameplay(GLBI_Engine& engine, GLFWwindow* window) {
     if (gameplayActive) {
         return true; // Already active
     }
+
+    gameMenus.removeUIElement(UIElementName::START_MENU);
     
     std::cout << "Starting gameplay..." << std::endl;
     
@@ -70,10 +72,14 @@ bool startGameplay(GLBI_Engine& engine, GLFWwindow* window) {
         std::cerr << "Failed to start game threads!" << std::endl;
         Gameplay::cleanup();
         return false;
-    }
-
-    gameMenus.placeUIElement(UIElementName::HEALTH_BAR, UIElementPosition::TOP_LEFT_CORNER);
+    }    gameMenus.placeUIElement(UIElementName::HEALTH_BAR, UIElementPosition::TOP_LEFT_CORNER);
     gameMenus.placeUIElement(UIElementName::COCONUTS, UIElementPosition::TOP_RIGHT_CORNER);
+
+
+    
+    // Set game state to GAMEPLAY
+    GAME_STATE = GameState::GAMEPLAY;
+    std::cout << "Game state set to: " << gameStateToString(GAME_STATE) << std::endl;
     
     gameplayActive = true;
     std::cout << "Gameplay started successfully" << std::endl;
@@ -92,12 +98,15 @@ void endGameplay() {
         std::cout << "Game is paused - resuming before cleanup..." << std::endl;
         g_threadManager->resumeGame();
     }
-    
-    // Cleanup gameplay systems (threads, entities, etc.)
+      // Cleanup gameplay systems (threads, entities, etc.)
     Gameplay::cleanup();
 
     gameMenus.removeUIElement(UIElementName::HEALTH_BAR);
     gameMenus.removeUIElement(UIElementName::COCONUTS);
+    
+    // Set game state back to START
+    GAME_STATE = GameState::START;
+    std::cout << "Game state set to: " << gameStateToString(GAME_STATE) << std::endl;
     
     gameplayActive = false;
     std::cout << "Gameplay stopped" << std::endl;

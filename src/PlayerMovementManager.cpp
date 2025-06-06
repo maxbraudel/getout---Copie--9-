@@ -11,6 +11,7 @@
 #include "globals.h"
 #include "entitiesStatus.h"
 #include "gameMenus.h"
+#include "threading.h"
 #include <iostream>
 #include <algorithm>
 #include <cmath>
@@ -222,9 +223,11 @@ void PlayerMovementManager::playerMovementThread()
             if (currentInput.valid) {
                 processPlayerMovement(currentInput, PLAYER_UPDATE_TIMESTEP);
             }
-            
-            // Update camera at high frequency (120Hz) synchronized with player movement
+              // Update camera at high frequency (120Hz) synchronized with player movement
             updateCamera(PLAYER_UPDATE_TIMESTEP);
+            
+            // Process win condition timing
+            processWinCondition(PLAYER_UPDATE_TIMESTEP);
             
             accumulatedTime -= PLAYER_UPDATE_TIMESTEP;
             m_movementUpdatesProcessed++;
@@ -488,10 +491,17 @@ void PlayerMovementManager::checkAndCollectCoconuts() {
         }
     }
       // Remove the coconuts and increment counter
-    for (const std::string& coconutName : coconutsToRemove) {
-        if (m_elementsManager->removeElement(coconutName)) {
+    for (const std::string& coconutName : coconutsToRemove) {        if (m_elementsManager->removeElement(coconutName)) {
             COCONUT_COUNTER++;
             std::cout << "Collected coconut! Total coconuts: " << COCONUT_COUNTER << std::endl;
+            
+            // Check for win condition
+            if (COCONUT_COUNTER >= 3 && !m_winConditionTriggered) {
+                std::lock_guard<std::mutex> winLock(m_winStateMutex);
+                m_winConditionTriggered = true;
+                m_winDelayTimer = 0.0;
+                std::cout << "WIN CONDITION TRIGGERED! Starting " << WAIT_BEFORE_WINNING_OR_LOSING << " second countdown..." << std::endl;
+            }
             
             // Update the COCONUTS UI element sprite phase based on counter value
             int targetPhase;
@@ -513,7 +523,42 @@ void PlayerMovementManager::checkAndCollectCoconuts() {
                           << " -> phase=" << targetPhase << std::endl;
             } else {
                 std::cout << "Failed to update coconuts UI for counter value: " << COCONUT_COUNTER << std::endl;
+            }        }
+    }
+}
+
+void PlayerMovementManager::processWinCondition(double deltaTime)
+{
+    std::lock_guard<std::mutex> winLock(m_winStateMutex);
+    
+    if (m_winConditionTriggered) {
+        m_winDelayTimer += deltaTime;
+        
+        if (m_winDelayTimer >= WAIT_BEFORE_WINNING_OR_LOSING) {
+            // Time's up - trigger the win state
+            std::cout << "WIN! Player collected 3 coconuts - game won!" << std::endl;
+              // Set game state to WIN
+            GAME_STATE = ::GameState::WIN;
+            std::cout << "Game state set to: " << gameStateToString(GAME_STATE) << std::endl;
+            
+            // Force pause the game (player cannot resume)
+            if (g_threadManager) {
+                g_threadManager->pauseGame();
+                std::cout << "Game forcibly paused for win condition" << std::endl;
             }
+            
+            // Show WIN menu
+            extern GameMenus gameMenus;
+            gameMenus.placeUIElement(UIElementName::WIN_MENU, UIElementPosition::CENTER);
+            std::cout << "WIN menu displayed" << std::endl;
+            
+            // Reset win condition state (prevent retriggering)
+            m_winConditionTriggered = false;
+            m_winDelayTimer = 0.0;
+        } else {
+            // Still counting down
+            float remainingTime = WAIT_BEFORE_WINNING_OR_LOSING - m_winDelayTimer;
+            std::cout << "Win countdown: " << remainingTime << " seconds remaining..." << std::endl;
         }
     }
 }

@@ -41,5 +41,11 @@ extern bool DEBUG_LOGS;
 // Game counters
 extern int COCONUT_COUNTER; // Tracks the number of coconuts collected by the player
 
+// Game state tracking
+extern GameState GAME_STATE; // Tracks the current game state (START, DEFEAT, PAUSE, WIN)
+
+// Game timing for win/loss conditions
+extern const float WAIT_BEFORE_WINNING_OR_LOSING; // Time to wait before showing win/loss screen
+
 // Input handling
 extern bool keyPressedStates[]; // GLFW_KEY_LAST + 1

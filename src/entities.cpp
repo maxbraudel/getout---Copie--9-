@@ -186,7 +186,7 @@ static void initializeEntityTypes() {
         // Movement speeds
         player.normalWalkingSpeed = 2.5f;
         player.normalWalkingAnimationSpeed = 11.0f;
-        player.sprintWalkingSpeed = 5.0f;
+        player.sprintWalkingSpeed = 3.5f;
         player.sprintWalkingAnimationSpeed = 20.0f;    // Collision settings
         player.canCollide = true;
         player.collisionShapePoints = {

@@ -4,6 +4,8 @@
 #include "map.h"
 #include "player.h"
 #include "gameMenus.h"
+#include "globals.h"
+#include "enumDefinitions.h"
 #include <iostream>
 #include <vector>
 #include <string>

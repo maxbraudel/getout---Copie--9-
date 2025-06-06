@@ -90,7 +90,7 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     
     // Spawn probability and constraints (matching existing logic)
     coconut.spawnChance = 1;                    // 1/50 chance
-    coconut.maxSpawns = 3;                    // Max 1000 trees
+    coconut.maxSpawns = 3000;                    // Max 1000 trees
     
     // Distance constraints (matching existing MIN_COCONUT_TREE_DISTANCE and MAX_WATER_DISTANCE)
     coconut.minDistanceFromSameRule = 10.0f;     // MIN_COCONUT_TREE_DISTANCE
@@ -108,7 +108,7 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     // Element properties (matching existing logic)
     coconut.scaleMin = 1.0f;                     // Random scale variation
     coconut.scaleMax = 1.3f;
-    coconut.baseScale = 4.0f;                    // Base scale
+    coconut.baseScale = 2.0f;                    // Base scale
     coconut.rotation = 0.0f;                     // No rotation
     
     // Sprite sheet properties (matching existing logic)
@@ -218,7 +218,7 @@ void TerrainGenerationConfig::initializeDefaultRules() {
 
     giraffesRule.spawnBlocks = {BlockName::GRASS_2};
       // Spawn probability and constraints
-    giraffesRule.spawnChance = 100;                   // 1/100 chance for rare spawning
+    giraffesRule.spawnChance = 1000;                   // 1/100 chance for rare spawning
     giraffesRule.maxSpawns = 1000;                      // Max 50 shark entities total
     
     // Distance constraints - maintain reasonable spacing between groups

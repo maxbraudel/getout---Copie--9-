@@ -18,3 +18,8 @@ std::string blockNameToString(BlockName blockName) {
     // Use magic_enum to convert enum to string automatically
     return std::string(magic_enum::enum_name(blockName));
 }
+
+std::string gameStateToString(GameState gameState) {
+    // Use magic_enum to convert enum to string automatically
+    return std::string(magic_enum::enum_name(gameState));
+}

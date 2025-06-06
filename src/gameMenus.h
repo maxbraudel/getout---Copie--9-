@@ -13,7 +13,7 @@ enum class UIElementName {
     START_MENU,
     PAUSE_MENU,
     GAME_OVER,
-    OPTIONS_MENU,
+    WIN_MENU,
     HEALTH_BAR,
     SCORE_DISPLAY,
     BUTTON_START,

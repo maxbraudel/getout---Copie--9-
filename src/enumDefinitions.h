@@ -45,7 +45,17 @@ enum class BlockName {
     ICE_3
 };
 
+// Define an enum for game states
+enum class GameState {
+    START,
+    GAMEPLAY,
+    PAUSE,
+    DEFEAT,
+    WIN
+};
+
 // Utility functions for EntityName enum using magic_enum
 std::string entityNameToString(EntityName entityName);
 std::string elementNameToString(ElementName elementName);
 std::string blockNameToString(BlockName blockName);
+std::string gameStateToString(GameState gameState);

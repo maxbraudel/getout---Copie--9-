@@ -18,6 +18,13 @@ static std::vector<UIElementInfo> createUIElementsToLoad() {
     startMenu.texturePath = "../assets/textures/ui/startMenu.png";
     startMenu.scale = 2.0f;
     uiElements.push_back(startMenu);
+
+
+    UIElementInfo winMenu;
+    winMenu.name = UIElementName::WIN_MENU;
+    winMenu.texturePath = "../assets/textures/ui/winMenu.png";
+    winMenu.scale = 2.0f;
+    uiElements.push_back(winMenu);
     
     // Pause Menu  
     UIElementInfo pauseMenu;
@@ -32,13 +39,10 @@ static std::vector<UIElementInfo> createUIElementsToLoad() {
     gameOver.texturePath = "../assets/textures/ui/gameOver.png";
     gameOver.scale = 1.0f;
     uiElements.push_back(gameOver);
+
+
     
-    // Options Menu
-    UIElementInfo optionsMenu;
-    optionsMenu.name = UIElementName::OPTIONS_MENU;
-    optionsMenu.texturePath = "../assets/textures/ui/options.png";
-    optionsMenu.scale = 1.0f;
-    uiElements.push_back(optionsMenu);    // Health Bar - example sprite sheet UI element
+
     UIElementInfo healthBar;
     healthBar.name = UIElementName::HEALTH_BAR;
     healthBar.texturePath = "../assets/textures/ui/hearts.png";

@@ -10,6 +10,7 @@
 #include "debug.h"
 #include "crashDebug.h"
 #include "performanceProfiler.h"
+#include "globals.h"
 #include <iostream>
 #include "enumDefinitions.h"
 
@@ -375,6 +376,10 @@ void GameThreadManager::pauseGame()
     std::cout << "Pausing game..." << std::endl;
     m_paused.store(true);
     
+    // Set game state to PAUSE
+    GAME_STATE = ::GameState::PAUSE;
+    std::cout << "Game state set to: " << gameStateToString(GAME_STATE) << std::endl;
+    
     // Also pause player movement
     if (g_playerMovementManager != nullptr) {
         g_playerMovementManager->pauseMovement();
@@ -383,8 +388,22 @@ void GameThreadManager::pauseGame()
 
 void GameThreadManager::resumeGame()
 {
+    // Check if the game is in WIN or DEFEAT state - if so, don't allow resuming
+    if (GAME_STATE == ::GameState::WIN) {
+        std::cout << "Cannot resume game - player has won! Game remains paused." << std::endl;
+        return;
+    }
+    if (GAME_STATE == ::GameState::DEFEAT) {
+        std::cout << "Cannot resume game - player has been defeated! Game remains paused." << std::endl;
+        return;
+    }
+    
     std::cout << "Resuming game..." << std::endl;
     m_paused.store(false);
+    
+    // Set game state back to GAMEPLAY
+    GAME_STATE = ::GameState::GAMEPLAY;
+    std::cout << "Game state set to: " << gameStateToString(GAME_STATE) << std::endl;
     
     // Also resume player movement
     if (g_playerMovementManager != nullptr) {
