@@ -33,11 +33,15 @@ extern GameMenus gameMenus;
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     // Update key state arrays
     if (action == GLFW_PRESS) {
-        keyPressedStates[key] = true;
-          // Handle immediate keyboard actions
+        keyPressedStates[key] = true;          // Handle immediate keyboard actions
         if (key == GLFW_KEY_X) {
-            glfwSetWindowShouldClose(window, GLFW_TRUE); // Exit on ESC press
-        }        // Pause/Resume game with Tab key
+            // Prevent quitting with X key during active gameplay
+            if (GAME_STATE == GameState::GAMEPLAY) {
+                std::cout << "Cannot quit with X key during active gameplay" << std::endl;
+                return;
+            }
+            glfwSetWindowShouldClose(window, GLFW_TRUE); // Exit on X key press
+        }// Pause/Resume game with Tab key
         else if (key == GLFW_KEY_ESCAPE) {
             if (g_threadManager) {
                 if (g_threadManager->isPaused()) {

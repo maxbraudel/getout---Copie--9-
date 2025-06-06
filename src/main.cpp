@@ -119,13 +119,6 @@ void endGameplay() {
 
 /* Window close callback function */
 void onWindowClose(GLFWwindow* window) {
-    // Prevent closing the window during active gameplay
-    if (GAME_STATE == GameState::GAMEPLAY) {
-        std::cout << "Cannot close window during active gameplay" << std::endl;
-        glfwSetWindowShouldClose(window, GLFW_FALSE);
-        return;
-    }
-    
     std::cout << "Window close callback triggered - starting cleanup..." << std::endl;
     
     // Signal thread manager to stop
@@ -423,11 +416,14 @@ int main() {
 				if (hideOutsideGrid) {
 					glDisable(GL_SCISSOR_TEST);
 				}
-				
-				// Check escape key to close the window
+						// Check escape key to close the window (but not during active gameplay)
 				if (keyPressedStates[GLFW_KEY_X]) {
-					glfwSetWindowShouldClose(window, GLFW_TRUE);
-					g_threadManager->setRunning(false);
+					if (GAME_STATE == GameState::GAMEPLAY) {
+						std::cout << "Cannot quit with X key during active gameplay" << std::endl;
+					} else {
+						glfwSetWindowShouldClose(window, GLFW_TRUE);
+						g_threadManager->setRunning(false);
+					}
 				}
 			} else {
 				// Gameplay not active - just show black screen and handle escape key
