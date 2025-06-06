@@ -203,6 +203,12 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             bool startGameplay(glbasimac::GLBI_Engine& engine, GLFWwindow* window);
             void endGameplay();
             
+            // Prevent stopping gameplay when in active GAMEPLAY state
+            if (GAME_STATE == GameState::GAMEPLAY && gameplayActive) {
+                std::cout << "Cannot stop gameplay with Enter key during active gameplay" << std::endl;
+                return;
+            }
+            
             if (gameplayActive) {
                 endGameplay();
                 // Show start menu when gameplay ends

@@ -119,6 +119,13 @@ void endGameplay() {
 
 /* Window close callback function */
 void onWindowClose(GLFWwindow* window) {
+    // Prevent closing the window during active gameplay
+    if (GAME_STATE == GameState::GAMEPLAY) {
+        std::cout << "Cannot close window during active gameplay" << std::endl;
+        glfwSetWindowShouldClose(window, GLFW_FALSE);
+        return;
+    }
+    
     std::cout << "Window close callback triggered - starting cleanup..." << std::endl;
     
     // Signal thread manager to stop

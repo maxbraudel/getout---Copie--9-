@@ -16,7 +16,7 @@ static std::vector<UIElementInfo> createUIElementsToLoad() {
     UIElementInfo startMenu;
     startMenu.name = UIElementName::START_MENU;
     startMenu.texturePath = "../assets/textures/ui/startMenu.png";
-    startMenu.scale = 1.0f;
+    startMenu.scale = 2.0f;
     uiElements.push_back(startMenu);
 
 
@@ -49,11 +49,12 @@ static std::vector<UIElementInfo> createUIElementsToLoad() {
     healthBar.scale = 5.0f;
     healthBar.type = UIElementTextureType::SPRITESHEET;
     healthBar.spriteWidth = 110;  // Width of each heart sprite
-    healthBar.spriteHeight = 28; // Height of each heart sprite
-    healthBar.defaultSpriteSheetPhase = 4;  // Default to full hearts
+    healthBar.spriteHeight = 26; // Height of each heart sprite
+    healthBar.defaultSpriteSheetPhase = 5;  // Default to full hearts
     healthBar.defaultSpriteSheetFrame = 0;  // Default to first frame
     healthBar.isAnimated = false;            // Animate the hearts
     healthBar.animationSpeed = 2.0f;        // Slow animation for hearts
+    healthBar.marginTop = 10.0f;     // 30 pixels from top
     // Add margins for positioning offset
     uiElements.push_back(healthBar);
 
@@ -63,7 +64,7 @@ static std::vector<UIElementInfo> createUIElementsToLoad() {
     coconuts.scale = 3.0f;
     coconuts.type = UIElementTextureType::SPRITESHEET;
     coconuts.spriteWidth = 80;  // Width of each heart sprite
-    coconuts.spriteHeight = 51; // Height of each heart sprite
+    coconuts.spriteHeight = 48; // Height of each heart sprite
     coconuts.defaultSpriteSheetPhase = 3;  // Default to full hearts
     coconuts.defaultSpriteSheetFrame = 0;  // Default to first frame
     coconuts.isAnimated = false;            // Animate the hearts
@@ -600,12 +601,14 @@ void GameMenus::updateHealthBar(int currentHealth) {
     
     int targetPhase;
     if (currentHealth >= 5) {
-        targetPhase = 4;
+        targetPhase = 5;
     } else if (currentHealth == 4) {
-        targetPhase = 3;
+        targetPhase = 4;
     } else if (currentHealth == 3) {
-        targetPhase = 2;
+        targetPhase = 3;
     } else if (currentHealth == 2) {
+        targetPhase = 2;
+    } else if (currentHealth == 1) {
         targetPhase = 1;
     } else { // 1 or below
         targetPhase = 0;
