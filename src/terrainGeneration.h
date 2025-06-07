@@ -10,6 +10,8 @@
 // Forward declaration for configuration structure
 struct GenerationRuleInfo;
 
+// Function to reset the terrain noise generation system for new maps
+void resetTerrainNoiseSystem();
 
 // Generates a terrain map using a placeholder Perlin noise function.
 // A real Perlin noise implementation/library should be used for better results.

@@ -24,6 +24,15 @@ thread_local static int baseNoiseWidth_static = 0; // Renamed to avoid conflict 
 thread_local static int baseNoiseHeight_static = 0; // Renamed
 thread_local static bool baseNoiseInitialized = false;
 
+// Function to reset the terrain noise generation system for new maps
+void resetTerrainNoiseSystem() {
+    baseNoiseInitialized = false;
+    baseNoiseWidth_static = 0;
+    baseNoiseHeight_static = 0;
+    baseNoiseGrid.clear();
+    std::cout << "Terrain noise system reset for new map generation" << std::endl;
+}
+
 // Function to initialize the base noise grid (assuming this exists)
 void initializeBaseNoiseIfNeeded(int gridWidth, int gridHeight, float featureSizeFactor) {
     if (baseNoiseInitialized && baseNoiseWidth_static == static_cast<int>(gridWidth / featureSizeFactor) && baseNoiseHeight_static == static_cast<int>(gridHeight / featureSizeFactor)) {

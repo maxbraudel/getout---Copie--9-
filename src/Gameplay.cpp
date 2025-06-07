@@ -83,6 +83,13 @@ bool Gameplay::initializeMap(glbasimac::GLBI_Engine& engine) {
         std::cerr << "Failed to initialize map!" << std::endl;
         return false;
     }
+      // Generate a new random seed for each gameplay session to ensure different maps
+    unsigned int terrainSeed = static_cast<unsigned int>(time(0));
+    srand(terrainSeed);
+    std::cout << "Using terrain seed: " << terrainSeed << std::endl;
+    
+    // Reset the terrain noise system to ensure fresh generation with new seed
+    resetTerrainNoiseSystem();
     
     // Generate the terrain first - this will be our base map
     std::cout << "Generating terrain..." << std::endl;
