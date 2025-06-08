@@ -111,6 +111,12 @@ void endGameplay() {
     if (!gameplayActive) {
         return; // Already inactive
     }
+
+	gameMenus.removeUIElement(UIElementName::HEALTH_BAR);
+    gameMenus.removeUIElement(UIElementName::COCONUTS);
+    gameMenus.removeUIElement(UIElementName::PAUSE_MENU);
+    gameMenus.removeUIElement(UIElementName::GAME_OVER);
+    gameMenus.removeUIElement(UIElementName::WIN_MENU);
     
     std::cout << "Stopping gameplay..." << std::endl;
     
@@ -128,6 +134,7 @@ void endGameplay() {
     gameMenus.removeUIElement(UIElementName::GAME_OVER);
     gameMenus.removeUIElement(UIElementName::WIN_MENU);
 
+
     gameMenus.placeUIElement(UIElementName::START_MENU, UIElementPosition::CENTER);
     
     // Set game state back to START
@@ -136,6 +143,12 @@ void endGameplay() {
     
     gameplayActive = false;
     std::cout << "Gameplay stopped" << std::endl;
+
+	gameMenus.removeUIElement(UIElementName::HEALTH_BAR);
+    gameMenus.removeUIElement(UIElementName::COCONUTS);
+    gameMenus.removeUIElement(UIElementName::PAUSE_MENU);
+    gameMenus.removeUIElement(UIElementName::GAME_OVER);
+    gameMenus.removeUIElement(UIElementName::WIN_MENU);
 }
 
 /* Window close callback function */
