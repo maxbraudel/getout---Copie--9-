@@ -664,6 +664,25 @@ void PlayerMovementManager::triggerDefeatCondition()
     }
 }
 
+void PlayerMovementManager::resetGameConditions()
+{
+    // Reset win condition state
+    {
+        std::lock_guard<std::mutex> lock(m_winStateMutex);
+        m_winConditionTriggered = false;
+        m_winDelayTimer = 0.0;
+    }
+    
+    // Reset defeat condition state  
+    {
+        std::lock_guard<std::mutex> lock(m_defeatStateMutex);
+        m_defeatConditionTriggered = false;
+        m_defeatDelayTimer = 0.0;
+    }
+    
+    std::cout << "Reset PlayerMovementManager win/defeat conditions for new gameplay session" << std::endl;
+}
+
 void PlayerMovementManager::pauseMovement()
 {
     m_paused.store(true);

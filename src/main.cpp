@@ -9,6 +9,7 @@
 #include "globals.h" // Added include for global variables
 #include "inputs.h" // Added include for input handling
 #include "threading.h" // Added include for threading system
+#include "PlayerMovementManager.h" // Added include for PlayerMovementManager class
 #include "crashDebug.h" // Added include for crash debugging
 #include "Gameplay.h" // Added include for gameplay initialization
 #include "map.h" // Added include for Map class
@@ -54,12 +55,19 @@ bool startGameplay(GLBI_Engine& engine, GLFWwindow* window) {
     if (gameplayActive) {
         return true; // Already active
     }
-      std::cout << "Starting gameplay..." << std::endl;
-      // Generate a new random seed for this gameplay session
+      std::cout << "Starting gameplay..." << std::endl;    // Generate a new random seed for this gameplay session
     SEED_GAMEPLAY = static_cast<unsigned int>(time(0));
     srand(SEED_GAMEPLAY);
     TERRAIN_RNG.seed(SEED_GAMEPLAY);  // Set the seed for the global C++ random generator
     std::cout << "Generated new gameplay seed: " << SEED_GAMEPLAY << std::endl;
+      // Reset coconut counter for fresh gameplay session
+    COCONUT_COUNTER = 0;
+    std::cout << "Reset coconut counter to 0 for new gameplay session" << std::endl;
+    
+    // Reset win/loss flags to prevent showing stale menus
+    SHOULD_SHOW_WIN_MENU = false;
+    SHOULD_SHOW_GAME_OVER = false;
+    std::cout << "Reset win/loss menu flags for new gameplay session" << std::endl;
       // Reset terrain generation to ensure fresh noise grid with new seed
     resetTerrainGeneration();
       
@@ -86,10 +94,15 @@ bool startGameplay(GLBI_Engine& engine, GLFWwindow* window) {
         }
     }
     std::cout << "Cleared " << removedElementsCount << " elements from previous session" << std::endl;
-    
-    // Clear all entities from previous gameplay session
+      // Clear all entities from previous gameplay session
     extern EntitiesManager entitiesManager;
     entitiesManager.clearAllEntities();
+    
+    // Reset player movement manager win/defeat conditions
+    extern PlayerMovementManager* g_playerMovementManager;
+    if (g_playerMovementManager) {
+        g_playerMovementManager->resetGameConditions();
+    }
     
     // Initialize all gameplay systems (map, entities, elements, threading)
     if (!Gameplay::initialize(engine, window)) {

@@ -63,9 +63,11 @@ public:
     // Sync player position with main game state (called from game logic thread)
     void syncWithGameState();    // Check if the system is running
     bool isRunning() const { return m_running.load(); }
-    
-    // Trigger defeat condition externally (e.g., when player is destroyed)
+      // Trigger defeat condition externally (e.g., when player is destroyed)
     void triggerDefeatCondition();
+    
+    // Reset win/defeat condition state for new gameplay session
+    void resetGameConditions();
 
 private:
     // Player movement thread function
