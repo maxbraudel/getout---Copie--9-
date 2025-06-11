@@ -44,6 +44,9 @@ extern int COCONUT_COUNTER; // Tracks the number of coconuts collected by the pl
 // Game state tracking
 extern GameState GAME_STATE; // Tracks the current game state (START, DEFEAT, PAUSE, WIN)
 
+// Gameplay seed for terrain and element generation
+extern unsigned int SEED_GAMEPLAY; // Random seed used for all gameplay generation processes
+
 // Win condition flags
 extern bool SHOULD_SHOW_WIN_MENU; // Flag to indicate WIN menu should be displayed
 
@@ -55,3 +58,8 @@ extern const float WAIT_BEFORE_WINNING_OR_LOSING; // Time to wait before showing
 
 // Input handling
 extern bool keyPressedStates[]; // GLFW_KEY_LAST + 1
+
+// Global seeded random number generator for terrain generation
+// This ensures all terrain generation (blocks, elements, entities) use the same seed
+#include <random>
+extern std::mt19937 TERRAIN_RNG;

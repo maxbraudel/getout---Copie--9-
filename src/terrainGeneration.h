@@ -22,6 +22,9 @@ std::map<std::pair<int, int>, BlockName> generateTerrain(
     float grassThreshold // Added: Values above this (and waterThreshold) become grass
 );
 
+// Reset terrain noise generation to force fresh generation with new seed
+void resetTerrainGeneration();
+
 // Places decorative elements (bushes, etc.) on appropriate terrain blocks
 // (bushes on sand, etc.) with some probability
 // COORDINATE SYSTEM: Uses the game's standard coordinate system where (0,0) is at bottom-left

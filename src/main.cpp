@@ -15,6 +15,8 @@
 #include "elementsOnMap.h" // Added include for ElementsOnMap class
 #include "entities.h" // Added include for EntitiesManager class
 #include "gameMenus.h" // Added include for game menu system
+#include "terrainGeneration.h" // Added include for terrain generation reset
+#include "terrainGenerationConfig.h" // Added include for terrain configuration reset
 #include <ctime> // For time(0) to seed random number generator
 #include <cmath> // For sqrt function
 #include <algorithm> // For std::min and std::max
@@ -52,8 +54,42 @@ bool startGameplay(GLBI_Engine& engine, GLFWwindow* window) {
     if (gameplayActive) {
         return true; // Already active
     }
+      std::cout << "Starting gameplay..." << std::endl;
+      // Generate a new random seed for this gameplay session
+    SEED_GAMEPLAY = static_cast<unsigned int>(time(0));
+    srand(SEED_GAMEPLAY);
+    TERRAIN_RNG.seed(SEED_GAMEPLAY);  // Set the seed for the global C++ random generator
+    std::cout << "Generated new gameplay seed: " << SEED_GAMEPLAY << std::endl;
+      // Reset terrain generation to ensure fresh noise grid with new seed
+    resetTerrainGeneration();
+      
+    // Reset terrain generation configuration to ensure fresh rules for this gameplay session
+    g_terrainConfig.initializeDefaultRules();
+    std::cout << "Reset terrain generation configuration with fresh rules" << std::endl;
+        // Clear all existing blocks from previous gameplay session to ensure fresh map state
+    gameMap.clearBlocks();
+        // Clear ALL elements from previous gameplay session (not just terrain_ prefix)
+    // Elements are created with names like "CoconutTrees_0", "coconut_1", etc.
+    auto elements = elementsManager.getElements();  // Get a copy of elements
+    std::vector<std::string> elementNamesToRemove;
     
-    std::cout << "Starting gameplay..." << std::endl;
+    // Collect all element names (thread-safe copy)
+    for (const auto& element : elements) {
+        elementNamesToRemove.push_back(element.instanceName);
+    }
+    
+    // Remove all elements
+    int removedElementsCount = 0;
+    for (const auto& elementName : elementNamesToRemove) {
+        if (elementsManager.removeElement(elementName)) {
+            removedElementsCount++;
+        }
+    }
+    std::cout << "Cleared " << removedElementsCount << " elements from previous session" << std::endl;
+    
+    // Clear all entities from previous gameplay session
+    extern EntitiesManager entitiesManager;
+    entitiesManager.clearAllEntities();
     
     // Initialize all gameplay systems (map, entities, elements, threading)
     if (!Gameplay::initialize(engine, window)) {
@@ -229,15 +265,8 @@ int main() {
     
     std::cout << "=== GAME STARTUP ===" << std::endl;
     DEBUG_LOG_MEMORY("main_start");
-    
-    // CRASH FIX: Add global exception handler
+      // CRASH FIX: Add global exception handler
     try {
-        // Seed the random number generator ONCE at the start of the program
-        // You can change time(0) to a specific unsigned int for a fixed, repeatable map.
-        unsigned int terrainSeed = static_cast<unsigned int>(time(0));
-        // unsigned int terrainSeed = 12345; // Example of a fixed seed
-        srand(terrainSeed);
-        
         // Initialize the library
         if (!glfwInit()) {
             std::cerr << "CRASH FIX: Failed to initialize GLFW" << std::endl;

@@ -353,6 +353,10 @@ void Map::placeBlock(BlockName name, int x, int y) {
 }
 
 void Map::placeBlocks(const std::map<std::pair<int, int>, BlockName>& blocksToPlace) {
+    // DEBUG: Log the number of blocks being placed
+    std::cout << "DEBUG: placeBlocks called with " << blocksToPlace.size() << " blocks to place" << std::endl;
+    std::cout << "DEBUG: Current blocks vector size: " << blocks.size() << ", blockPositionMap size: " << blockPositionMap.size() << std::endl;
+    
     // Since we already maintain blockPositionMap, we don't need to create it here anymore
       // Now process the blocks we want to place
     for (const auto& pair : blocksToPlace) {
@@ -469,6 +473,8 @@ void Map::placeBlocks(const std::map<std::pair<int, int>, BlockName>& blocksToPl
         BlockName name = pair.second;
         checkAllEntitiesDamageAtPosition(coords.first, coords.second, name, entitiesManager);
     }
+    // DEBUG: Log final state after placing blocks
+    std::cout << "DEBUG: After placeBlocks - blocks vector size: " << blocks.size() << ", blockPositionMap size: " << blockPositionMap.size() << std::endl;
 }
 
 void Map::placeBlockArea(BlockName name, int x1, int y1, int x2, int y2) {
@@ -499,14 +505,32 @@ BlockName Map::getBlockNameByCoordinates(int x, int y) const {
         } else {
             std::cerr << "Warning: Block index " << blockIndex << " out of bounds (blocks.size()=" << blocks.size() << ")" << std::endl;
         }
+    } else {
+        // DEBUG: Log when we return default block instead of actual terrain
+        static int defaultReturnCount = 0;
+        defaultReturnCount++;
+        if (defaultReturnCount <= 10) { // Only log first 10 instances to avoid spam
+            std::cout << "DEBUG: No block found at (" << x << ", " << y << "), returning GRASS_0 default (count: " << defaultReturnCount << ")" << std::endl;
+            std::cout << "DEBUG: blockPositionMap size: " << blockPositionMap.size() << ", blocks size: " << blocks.size() << std::endl;
+        }
     }
     
     // If no block is found at these coordinates, return GRASS_0 as default
     // Check if the coordinates are within our grid bounds first
     if (x < 0 || y < 0 || x >= 70 || y >= 70) {
         std::cerr << "Warning: Coordinates (" << x << ", " << y << ") are outside the grid bounds" << std::endl;
-    }
-    return BlockName::GRASS_0;
+    }    return BlockName::GRASS_0;
+}
+
+void Map::clearBlocks() {
+    // Clear all block-related data structures
+    blocks.clear();
+    blockPositionMap.clear();
+    savedExistingBlocks.clear();
+    
+    std::cout << "DEBUG: Map blocks cleared - blocks size: " << blocks.size() 
+              << ", blockPositionMap size: " << blockPositionMap.size() 
+              << ", savedExistingBlocks size: " << savedExistingBlocks.size() << std::endl;
 }
 
 void Map::drawBlocks(float startX, float endX, float startY, float endY, float cameraLeft, float cameraRight, float cameraBottom, float cameraTop, double deltaTime) {

@@ -90,6 +90,8 @@ bool Gameplay::initializeMap(glbasimac::GLBI_Engine& engine) {
         GRID_SIZE, GRID_SIZE, islandFeatureSize, seaFeatureSize, 0.55f, 0.65f
     );
     
+    std::cout << "DEBUG: Generated terrain map has " << generatedMap.size() << " blocks" << std::endl;
+    
     // Apply the generated terrain - this is more efficient than placing blocks and then overwriting them
     std::cout << "Placing generated terrain..." << std::endl;
     gameMap.placeBlocks(generatedMap);
@@ -109,15 +111,43 @@ bool Gameplay::initializeElements(glbasimac::GLBI_Engine& engine) {
         std::cerr << "Failed to initialize elements manager!" << std::endl;
         return false;
     }
-      // Automatically place terrain elements (bushes on sand blocks) with 1/50 chance
-    // Entity configurations are now already initialized, so entity spawning will work
-    std::cout << "Placing terrain elements..." << std::endl;
+    
+    // DEBUG: Verify that blocks are properly placed before element placement
+    std::cout << "DEBUG: Verifying map state before element placement..." << std::endl;
+    int verifyCount = 0;
+    int actualBlockCount = 0;
+    int defaultBlockCount = 0;
+    
+    // Test a larger sample to verify map state
+    for (int testY = 0; testY < std::min(10, GRID_SIZE); testY++) {
+        for (int testX = 0; testX < std::min(10, GRID_SIZE); testX++) {
+            BlockName blockType = gameMap.getBlockNameByCoordinates(testX, testY);
+            if (blockType == BlockName::GRASS_0) {
+                defaultBlockCount++;
+            } else {
+                actualBlockCount++;
+            }
+            if (verifyCount < 25) { // Only log first 25 to avoid spam
+                std::cout << "Block at (" << testX << ", " << testY << "): " << static_cast<int>(blockType) << std::endl;
+            }
+            verifyCount++;
+        }
+    }
+    
+    std::cout << "DEBUG: Map verification complete - " << actualBlockCount << " actual blocks, " 
+              << defaultBlockCount << " default blocks out of " << verifyCount << " tested" << std::endl;
+    
+    // Also verify map internal state
+    std::cout << "DEBUG: Map internal state - blockPositionMap size: " << gameMap.getBlockPositionMapSize() 
+              << ", blocks vector size: " << gameMap.getBlocksVectorSize() << std::endl;
+    
+    // Place terrain elements on the map (bushes, decorations, etc.)
+    std::cout << "DEBUG: About to place terrain elements - map should be fully populated" << std::endl;
     placeTerrainElements(elementsManager, gameMap, GRID_SIZE, GRID_SIZE);
     
-    // Show elements count for confirmation
-    std::cout << "Elements initialization complete with " << elementsManager.getElementsCount() << " elements placed" << std::endl;
-    
     s_elementsInitialized = true;
+    std::cout << "Elements manager initialized." << std::endl;
+    DEBUG_LOG_MEMORY("elements_initialization_complete");
     return true;
 }
 

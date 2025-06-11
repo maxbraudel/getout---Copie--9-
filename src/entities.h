@@ -351,7 +351,10 @@ public:
     
     // Reset all entity movement states for gameplay restart
     void resetAllEntityMovementStates();
-
+    
+    // Clear all entities for gameplay restart
+    void clearAllEntities();
+    
     // Find the nearest safe place from given coordinates for an entity
     bool findNearestSafePlaceFromCoordinatesForEntity(const std::string& instanceName, float x, float y, float& safeX, float& safeY);
     

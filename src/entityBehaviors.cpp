@@ -3,6 +3,7 @@
 #include "elementsOnMap.h" // For global elementsManager
 #include "collision.h" // For collision functions
 #include "entitiesStatus.h" // For damage system
+#include "globals.h" // For TERRAIN_RNG
 #include <iostream>
 #include <random>
 #include <chrono>
@@ -302,16 +303,13 @@ void EntityBehaviorManager::updatePassiveStateBehavior(Entity& entity, double de
     entity.behaviorTimer += deltaTime;
     
     // Check if it's time to trigger a random walk
-    if (entity.behaviorTimer >= entity.nextBehaviorTriggerTime) {
-        // Reset timer
+    if (entity.behaviorTimer >= entity.nextBehaviorTriggerTime) {        // Reset timer
         entity.behaviorTimer = 0.0;
         
-        // Generate next trigger time randomly between min and max
-        static std::random_device rd;
-        static std::mt19937 gen(rd());
+        // Generate next trigger time randomly between min and max using global seeded RNG
         std::uniform_real_distribution<float> timeDist(config.passiveStateRandomWalkTriggerTimeIntervalMin, 
                                                        config.passiveStateRandomWalkTriggerTimeIntervalMax);
-        entity.nextBehaviorTriggerTime = timeDist(gen);
+        entity.nextBehaviorTriggerTime = timeDist(TERRAIN_RNG);
         
         // Only trigger random walk if entity is not currently moving or waiting for path
         if (!entity.isWalking && !entity.isWaitingForPath) {
@@ -337,16 +335,13 @@ void EntityBehaviorManager::initializeEntityBehavior(Entity& entity, const Entit
     }
     
     // Initialize passive state behavior
-    if (config.passiveState) {
-        // Initialize behavior timer and next trigger time
+    if (config.passiveState) {        // Initialize behavior timer and next trigger time
         entity.behaviorTimer = 0.0;
         
-        // Generate initial trigger time randomly between min and max
-        static std::random_device rd;
-        static std::mt19937 gen(rd());
+        // Generate initial trigger time randomly between min and max using global seeded RNG
         std::uniform_real_distribution<float> timeDist(config.passiveStateRandomWalkTriggerTimeIntervalMin, 
                                                        config.passiveStateRandomWalkTriggerTimeIntervalMax);
-        entity.nextBehaviorTriggerTime = timeDist(gen);
+        entity.nextBehaviorTriggerTime = timeDist(TERRAIN_RNG);
         
         std::cout << "Initialized passive behavior for entity " << entity.instanceName 
                   << " - first trigger in " << entity.nextBehaviorTriggerTime << " seconds" << std::endl;
@@ -747,13 +742,10 @@ void EntityBehaviorManager::updateAttackStateBehavior(Entity& entity, double del
                     if (!entity.isWaitingBeforeCharge) {
                         std::cout << "Entity " << entity.instanceName << " reached target " 
                                   << nearestTargetEntity << " - starting wait period" << std::endl;
-                        
-                        // Apply damage to the target
+                          // Apply damage to the target
                         handleAttackDamage(entity.instanceName, nearestTargetEntity, entitiesManager);
                         
-                        // Generate random wait time between min and max
-                        static std::random_device rd;
-                        static std::mt19937 gen(rd());
+                        // Generate random wait time between min and max using global seeded RNG
                         std::uniform_real_distribution<float> waitDist(
                             config.attackStateWaitBeforeChargeMin, 
                             config.attackStateWaitBeforeChargeMax
@@ -761,7 +753,7 @@ void EntityBehaviorManager::updateAttackStateBehavior(Entity& entity, double del
                         
                         entity.isWaitingBeforeCharge = true;
                         entity.attackStateWaitTimer = 0.0;
-                        entity.nextChargeTime = waitDist(gen);
+                        entity.nextChargeTime = waitDist(TERRAIN_RNG);
                         
                         std::cout << "Entity " << entity.instanceName << " will wait " 
                                   << entity.nextChargeTime << " seconds before charging again" << std::endl;

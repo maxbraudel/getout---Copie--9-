@@ -24,6 +24,9 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     // Clear any existing rules
     clearRules();
     
+    // Use the current gameplay seed to make rules vary between gameplay sessions
+    extern unsigned int SEED_GAMEPLAY;
+    
     // Coconut tree rule - based on the existing logic in placeTerrainElements
     GenerationRuleInfo coconutTreeRule;
     coconutTreeRule.ruleName = "CoconutTrees";
@@ -39,9 +42,9 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     // Spawn on sand blocks only
     coconutTreeRule.spawnBlocks = {BlockName::SAND};
     
-    // Spawn probability and constraints (matching existing logic)
-    coconutTreeRule.spawnChance = 50;                    // 1/50 chance
-    coconutTreeRule.maxSpawns = 1000;                    // Max 1000 trees
+    // Make spawn parameters seed-dependent to vary placement patterns
+    coconutTreeRule.spawnChance = 40 + (SEED_GAMEPLAY % 20);        // Vary from 40-59
+    coconutTreeRule.maxSpawns = 800 + (SEED_GAMEPLAY % 400);        // Vary from 800-1199
     
     // Distance constraints (matching existing MIN_COCONUT_TREE_DISTANCE and MAX_WATER_DISTANCE)
     coconutTreeRule.minDistanceFromSameRule = 4.0f;     // MIN_COCONUT_TREE_DISTANCE
@@ -266,13 +269,12 @@ void TerrainGenerationConfig::initializeDefaultRules() {
     armadillosRule.minDistanceFromSameRule = 8.0f;      // Min distance between shark groups
     armadillosRule.maxDistanceFromBlocks = 0.0f;        // No proximity requirement
     armadillosRule.proximityBlocks = {};                // No specific blocks needed nearby
-    
-    // Group spawning configuration - spawn sharks in small groups
+      // Group spawning configuration - spawn armadillos in small groups
     armadillosRule.spawnInGroup = true;
-    giraffesRule.groupRadius = 5.0f;                  // Spread group members within 3 units
-    giraffesRule.groupNumberMin = 2;                  // Min 2 entities per group
-    giraffesRule.groupNumberMax = 6;   
-      // Enable random placement for more organic shark distribution
+    armadillosRule.groupRadius = 5.0f;                  // Spread group members within 5 units
+    armadillosRule.groupNumberMin = 2;                  // Min 2 entities per group
+    armadillosRule.groupNumberMax = 6;                  // Max 6 entities per group
+      // Enable random placement for more organic armadillo distribution
     armadillosRule.randomPlacement = true;
     
     // Sprite sheet properties for entities

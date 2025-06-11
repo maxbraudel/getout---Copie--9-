@@ -1,7 +1,7 @@
 #include "globals.h"
 #include "GLFW/glfw3.h" // For GLFW_KEY_LAST
 #include "enumDefinitions.h"
-
+#include <random> // For std::mt19937
 
 // Constants
 
@@ -51,6 +51,9 @@ int COCONUT_COUNTER = 0; // Initialize coconut counter to 0
 // Game state tracking
 GameState GAME_STATE = GameState::START;
 
+// Gameplay seed for terrain and element generation
+unsigned int SEED_GAMEPLAY = 0; // Will be set to a random value when starting gameplay
+
 // Win condition flags
 bool SHOULD_SHOW_WIN_MENU = false;
 
@@ -62,3 +65,7 @@ const float WAIT_BEFORE_WINNING_OR_LOSING = 2.0f; // Wait 2 seconds before showi
 
 // Input handling
 bool keyPressedStates[GLFW_KEY_LAST + 1] = { false };
+
+// Global seeded random number generator for terrain generation
+// This ensures all terrain generation (blocks, elements, entities) use the same seed
+std::mt19937 TERRAIN_RNG;

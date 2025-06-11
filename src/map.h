@@ -73,9 +73,15 @@ public:
 
     // Public method to get a loaded texture ID by its type
     GLuint getTexture(BlockName type) const;
-    
-    // Get the texture name at the specified grid coordinates
+      // Get the texture name at the specified grid coordinates
     BlockName getBlockNameByCoordinates(int x, int y) const;
+    
+    // Clear all blocks and related data structures
+    void clearBlocks();
+    
+    // Debug methods to access internal map state
+    size_t getBlockPositionMapSize() const { return blockPositionMap.size(); }
+    size_t getBlocksVectorSize() const { return blocks.size(); }
     
 private:
     // Internal helper to load a single texture from file

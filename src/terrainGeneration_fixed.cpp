@@ -3,7 +3,7 @@
 #include "map.h" // For BlockName enum and gameMap
 #include "collision.h" // For collision detection
 #include "entities.h" // For global entitiesManager
-#include "globals.h" // For DEBUG_MAP flag
+#include "globals.h" // For DEBUG_MAP flag and TERRAIN_RNG
 #include <vector>
 #include <queue>
 #include <map>
@@ -36,13 +36,14 @@ void initializeBaseNoiseIfNeeded(int gridWidth, int gridHeight, float featureSiz
     if (baseNoiseHeight_static == 0) baseNoiseHeight_static = 1; // Ensure at least 1
     
     baseNoiseGrid.assign(baseNoiseHeight_static, std::vector<float>(baseNoiseWidth_static));
-    // srand(static_cast<unsigned int>(time(0))); // Seed should be controlled from main
+    // Use seeded RNG for noise generation
+    std::uniform_real_distribution<float> noiseDist(0.0f, 1.0f);
     for (int y = 0; y < baseNoiseHeight_static; ++y) {
         for (int x = 0; x < baseNoiseWidth_static; ++x) {
-            std::uniform_real_distribution<float> noiseDist(0.0f, 1.0f);
             baseNoiseGrid[y][x] = noiseDist(TERRAIN_RNG);
         }
-    }    baseNoiseInitialized = true;
+    }
+    baseNoiseInitialized = true;
 }
 
 // Reset terrain noise generation to force fresh generation with new seed
@@ -269,7 +270,8 @@ void placeTerrainElements(
             }
         }
     }
-      // Process each generation rule
+      
+    // Process each generation rule
     for (const auto& rule : rules) {
         if (rule.spawnType == SpawnType::ELEMENT) {
             placeElementsFromRule(elementsManager, map, gridWidth, gridHeight, rule);
@@ -325,13 +327,16 @@ void placeElementsFromRule(
     int actualBlockCount = 0;
     int validSpawnLocationCount = 0;
     
-    // DEBUG: Test a few specific locations to see what blocks we're getting    std::cout << "DEBUG: Testing block reads at sample locations:" << std::endl;
+    // DEBUG: Test a few specific locations to see what blocks we're getting
+    std::cout << "DEBUG: Testing block reads at sample locations:" << std::endl;
     for (int testY = 0; testY < std::min(5, gridHeight); testY++) {
         for (int testX = 0; testX < std::min(5, gridWidth); testX++) {
             BlockName testBlock = map.getBlockNameByCoordinates(testX, testY);
             std::cout << "  Block at (" << testX << ", " << testY << "): " << static_cast<int>(testBlock) << std::endl;
         }
-    }    // First, collect ALL valid spawn locations for this rule based on current terrain
+    }
+    
+    // First, collect ALL valid spawn locations for this rule based on current terrain
     std::vector<std::pair<int, int>> validSpawnLocations;
     for (int y = 0; y < gridHeight; y++) {
         for (int x = 0; x < gridWidth; x++) {
@@ -382,7 +387,9 @@ void placeElementsFromRule(
             if (placedCount >= rule.maxSpawns) break;
             
             int x = location.first;
-            int y = location.second;            // Check spawn probability using seeded RNG
+            int y = location.second;
+            
+            // Check spawn probability using seeded RNG
             std::uniform_int_distribution<int> spawnDist(0, rule.spawnChance - 1);
             if (spawnDist(TERRAIN_RNG) != 0) continue;
             
@@ -422,7 +429,8 @@ void placeElementsFromRule(
             // Determine how many elements to place (group spawning)
             int elementsToPlace = 1;
             if (rule.spawnInGroup) {
-                elementsToPlace = std::uniform_int_distribution<int>(rule.groupNumberMin, rule.groupNumberMax)(TERRAIN_RNG);
+                std::uniform_int_distribution<int> groupSizeDist(rule.groupNumberMin, rule.groupNumberMax);
+                elementsToPlace = groupSizeDist(TERRAIN_RNG);
             }
             
             // Place the element(s)
@@ -433,24 +441,28 @@ void placeElementsFromRule(
                 
                 // Add group positioning offset if spawning in groups
                 if (rule.spawnInGroup && groupIndex > 0) {
-                    float angle = (std::uniform_real_distribution<float>(0.0f, 2.0f * 3.14159f)(TERRAIN_RNG));
-                    float distance = (std::uniform_real_distribution<float>(0.0f, rule.groupRadius)(TERRAIN_RNG));
+                    std::uniform_real_distribution<float> angleDist(0.0f, 2.0f * 3.14159f);
+                    std::uniform_real_distribution<float> distanceDist(0.0f, rule.groupRadius);
+                    float angle = angleDist(TERRAIN_RNG);
+                    float distance = distanceDist(TERRAIN_RNG);
                     elementX += distance * cos(angle);
                     elementY += distance * sin(angle);
                 }
                 
                 // Select element to spawn (equiprobable if multiple)
-                ElementName selectedElement = rule.spawnElements[std::uniform_int_distribution<size_t>(0, rule.spawnElements.size() - 1)(TERRAIN_RNG)];
+                std::uniform_int_distribution<int> elementDist(0, static_cast<int>(rule.spawnElements.size()) - 1);
+                ElementName selectedElement = rule.spawnElements[elementDist(TERRAIN_RNG)];
                 
                 // Calculate scale with random variation
-                float randomScale = rule.scaleMin + 
-                    (std::uniform_real_distribution<float>(rule.scaleMin, rule.scaleMax)(TERRAIN_RNG) - rule.scaleMin);
+                std::uniform_real_distribution<float> scaleDist(rule.scaleMin, rule.scaleMax);
+                float randomScale = scaleDist(TERRAIN_RNG);
                 float finalScale = rule.baseScale * randomScale;
                 
                 // Calculate rotation
                 float finalRotation = rule.rotation;
                 if (rule.rotation < 0) {  // -1 means random rotation
-                    finalRotation = (std::uniform_real_distribution<float>(0.0f, 360.0f)(TERRAIN_RNG));
+                    std::uniform_real_distribution<float> rotationDist(0.0f, 360.0f);
+                    finalRotation = rotationDist(TERRAIN_RNG);
                 }
                 
                 // Create unique name for this element
@@ -495,7 +507,8 @@ void placeElementsFromRule(
                         break;
                     }
                 }
-                  if (!validBlock) continue;
+                
+                if (!validBlock) continue;
                 
                 // Check spawn probability using seeded RNG
                 std::uniform_int_distribution<int> spawnDist(0, rule.spawnChance - 1);
@@ -537,7 +550,8 @@ void placeElementsFromRule(
                 // Determine how many elements to place (group spawning)
                 int elementsToPlace = 1;
                 if (rule.spawnInGroup) {
-                    elementsToPlace = std::uniform_int_distribution<int>(rule.groupNumberMin, rule.groupNumberMax)(TERRAIN_RNG);
+                    std::uniform_int_distribution<int> groupSizeDist(rule.groupNumberMin, rule.groupNumberMax);
+                    elementsToPlace = groupSizeDist(TERRAIN_RNG);
                 }
                 
                 // Place the element(s)
@@ -548,24 +562,28 @@ void placeElementsFromRule(
                     
                     // Add group positioning offset if spawning in groups
                     if (rule.spawnInGroup && groupIndex > 0) {
-                        float angle = (std::uniform_real_distribution<float>(0.0f, 2.0f * 3.14159f)(TERRAIN_RNG));
-                        float distance = (std::uniform_real_distribution<float>(0.0f, rule.groupRadius)(TERRAIN_RNG));
+                        std::uniform_real_distribution<float> angleDist(0.0f, 2.0f * 3.14159f);
+                        std::uniform_real_distribution<float> distanceDist(0.0f, rule.groupRadius);
+                        float angle = angleDist(TERRAIN_RNG);
+                        float distance = distanceDist(TERRAIN_RNG);
                         elementX += distance * cos(angle);
                         elementY += distance * sin(angle);
                     }
                     
                     // Select element to spawn (equiprobable if multiple)
-                    ElementName selectedElement = rule.spawnElements[std::uniform_int_distribution<size_t>(0, rule.spawnElements.size() - 1)(TERRAIN_RNG)];
+                    std::uniform_int_distribution<int> elementDist(0, static_cast<int>(rule.spawnElements.size()) - 1);
+                    ElementName selectedElement = rule.spawnElements[elementDist(TERRAIN_RNG)];
                     
                     // Calculate scale with random variation
-                    float randomScale = rule.scaleMin + 
-                        (std::uniform_real_distribution<float>(rule.scaleMin, rule.scaleMax)(TERRAIN_RNG) - rule.scaleMin);
+                    std::uniform_real_distribution<float> scaleDist(rule.scaleMin, rule.scaleMax);
+                    float randomScale = scaleDist(TERRAIN_RNG);
                     float finalScale = rule.baseScale * randomScale;
                     
                     // Calculate rotation
                     float finalRotation = rule.rotation;
                     if (rule.rotation < 0) {  // -1 means random rotation
-                        finalRotation = (std::uniform_real_distribution<float>(0.0f, 360.0f)(TERRAIN_RNG));
+                        std::uniform_real_distribution<float> rotationDist(0.0f, 360.0f);
+                        finalRotation = rotationDist(TERRAIN_RNG);
                     }
                     
                     // Create unique name for this element
@@ -596,7 +614,8 @@ void placeElementsFromRule(
                     }
                 }
             }
-        }    }
+        }
+    }
     
     std::cout << "DEBUG: Rule '" << rule.ruleName << "' summary:" << std::endl;
     std::cout << "  - Default blocks (GRASS_0) encountered: " << defaultBlockCount << std::endl;
@@ -635,17 +654,21 @@ void placeEntitiesFromRule(
             }
         }
     }
-      // Iterate through all grid positions using either sequential or random order
+    
+    // Iterate through all grid positions using either sequential or random order
     if (rule.randomPlacement) {
         // Create a list of all valid grid positions
         std::vector<std::pair<int, int>> gridPositions;
-        for (int y = 0; y < gridHeight; y++) {            for (int x = 0; x < gridWidth; x++) {
+        for (int y = 0; y < gridHeight; y++) {
+            for (int x = 0; x < gridWidth; x++) {
                 gridPositions.push_back({x, y});
-            }        }
+            }
+        }
         
         // Shuffle the positions for random placement using the global seeded RNG
         std::shuffle(gridPositions.begin(), gridPositions.end(), TERRAIN_RNG);
-          // Process positions in randomized order
+        
+        // Process positions in randomized order
         for (const auto& pos : gridPositions) {
             if (placedCount >= rule.maxSpawns) break;
             
@@ -701,7 +724,8 @@ void placeEntitiesFromRule(
             // Determine how many entities to place (group spawning)
             int entitiesToPlace = 1;
             if (rule.spawnInGroup) {
-                entitiesToPlace = std::uniform_int_distribution<int>(rule.groupNumberMin, rule.groupNumberMax)(TERRAIN_RNG);
+                std::uniform_int_distribution<int> groupSizeDist(rule.groupNumberMin, rule.groupNumberMax);
+                entitiesToPlace = groupSizeDist(TERRAIN_RNG);
             }
             
             // Place the entity(s)
@@ -712,14 +736,17 @@ void placeEntitiesFromRule(
                 
                 // Add group positioning offset if spawning in groups
                 if (rule.spawnInGroup && groupIndex > 0) {
-                    float angle = (std::uniform_real_distribution<float>(0.0f, 2.0f * 3.14159f)(TERRAIN_RNG));
-                    float distance = (std::uniform_real_distribution<float>(0.0f, rule.groupRadius)(TERRAIN_RNG));
+                    std::uniform_real_distribution<float> angleDist(0.0f, 2.0f * 3.14159f);
+                    std::uniform_real_distribution<float> distanceDist(0.0f, rule.groupRadius);
+                    float angle = angleDist(TERRAIN_RNG);
+                    float distance = distanceDist(TERRAIN_RNG);
                     entityX += distance * cos(angle);
                     entityY += distance * sin(angle);
                 }
                 
                 // Select entity to spawn (equiprobable if multiple)
-                EntityName selectedEntity = rule.spawnEntities[std::uniform_int_distribution<size_t>(0, rule.spawnEntities.size() - 1)(TERRAIN_RNG)];
+                std::uniform_int_distribution<int> entityDist(0, static_cast<int>(rule.spawnEntities.size()) - 1);
+                EntityName selectedEntity = rule.spawnEntities[entityDist(TERRAIN_RNG)];
                 
                 // Create unique name for this entity
                 std::string entityInstanceName = rule.ruleName + "_" + std::to_string(placedCount);
@@ -756,8 +783,9 @@ void placeEntitiesFromRule(
                 
                 if (!matchesSpawnBlock) continue;
                 
-                // Check spawn probability
-                if ((std::uniform_int_distribution<int>(0, rule.spawnChance - 1)(TERRAIN_RNG) != 0)) continue;
+                // Check spawn probability using seeded RNG
+                std::uniform_int_distribution<int> spawnDist(0, rule.spawnChance - 1);
+                if (spawnDist(TERRAIN_RNG) != 0) continue;
                 
                 // Check minimum distance from previous spawns of same rule
                 bool tooClose = false;
@@ -792,7 +820,8 @@ void placeEntitiesFromRule(
                 // Determine how many entities to place (group spawning)
                 int entitiesToPlace = 1;
                 if (rule.spawnInGroup) {
-                    entitiesToPlace = std::uniform_int_distribution<int>(rule.groupNumberMin, rule.groupNumberMax)(TERRAIN_RNG);
+                    std::uniform_int_distribution<int> groupSizeDist(rule.groupNumberMin, rule.groupNumberMax);
+                    entitiesToPlace = groupSizeDist(TERRAIN_RNG);
                 }
                 
                 // Place the entity(s)
@@ -803,14 +832,17 @@ void placeEntitiesFromRule(
                     
                     // Add group positioning offset if spawning in groups
                     if (rule.spawnInGroup && groupIndex > 0) {
-                        float angle = (std::uniform_real_distribution<float>(0.0f, 2.0f * 3.14159f)(TERRAIN_RNG));
-                        float distance = (std::uniform_real_distribution<float>(0.0f, rule.groupRadius)(TERRAIN_RNG));
+                        std::uniform_real_distribution<float> angleDist(0.0f, 2.0f * 3.14159f);
+                        std::uniform_real_distribution<float> distanceDist(0.0f, rule.groupRadius);
+                        float angle = angleDist(TERRAIN_RNG);
+                        float distance = distanceDist(TERRAIN_RNG);
                         entityX += distance * cos(angle);
                         entityY += distance * sin(angle);
                     }
                     
                     // Select entity to spawn (equiprobable if multiple)
-                    EntityName selectedEntity = rule.spawnEntities[std::uniform_int_distribution<size_t>(0, rule.spawnEntities.size() - 1)(TERRAIN_RNG)];
+                    std::uniform_int_distribution<int> entityDist(0, static_cast<int>(rule.spawnEntities.size()) - 1);
+                    EntityName selectedEntity = rule.spawnEntities[entityDist(TERRAIN_RNG)];
                     
                     // Create unique name for this entity
                     std::string entityInstanceName = rule.ruleName + "_" + std::to_string(placedCount);
@@ -836,6 +868,3 @@ void placeEntitiesFromRule(
     
     std::cout << "Placed " << placedCount << " entities using rule '" << rule.ruleName << "'" << std::endl;
 }
-
-
-

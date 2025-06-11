@@ -1130,20 +1130,16 @@ bool EntitiesManager::findRandomSafePointAroundTheEntity(const std::string& inst
     float currentX, currentY;
     if (!elementsManager.getElementPosition(elementName, currentX, currentY)) {
         std::cerr << "Error getting position for entity: " << instanceName << std::endl;
-        return false;
-    }    // Set up random number generation (thread-safe)
-    thread_local static std::random_device rd;
-    thread_local static std::mt19937 gen(rd());
+        return false;    }    // Set up random number generation using the global seeded RNG for consistency
     std::uniform_real_distribution<float> angleDist(0.0f, 2.0f * M_PI);
     std::uniform_real_distribution<float> radiusDist(0.0f, radius);
 
     // Try to find a random accessible point within the radius
     const int maxAttempts = 100;
-    
-    for (int attempt = 0; attempt < maxAttempts; attempt++) {
-        // Generate random angle and distance
-        float angle = angleDist(gen);
-        float distance = radiusDist(gen);
+      for (int attempt = 0; attempt < maxAttempts; attempt++) {
+        // Generate random angle and distance using the global seeded RNG
+        float angle = angleDist(TERRAIN_RNG);
+        float distance = radiusDist(TERRAIN_RNG);
         
         // Calculate test position
         float testX = currentX + distance * std::cos(angle);
@@ -2522,6 +2518,61 @@ void EntitiesManager::resetAllEntityMovementStates() {
     }
 }
 
+// Clear all entities for gameplay restart
+void EntitiesManager::clearAllEntities() {
+    std::cout << "Clearing all entities for gameplay restart..." << std::endl;
+    
+    try {
+        // Get list of all entity instance names first to avoid iterator invalidation
+        std::vector<std::string> entityNames;
+        for (const auto& pair : entities) {
+            entityNames.push_back(pair.first);
+        }
+        
+        std::cout << "Found " << entityNames.size() << " entities to clear" << std::endl;
+        
+        // Clear all entities using the destroy function
+        extern ElementsOnMap elementsManager;
+        for (const std::string& instanceName : entityNames) {
+            std::string elementName = getElementName(instanceName);
+            
+            // Remove from hierarchical entity grid
+            extern HierarchicalEntityGrid g_hierarchicalEntityGrid;
+            extern std::mutex g_hierarchicalEntityGridMutex;
+            {
+                std::lock_guard<std::mutex> lock(g_hierarchicalEntityGridMutex);
+                g_hierarchicalEntityGrid.removeEntity(instanceName);
+            }
+            
+            // Remove the element from the map
+            elementsManager.removeElement(elementName);
+            
+            std::cout << "Cleared entity " << instanceName << " and its element " << elementName << std::endl;
+        }
+        
+        // Clear the entities map
+        entities.clear();
+        
+        // Reset entity spatial grid
+        resetEntitySpatialGrid();
+        
+        // Clear and reinitialize hierarchical entity grid
+        extern HierarchicalEntityGrid g_hierarchicalEntityGrid;
+        extern std::mutex g_hierarchicalEntityGridMutex;
+        {
+            std::lock_guard<std::mutex> lock(g_hierarchicalEntityGridMutex);
+            g_hierarchicalEntityGrid.clear();
+        }
+        
+        std::cout << "All entities cleared successfully" << std::endl;
+        
+    } catch (const std::exception& e) {
+        std::cerr << "Exception while clearing entities: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Unknown exception while clearing entities" << std::endl;
+    }
+}
+
 // Enhanced entity collision function that respects granular entity collision settings
 // useAvoidanceList: true = check avoidanceEntities, false = check collisionEntities
 bool wouldEntityCollideWithEntitiesGranular(const EntityConfiguration& config, float x, float y, bool useAvoidanceList, const std::string& excludeInstanceName) {
@@ -2657,8 +2708,7 @@ bool wouldEntityCollideWithEntitiesGranular(const EntityConfiguration& config, f
         }
         
         // Perform polygon-polygon collision detection
-        if (!nearbyEntityWorldShapePoints.empty() && 
-            polygonPolygonCollision(entityWorldShapePoints, nearbyEntityWorldShapePoints)) {
+        if (polygonPolygonCollision(entityWorldShapePoints, nearbyEntityWorldShapePoints)) {
             return true; // Collision detected
         }
     }
